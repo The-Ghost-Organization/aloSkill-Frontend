@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+
 import { config } from "@/config/env.ts";
 import type { NextRequest } from "next/server";
 

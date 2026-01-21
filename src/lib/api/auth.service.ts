@@ -1,37 +1,55 @@
-// lib/api/auth.service.ts - FOR COOKIE-BASED AUTH
-
+import type { UserRole, UserStatus } from "@/types/next-auth.js";
 import { apiClient } from "./client";
 
 // === INTERFACES ===
 export interface RegisterPayload {
-  firstName: string;
-  lastName: string;
+  displayName: string;
   email: string;
-  password: string;
-  phoneNumber?: string | undefined;
-  role?: "STUDENT" | "INSTRUCTOR" | undefined;
+  gender: "MALE" | "FEMALE";
+  password?: string;
+  phoneNumber?: string;
   bio?: string | undefined;
+  googleId?: string;
+  avatarUrl?: string | null;
 }
 
 export interface LoginPayload {
   email: string;
-  password: string;
+  password?: string;
+  googleId?: string;
 }
 
 export interface UserData {
   id: string;
   email: string;
-  firstName: string;
-  lastName: string;
-  role: string;
-  status: string;
+  displayName: string;
+  role: UserRole[];
+  status: UserStatus;
   isEmailVerified: boolean;
-  profilePicture?: string;
+  profilePicture?: string | null;
+  accessToken: string;
 }
 
 export interface AuthResponse {
-  user: UserData;
-  // Note: Tokens are in cookies, not in response body
+  id: string;
+  email: string;
+  displayName: string;
+  role: UserRole[];
+  status: UserStatus;
+  isEmailVerified: boolean;
+  profilePicture?: string | null;
+  accessToken: string;
+  refreshToken: string;
+}
+
+export interface InstructorResponse {
+  id: string;
+  email: string;
+  status: UserStatus;
+  role: string[];
+  displayName: string | undefined;
+  profilePicture: string | null;
+  redirectToVerificationPage: boolean;
 }
 
 export interface VerifyEmailPayload {
@@ -62,10 +80,7 @@ export const authService = {
 
     if (response.success && response.data) {
       // Store user data in memory
-      this.currentUser = response.data.user;
-
-      // Cookies are automatically set by backend
-      // No need to manually store tokens!
+      this.currentUser = response.data;
     }
 
     return response;
@@ -76,10 +91,7 @@ export const authService = {
     const response = await apiClient.post<AuthResponse>("/auth/login", payload);
 
     if (response.success && response.data) {
-      // Store user data in memory
-      this.currentUser = response.data.user;
-
-      // Cookies are automatically set by backend
+      this.currentUser = response.data;
     }
 
     return response;
@@ -96,30 +108,42 @@ export const authService = {
     const response = await apiClient.post<AuthResponse>("/auth/google", payload);
 
     if (response.success && response.data) {
-      this.currentUser = response.data.user;
+      this.currentUser = response.data;
     }
 
     return response;
   },
 
   // === Logout from current device ===
-  async logoutCurrentDevice() {
-    return apiClient.post("/auth/logout");
+  async logoutCurrentDevice(refreshToken?: string) {
+    const headers: Record<string, string> = {};
+
+    if (refreshToken) {
+      headers["Authorization"] = `Bearer ${refreshToken}`;
+    }
+
+    return apiClient.post("/auth/logout", undefined, headers);
   },
 
   // === Logout from all devices ===
-  async logoutAllDevices(email: string) {
-    return apiClient.post("/auth/logout-all", { email });
+  async logoutAllDevices(refreshToken?: string) {
+    const headers: Record<string, string> = {};
+
+    if (refreshToken) {
+      headers["Authorization"] = `Bearer ${refreshToken}`;
+    }
+    return apiClient.post("/auth/logout-all", undefined, headers);
   },
 
   // Refresh access token (automatic via cookies)
-  async refreshToken() {
-    const response = await apiClient.post<AuthResponse>("/auth/refresh");
-
-    // Backend automatically refreshes cookies
-    // Just update user data if returned
+  async refreshToken(token: string) {
+    const response = await apiClient.post<AuthResponse>(
+      "/auth/refresh",
+      {},
+      { Authorization: `Bearer ${token}` }
+    );
     if (response.success && response.data) {
-      this.currentUser = response.data.user;
+      this.currentUser = response.data;
     }
 
     return response;
@@ -152,14 +176,14 @@ export const authService = {
 
     // Fetch from backend using cookie authentication
     try {
-      const response = await apiClient.get<{ user: UserData }>("/auth/me");
+      const response = await apiClient.get<AuthResponse>("/auth/me");
 
       if (response.success && response.data) {
-        this.currentUser = response.data.user;
+        this.currentUser = response.data;
         return this.currentUser;
       }
-    } catch (error) {
-      console.error("Failed to fetch current user:", error);
+    } catch (_error) {
+      // console.error("Failed to fetch current user:", error);
     }
 
     return null;

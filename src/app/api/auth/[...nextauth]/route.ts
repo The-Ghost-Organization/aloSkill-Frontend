@@ -1,67 +1,62 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-/* eslint-disable no-console */
+
 
 import { config as envConfig } from "@/config/env";
+import { authService } from "@/lib/api/auth.service.ts";
+import { type UserRole } from "@/types/next-auth.js";
+import { jwtDecode } from "jwt-decode";
 import NextAuth, { type NextAuthOptions, type User } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
 
-declare module "next-auth" {
-  interface Session {
-    user: {
-      id: string;
-      email: string;
-      firstName: string;
-      lastName: string;
-      role: UserRole;
-      status: UserStatus;
-      isEmailVerified: boolean;
-      profilePicture?: string | null;
-      name?: string | null;
-      image?: string | null;
-    };
-    error?: string;
-  }
-  interface User {
-    userId: string;
-    role: string;
-    firstName: string;
-    lastName: string;
-    profilePicture?: string;
-    accessToken: string;
-    accessTokenExpires?: number;
-  }
-  interface Profile {
-    given_name: string;
-    family_name: string;
-    picture: string;
-  }
-}
+type RefreshResponseType = ReturnType<typeof authService.refreshToken>;
+type RefreshResolvedType = Awaited<RefreshResponseType>;
 
-// Type definitions
-export enum UserRole {
-  STUDENT = "STUDENT",
-  INSTRUCTOR = "INSTRUCTOR",
-  ADMIN = "ADMIN",
-}
+const refreshCache = new Map<
+  string,
+  {
+    promise: RefreshResponseType;
+    timestamp: number;
+    result?: RefreshResolvedType;
+  }
+>();
+const REFRESH_CACHE_TTL_MS = 3000;
 
-export enum UserStatus {
-  ACTIVE = "ACTIVE",
-  INACTIVE = "INACTIVE",
-  SUSPENDED = "SUSPENDED",
-  PENDING_VERIFICATION = "PENDING_VERIFICATION",
-}
+const getRefreshedTokens = async (refreshToken: string): Promise<RefreshResolvedType> => {
+  const now = Date.now();
+  const existing = refreshCache.get(refreshToken);
 
-interface BackendUser {
-  id: string;
-  email: string;
-  firstName: string;
-  lastName: string;
-  role: UserRole;
-  status: UserStatus;
-  isEmailVerified: boolean;
-  profilePicture?: string;
-}
+  if (existing) {
+    if (existing.result && now - existing.timestamp < REFRESH_CACHE_TTL_MS) {
+      return existing.result;
+    }
+
+    return existing.promise;
+  }
+
+  const promise = authService.refreshToken(refreshToken);
+  refreshCache.set(refreshToken, { promise, timestamp: now });
+
+  try {
+    const result = await promise;
+    refreshCache.set(refreshToken, {
+      promise: Promise.resolve(result),
+      timestamp: Date.now(),
+      result,
+    });
+
+    return result;
+  } catch (error) {
+    refreshCache.delete(refreshToken);
+    throw error;
+  } finally {
+    setTimeout(() => {
+      const entry = refreshCache.get(refreshToken);
+      if (entry && Date.now() - entry.timestamp >= REFRESH_CACHE_TTL_MS) {
+        refreshCache.delete(refreshToken);
+      }
+    }, REFRESH_CACHE_TTL_MS);
+  }
+};
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -72,49 +67,37 @@ export const authOptions: NextAuthOptions = {
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
       },
-      async authorize(credentials): Promise<User | null> {
+      async authorize(credentials, req): Promise<User | null> {
+        // console.log("Credials Request : ", req);
         if (!credentials?.email || !credentials?.password) {
           throw new Error("Email and password required");
         }
 
+        const { email, password } = credentials;
+
+        const apiRes = await authService.login({ email, password });
+
+        if (!apiRes.success) {
+          throw new Error(apiRes.message);
+        }
+
+        const user = apiRes.data;
+
+        if (!user) {
+          throw new Error(apiRes.message || "Authentication failed");
+        }
+
         try {
-          const response = await fetch(`${process.env["BACKEND_API_URL"]}/auth/login`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            credentials: "include",
-            body: JSON.stringify({
-              email: credentials.email,
-              password: credentials.password,
-            }),
-          });
-
-          const data = await response.json();
-
-          if (!response.ok) {
-            throw new Error(data.message || "Invalid credentials");
-          }
-
-          // Extract user data and tokens from backend response
-          const user: BackendUser = data.data;
-          const { accessToken, accessTokenExpires } = data.data;
-
-          // Return user object with tokens for NextAuth to manage
           return {
             id: user.id,
-            userId: user.id,
             email: user.email,
-            name: `${user.firstName} ${user.lastName}`,
-            firstName: user.firstName,
-            lastName: user.lastName,
+            name: user.displayName,
             role: user.role,
             profilePicture: user.profilePicture as string,
-            accessToken,
-            accessTokenExpires: accessTokenExpires,
+            accessToken: user.accessToken,
+            refreshToken: user.refreshToken,
           };
         } catch (error: unknown) {
-          console.error("Login error:", error);
           if (error instanceof Error) {
             throw new Error(error.message || "Authentication failed");
           }
@@ -156,218 +139,123 @@ export const authOptions: NextAuthOptions = {
       if (account?.provider !== "google") return true;
 
       try {
-        const userFromDB = await fetch(`${envConfig.BACKEND_API_URL}/auth/login`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({
-            email: user.email,
-            googleId: profile?.sub
-          }),
+        const userFromDB = await authService.login({
+          email: user.email,
+          googleId: profile?.sub as string,
         });
 
-        // Step 2: If user not found → register automatically
         let result;
-        if (!userFromDB.ok) {
-          console.log(`User ${user.email} not found, creating new user...`);
-
-          const registerResponse = await fetch(`${envConfig.BACKEND_API_URL}/auth/register`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            credentials: "include",
-            body: JSON.stringify({
-              firstName: profile?.given_name || "",
-              lastName: profile?.family_name || "",
-              email: user.email,
-              googleId: profile?.sub,
-              profilePicture: user.image,
-            }),
+        if (!userFromDB.success) {
+          const registerResponse = await authService.register({
+            displayName: profile?.name || "",
+            email: user.email,
+            phoneNumber: "01332446466",
+            gender: "MALE",
+            googleId: profile?.sub || account.providerAccountId || "",
+            avatarUrl: user?.image ?? null,
           });
 
-          if (!registerResponse.ok) {
-            console.error("Failed to register user automatically");
+          if (!registerResponse.success) {
+            result = {
+              success: false,
+              message: `Registration failed for ${user.email}`,
+              data: null,
+            };
             return "/auth/error?error=AutoRegisterFailed";
           }
 
-          result = await registerResponse.json();
+          result = registerResponse.data;
         } else {
-          result = await userFromDB.json();
+          result = userFromDB.data;
         }
 
-        if (result.success) {
-          const backendUser = result.data;
-          const { accessToken, accessTokenExpires } = result.data;
-
-          user.id = backendUser.id;
-          user.userId = backendUser.id;
-          user.email = backendUser.email;
-          user.role = backendUser.role;
-          user.name = `${backendUser.firstName} ${backendUser.lastName}`;
-          user.firstName = backendUser.firstName;
-          user.lastName = backendUser.lastName;
-          user.profilePicture = backendUser.profilePicture;
-          user.accessToken = accessToken;
-          if (accessTokenExpires) user.accessTokenExpires = accessTokenExpires;
+        if (result) {
+          user.id = result.id;
+          user.email = result.email;
+          user.role = result.role;
+          user.name = result.displayName;
+          user.profilePicture = result.profilePicture ?? "";
+          user.accessToken = result.accessToken;
+          user.refreshToken = result.refreshToken;
 
           return true;
         }
 
-        console.error(`Backend login/register failed for ${user.email}`);
+        // console.error(`Backend login/register failed for ${user.email}`);
         return "/auth/error?error=GoogleAuthFailed";
-      } catch (error) {
-        console.error("Error during Google sign-in:", error);
+      } catch (_error) {
+        // console.error("Error during Google sign-in:", error);
         return "/auth/error?error=VerificationFailed";
       }
     },
 
-    // async signIn({ user, account, profile }) {
-    //   if (account?.provider !== "google") return true;
-
-    //   try {
-    //     const userFromDB = await fetch(`${envConfig.BACKEND_API_URL}/auth/login`, {
-    //       method: "POST",
-    //       headers: {
-    //         "Content-Type": "application/json",
-    //       },
-    //       credentials: "include",
-    //       body: JSON.stringify({
-    //         email: user.email,
-    //         googleId: profile?.sub,
-    //       }),
-    //     });
-
-    //     if (!userFromDB.ok) {
-    //       console.log(`User ${user.email} not found in backend`);
-    //       return "/auth/register";
-    //     }
-
-    //     const result = await userFromDB.json();
-
-    //     if (result.success) {
-    //       const backendUser = result.data;
-    //       const { accessToken, accessTokenExpires } = result.data;
-
-    //       // Attach backend data and tokens to user object for JWT callback
-    //       user.id = backendUser.id; // Override Google ID with backend ID
-    //       user.userId = backendUser.id;
-    //       user.email = backendUser.email;
-    //       user.role = backendUser.role;
-    //       user.name = `${backendUser.firstName} ${backendUser.lastName}`;
-    //       user.firstName = backendUser.firstName;
-    //       user.lastName = backendUser.lastName;
-    //       user.profilePicture = backendUser.profilePicture;
-    //       user.accessToken = accessToken;
-    //       if (accessTokenExpires) {
-    //         user.accessTokenExpires = accessTokenExpires;
-    //       }
-
-    //       return true;
-    //     } else {
-    //       console.log(`User ${user.email} not found in backend`);
-    //       return "/auth/register";
-    //     }
-    //   } catch (error) {
-    //     console.error("Error during Google sign-in:", error);
-    //     return "/auth/error?error=VerificationFailed";
-    //   }
-    // },
-
-    // START: Enhanced JWT callback for proper token management and refresh
     async jwt({ token, user, account }) {
-      // Initial sign-in: Store user data and tokens
-      if (account && user) {
-        token["userId"] = user.id || user.userId;
-        // Store access token and expiration from backend (prioritize backend tokens over OAuth tokens)
-        token["accessToken"] = user.accessToken || account.access_token;
-
-        // Set expiration time (backend provides this, fallback to OAuth or default)
-        if (user.accessTokenExpires) {
-          token["accessTokenExpires"] = user.accessTokenExpires;
-        } else if (account.expires_at) {
-          token["accessTokenExpires"] = account.expires_at * 1000;
+      if (token["accessToken"]) {
+        const decodedToken = jwtDecode(token["accessToken"] as string);
+        if (decodedToken.exp) {
+          token["accessTokenExpires"] = decodedToken.exp * 1000;
         } else {
           token["accessTokenExpires"] = Date.now() + 15 * 60 * 1000;
         }
-
-        // Store user profile data in JWT
-        if (user) {
-          token["name"] = user.name as string;
-          token["email"] = user.email as string;
-          token["firstName"] = user.firstName;
-          token["lastName"] = user.lastName;
-          token["role"] = user.role;
-          token["profilePicture"] = user.profilePicture;
-        }
+      }
+      if (user && account) {
+        token["id"] = user.id;
+        token["accessToken"] = user.accessToken;
+        token["refreshToken"] = user.refreshToken;
+        token["name"] = user.name as string;
+        token["email"] = user.email as string;
+        token["role"] = user.role;
+        token["profilePicture"] = user.profilePicture;
       }
 
       // Check if access token needs refresh (with 1-minute buffer)
       const shouldRefresh =
-        !token["accessTokenExpires"] ||
-        Date.now() > Number(token["accessTokenExpires"]) - 60 * 1000;
+        token["accessTokenExpires"] && Date.now() > Number(token["accessTokenExpires"]) - 60 * 1000;
 
       if (shouldRefresh) {
         try {
-          console.log("Attempting to refresh access token");
+          const refreshTokenValue = token["refreshToken"] as string;
+          const refreshResponse = await getRefreshedTokens(refreshTokenValue);
 
-          // Call backend refresh endpoint
-          const refreshResponse = await fetch(`${envConfig.BACKEND_API_URL}/auth/refresh`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            credentials: "include",
-          });
+          if (refreshResponse.success) {
+            token["accessToken"] = refreshResponse.data?.accessToken;
+            token["refreshToken"] = refreshResponse.data?.refreshToken;
 
-          if (refreshResponse.ok) {
-            const refreshData = await refreshResponse.json();
-
-            if (refreshData.success) {
-              // Update token with new access token and expiration
-              token["accessToken"] = refreshData.data.accessToken;
-              token["accessTokenExpires"] = refreshData.data.accessTokenExpires;
-
-              console.log("Access token refreshed successfully");
+            const decodedNewToken = jwtDecode(token["accessToken"] as string);
+            if (decodedNewToken.exp) {
+              token["accessTokenExpires"] = decodedNewToken.exp * 1000;
             } else {
-              console.error("Token refresh failed:", refreshData.message);
-              // Token refresh failed - user may need to re-authenticate
-              // Consider redirecting or clearing session
-              return {
-                ...token,
-                error: "RefreshAccessTokenError",
-                accessToken: null,
-              };
+              token["accessTokenExpires"] = Date.now() + 15 * 60 * 1000;
             }
           } else {
-            console.error("Token refresh request failed with status:", refreshResponse.status);
+            token["error"] = "RefreshAccessTokenError";
+            return {
+              ...token,
+              error: "RefreshAccessTokenError",
+              accessToken: null,
+            };
           }
         } catch (error) {
-          console.error("Error refreshing access token:", error);
-          // Don't throw error - allow session to continue with expired token
-          // User will need to re-authenticate on next API call
+          // console.error("Error refreshing access token:", error);
           token["error"] = "RefreshAccessTokenError";
         }
       }
+
       return token;
     },
 
-    // START: Enhanced session callback to properly populate user data and expose necessary tokens
     async session({ session, token }) {
-      if (token) {
-        session.user.id = token["userId"] as string;
-        session.user.email = token.email as string;
-        session.user.name = token.name as string;
-        session.user.firstName = token["firstName"] as string;
-        session.user.lastName = token["lastName"] as string;
-        session.user.role = token["role"] as UserRole;
-        session.user.profilePicture = token["profilePicture"] as string | null;
-
-        // Expose access token to client for API calls (never expose refresh token)
-        (session as any).accessToken = token["accessToken"];
-        (session as any).accessTokenExpires = token["accessTokenExpires"];
-
-        // Handle any errors
+      if (token && session.user) {
+        session.user = {
+          ...session.user,
+          id: token["id"] as string,
+          role: token["role"] as [UserRole],
+          profilePicture:
+            typeof token["profilePicture"] === "string" ? token["profilePicture"] : null,
+        };
+        session.accessToken = token["accessToken"] as string;
         if (token["error"]) {
-          (session as any).error = token["error"];
+          session.error = (token["error"] as string) || null;
         }
       }
 
@@ -383,46 +271,11 @@ export const authOptions: NextAuthOptions = {
 
   events: {
     async signIn({ user, account }) {
-      console.log(`✅ User ${user.email} signed in via ${account?.provider}`);
-
-      // if (account?.provider !== "credentials") {
-      //   try {
-      //     await fetch(`${envConfig.BACKEND_API_URL}/auth/track-login`, {
-      //       method: "POST",
-      //       headers: {
-      //         "Content-Type": "application/json",
-      //       },
-      //       credentials: "include",
-      //       body: JSON.stringify({
-      //         userId: user.id,
-      //         provider: account?.provider,
-      //         isNewUser,
-      //       }),
-      //     });
-      //   } catch (error) {
-      //     console.error("Failed to track login:", error);
-      //   }
-      // }
+      // console.log(`✅ User ${user.email} signed in via ${account?.provider}`);
     },
 
     async signOut({ token }) {
-      console.log(`👋 User ${token?.email} signed out`);
-
-      // if (token?.["refreshToken"]) {
-      //   try {
-      //     await fetch(`${process.env["BACKEND_API_URL"]}/auth/logout`, {
-      //       method: "POST",
-      //       headers: {
-      //         "Content-Type": "application/json",
-      //       },
-      //       body: JSON.stringify({
-      //         refreshToken: token["refreshToken"],
-      //       }),
-      //     });
-      //   } catch (error) {
-      //     console.error("Failed to logout from backend:", error);
-      //   }
-      // }
+      // console.log("signOut method triggered", token);
     },
   },
   secret: envConfig.NEXTAUTH_SECRET,

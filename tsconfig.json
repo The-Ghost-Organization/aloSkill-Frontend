@@ -42,8 +42,8 @@
     "noUncheckedIndexedAccess": true,
     "noImplicitOverride": true,
     "noPropertyAccessFromIndexSignature": true,
-    "exactOptionalPropertyTypes": true,
-
+    "exactOptionalPropertyTypes": false,
+    
     /* Completeness */
     "skipLibCheck": true,
     "incremental": true,
@@ -69,6 +69,7 @@
     "**/*.tsx",
     ".next/types/**/*.ts",
     "src/**/*",
+    "src/**/*.d.ts",
     "app/**/*",
     "pages/**/*"
   ],

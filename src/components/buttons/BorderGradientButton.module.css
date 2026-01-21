@@ -1,0 +1,73 @@
+.button {
+  position: relative;
+  display: inline-flex;
+  height: 48px;
+  padding: 3px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.button:hover {
+  transform: scale(1.05);
+}
+
+.button:active {
+  transform: scale(0.95);
+}
+
+.button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.button:disabled:hover {
+  transform: scale(1);
+}
+
+/* Spinning gradient border */
+.border {
+  position: absolute;
+  inset: -1000%;
+  background: conic-gradient(from 90deg at 50% 50%, #da7c36 0%, #f472b6 50%, #bd5fff 100%);
+  animation: spin 2s linear infinite;
+}
+
+/* Inner content */
+.content {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  height: 100%;
+  padding: 0 32px;
+  background: white;
+  color: #111827;
+  font-size: 17px;
+  font-weight: 600;
+  border-radius: 6px;
+  transition: all 0.3s;
+}
+
+/* .button:hover .content {
+    background: #da7c36;
+    color: white;
+} */
+/* .button:hover .content {
+    transform: scale(.2);
+} */
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}

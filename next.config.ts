@@ -26,11 +26,32 @@ const nextConfig: NextConfig = {
         hostname: "images.unsplash.com",
         pathname: "/**",
       },
+      {
+        protocol: "https",
+        hostname: "api.dicebear.com",
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
+        hostname: "lh3.googleusercontent.com",
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
+        hostname: "aloskill-course-storage-pullzone.b-cdn.net",
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
+        hostname: "securepay.sslcommerz.com",
+        pathname: "/**",
+      },
     ],
 
     unoptimized: false,
     dangerouslyAllowSVG: false,
-    contentSecurityPolicy: `default-src 'self'; script-src 'none'; sandbox;`,
+    // contentSecurityPolicy: `default-src 'self'; script-src 'none'; sandbox;`,
+    contentSecurityPolicy: `default-src 'self'; script-src 'self'; sandbox;`,
     deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
     imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
     minimumCacheTTL: 60 * 60 * 24, // 24 hours
@@ -135,28 +156,43 @@ const nextConfig: NextConfig = {
   //     },
   //   ];
   // },
-  async rewrites() {
-    if (config.NODE_ENV === "production") {
-      return [];
-    }
+  // async rewrites() {
+  //   if (config.NODE_ENV === "production") {
+  //     return [];
+  //   }
 
+  //   return [
+  //     // ✅ Auth API proxy
+  //     {
+  //       source: "/api/v1/auth/:path*", // Let NextAuth and backend both use same route
+  //       destination: "http://localhost:5000/api/v1/auth/:path*",
+  //     },
+
+  //     // ✅ Other backend routes
+  //     {
+  //       source: "/api/v1/users/:path*",
+  //       destination: "http://localhost:5000/api/v1/users/:path*",
+  //     },
+  //     {
+  //       source: "/api/v1/courses/:path*",
+  //       destination: "http://localhost:5000/api/v1/courses/:path*",
+  //     },
+
+  //     // ✅ Sitemap (Next.js API)
+  //     {
+  //       source: "/sitemap.xml",
+  //       destination: "/api/sitemap",
+  //     },
+  //   ];
+  // },
+  async rewrites() {
     return [
-      // Rewrite only your custom backend API endpoints, NOT /api/auth
       {
-        source: "/api/users/:path*",
-        destination: "http://localhost:5000/api/users/:path*",
-      },
-      {
-        source: "/api/courses/:path*",
-        destination: "http://localhost:5000/api/courses/:path*",
-      },
-      {
-        source: "/sitemap.xml",
-        destination: "/api/sitemap",
+        source: "/api/v1/:path*",
+        destination: "http://localhost:5000/api/v1/:path*",
       },
     ];
   },
-
   // === Environment Variables ===
   env: {
     APP_VERSION: process.env["npm_package_version"],
@@ -235,17 +271,17 @@ const securityHeaders = [
     key: "Content-Security-Policy",
     value: `
     default-src 'self';
-    script-src 'self' 'unsafe-inline' ${config.NODE_ENV === "development" ? "'unsafe-eval'" : ""};
+    script-src 'self' 'unsafe-inline' ${config.NODE_ENV === "development" ? "'unsafe-eval'" : ""} http://assets.mediadelivery.net;
     style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
     img-src 'self' data: https: blob:;
     font-src 'self' https://fonts.gstatic.com;
     connect-src 'self' ${
       config.NODE_ENV === "development"
         ? "http://localhost:5000"
-        : process.env["NEXT_PUBLIC_API_URL "] || ""
-    } https://vitals.vercel-insights.com;
+        : process.env["NEXT_PUBLIC_API_URL"] || ""
+    } https://vitals.vercel-insights.com https://video.bunnycdn.com;
     frame-ancestors 'none';
-    frame-src 'none';
+    frame-src https://iframe.mediadelivery.net;
     object-src 'none';
     base-uri 'self';
     form-action 'self';

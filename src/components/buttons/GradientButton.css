@@ -1,0 +1,93 @@
+@import "tailwindcss";
+
+/* Define keyframes */
+@keyframes gradient {
+
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+@keyframes pulse-scale {
+
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 0.7;
+    transform: scale(1.1);
+  }
+}
+
+@keyframes bounce-y {
+
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+@keyframes slide-x {
+
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+
+  50% {
+    transform: translateX(4px);
+  }
+}
+
+/* Create utility classes */
+@layer utilities {
+  .animate-gradient {
+    animation: gradient 8s ease infinite;
+  }
+
+  .animate-gradient-fast {
+    animation: gradient 3s ease infinite;
+  }
+
+  .animate-pulse-scale {
+    animation: pulse-scale 2s ease-in-out infinite;
+  }
+
+  .animate-bounce-y {
+    animation: bounce-y 1s ease-in-out infinite;
+  }
+
+  .animate-slide-x {
+    animation: slide-x 1s ease-in-out infinite;
+  }
+}
+
+/* Background variants using your CSS variables */
+@layer components {
+  .gradient-button-bg {
+    background: linear-gradient(-45deg,
+        var(--color-orange-dark),
+        var(--color-orange-light),
+        var(--color-orange),
+        var(--color-orange-light));
+    background-size: 400% 400%;
+  }
+
+  .solid-button-bg {
+    background: linear-gradient(to right,
+        var(--color-orange-dark),
+        var(--color-orange));
+  }
+}

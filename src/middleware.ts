@@ -1,8 +1,5 @@
-/* eslint-disable no-console */
-/* eslint-disable @typescript-eslint/no-unused-vars */
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { config as envConfig } from "@/config/env";
-import { getToken } from "next-auth/jwt";
+import { getToken, type JWT } from "next-auth/jwt";
 import { withAuth } from "next-auth/middleware";
 import { type NextRequest, NextResponse } from "next/server";
 import {
@@ -53,42 +50,52 @@ export default withAuth(
       return new NextResponse("Server configuration error", { status: 500 });
     }
 
-    let token;
+    let token: JWT | null = null;
     try {
       token = await getToken({
         req: request,
         secret: secret,
       });
-      // console.log("token", token);
     } catch (error) {
       console.error("Error retrieving token:", error);
       // Continue without token, let withAuth handle authentication
     }
 
-    // Public routes - early return
     if (
       pathname === "/" ||
       pathname.startsWith("/auth") ||
       pathname.startsWith("/courses") ||
+      pathname.startsWith("/instructors") ||
       pathname.startsWith("/about")
     ) {
       return NextResponse.next();
     }
 
-    // Role-based access control
-    if (pathname.startsWith("/dashboard/student") && token?.["role"] !== "STUDENT") {
-      return NextResponse.redirect(new URL("/unauthorized", request.url));
+    if (token && token?.["error"] == "RefreshAccessTokenError") {
+      return NextResponse.redirect(new URL(`/auth/signin`, request.url));
     }
 
+    // Role-based access control
     if (
-      pathname.startsWith("/dashboard/instructor") &&
-      token?.["role"] !== "INSTRUCTOR" &&
-      token?.["role"] !== "ADMIN"
+      pathname.startsWith("/dashboard/student") &&
+      !(token?.["role"] && Array.isArray(token["role"]) && token["role"].includes("STUDENT"))
     ) {
       return NextResponse.redirect(new URL("/unauthorized", request.url));
     }
 
-    if (pathname.startsWith("/admin") && token?.["role"] !== "ADMIN") {
+    // if (pathname.startsWith("/dashboard/instructor") && token?.["role"] !== "INSTRUCTOR")
+
+    if (
+      pathname.startsWith("/dashboard/instructor") &&
+      !(token?.["role"] && Array.isArray(token["role"]) && token["role"].includes("INSTRUCTOR"))
+    ) {
+      return NextResponse.redirect(new URL("/unauthorized", request.url));
+    }
+
+    if (
+      pathname.startsWith("/admin") &&
+      !(token?.["role"] && Array.isArray(token["role"]) && token["role"].includes("ADMIN"))
+    ) {
       return NextResponse.redirect(new URL("/unauthorized", request.url));
     }
 
@@ -354,7 +361,9 @@ export default withAuth(
           path === "/" ||
           path.startsWith("/auth") ||
           path.startsWith("/courses") ||
-          path.startsWith("/about");
+          path.startsWith("/about") ||
+          path.startsWith("/products") ||
+          path.startsWith("/instructors");
 
         if (isPublicRoute) {
           return true;
@@ -426,7 +435,16 @@ async function enforceAccessControl(
   const { pathname, searchParams } = request.nextUrl;
 
   // Public routes (no authentication required)
-  const publicRoutes = ["/", "/auth/signin", "/auth/signup", "/pricing", "/courses", "/blog"];
+  const publicRoutes = [
+    "/",
+    "/auth/signin",
+    "/auth/signup",
+    "/pricing",
+    "/courses",
+    "/blog",
+    "/products",
+    "/instructors",
+  ];
   if (publicRoutes.includes(pathname)) {
     return { granted: true, redirectUrl: "" };
   }
@@ -455,15 +473,15 @@ async function enforceAccessControl(
   }
 
   // Instructor routes
-  if (pathname.startsWith("/instructor/")) {
-    if (!["instructor", "admin"].includes(userRole)) {
-      return {
-        granted: false,
-        redirectUrl: "/dashboard?error=instructor_access_required",
-        reason: "insufficient_privileges",
-      };
-    }
-  }
+  // if (pathname.startsWith("/instructor/")) {
+  //   if (!["instructor", "admin"].includes(userRole)) {
+  //     return {
+  //       granted: false,
+  //       redirectUrl: "/dashboard?error=instructor_access_required",
+  //       reason: "insufficient_privileges",
+  //     };
+  //   }
+  // }
 
   // Student routes with enrollment checks
   if (pathname.startsWith("/learn/") || pathname.startsWith("/course/")) {
@@ -615,12 +633,12 @@ async function enforceExamSecurity(
 function addAdvancedSecurityHeaders(response: NextResponse, _request: NextRequest) {
   // Content Security Policy with LMS-specific directives
   const cspDirectives = [
-    "default-src 'self'",
-    "script-src 'self' 'unsafe-eval' 'unsafe-inline'",
+    "default-src 'self' https://iframe.mediadelivery.net",
+    "script-src 'self' 'unsafe-eval' 'unsafe-inline' http://assets.mediadelivery.net",
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "img-src 'self' data: https: blob:",
     "font-src 'self' https://fonts.gstatic.com",
-    "connect-src 'self' http://localhost:5000 https://vitals.vercel-insights.com",
+    "connect-src 'self' http://localhost:5000 https://vitals.vercel-insights.com https://video.bunnycdn.com",
     "media-src 'self' blob: https:",
     "object-src 'none'",
     "base-uri 'self'",
@@ -738,7 +756,7 @@ async function handleThreatResponse(threatScan: any, request: NextRequest, audit
       break;
     case "low":
       // Log only
-      console.log("Low level threat detected:", threatScan);
+
       break;
   }
 }
@@ -808,7 +826,6 @@ async function updateSessionActivity(token: any, request: NextRequest) {
   try {
     // In production: Update user session in database with current timestamp
     // Mock: Log activity
-    console.log(`Session activity updated for user ${token.userId} at ${new Date().toISOString()}`);
     // token.lastActivity = Date.now(); // Update token if using JWT
   } catch (error) {
     console.error("Error updating session activity:", error);
@@ -983,9 +1000,7 @@ async function trackVideoAccess(
 ) {
   try {
     const clientIP = getClientIP(request);
-    console.log(
-      `Video access tracked: User ${userId}, Video ${videoId}, Course ${courseId}, IP ${clientIP}`
-    );
+
     // In production: Store in analytics database
   } catch (error) {
     console.error("Error tracking video access:", error);

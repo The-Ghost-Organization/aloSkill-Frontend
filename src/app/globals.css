@@ -1,10 +1,134 @@
 @import "tailwindcss";
 
+/* =======================================================
+ 🧩 Root Variables
+ Notes: max-w-[1420px]
+======================================================= */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* === 🔤 Font Sizes (Fluid Responsive) === */
+  --font-size-xs: clamp(0.5rem, 0.7rem + 0.3vw, 0.7rem);
+  --font-size-sm: clamp(0.6rem, 0.7rem + 0.3vw, 0.85rem);
+  --font-size-md: clamp(0.875rem, 0.9rem + 0.5vw, 1rem);
+  --font-size-lg: clamp(1.25rem, 1rem + 0.8vw, 1.5rem);
+  --font-size-xl: clamp(1.5rem, 1.2rem + 1vw, 2rem);
+  --font-size-2xl: clamp(1.5rem, 1.5rem + 1.5vw, 2.5rem);
+  --font-size-3xl: clamp(2.5rem, 2rem + 2vw, 4rem);
+  --font-size-4xl: clamp(3rem, 3rem + 2.5vw, 5rem);
+
+  /* === 🎨 Base Colors === */
+  --color-bg-light: #ffffff;
+  --color-bg-dark: #0a0a0a;
+  --color-text-dark: #074079;
+  --color-text-light: #ffffff;
+
+  /* === 🍊 Accent Colors === */
+  --color-orange: #da7c36;
+  --color-orange-dark: #d15100;
+  --color-orange-light: #fc9759;
 }
 
+/* 
+bg-[var(--color-orange-dark)] 
+bg-[var(--color-orange)]
+text-[var(--color-text-dark)]
+text-(--color-text-dark)
+
+*/
+
+
+/* =======================================================
+ 🌞 Base Theme Styles
+======================================================= */
+html {
+  font-family: var(--font-body);
+  color: var(--color-text-dark);
+  background-color: var(--color-bg-light);
+}
+
+body {
+  @apply font-sans antialiased;
+  /* Inter applied via Tailwind */
+  font-family: var(--font-body);
+  font-size: var(--font-size-base);
+  line-height: 1.6;
+  color: var(--color-text-dark);
+  background-color: var(--color-bg-light);
+  scroll-behavior: smooth;
+  transition:
+    background-color 0.3s ease,
+    color 0.3s ease;
+}
+
+/* .bangla {
+  font-family: var(--font-bangla);
+} */
+
+/* =======================================================
+ 🧠 Typography
+======================================================= */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--font-heading);
+  /* Use CSS variable for heading font */
+  color: var(--color-text-dark);
+  line-height: 1.2;
+}
+
+/* Utility classes */
+.text-xs {
+  font-size: var(--font-size-xs);
+}
+
+.text-sm {
+  font-size: var(--font-size-sm);
+}
+
+.text-md {
+  font-size: var(--font-size-md);
+}
+
+.text-lg {
+  font-size: var(--font-size-lg);
+}
+
+.text-xl {
+  font-size: var(--font-size-xl);
+}
+
+.text-2xl {
+  font-size: var(--font-size-2xl);
+}
+
+/* =======================================================
+ 🎨 Theme Tokens (Tailwind @theme)
+======================================================= */
+@theme {
+  --color-orange: #df7633;
+  --color-orange-dark: #cc522b;
+  --color-orange-light: #df7633;
+
+  /* === Gradient Backgrounds === */
+
+  --background-image-gradient-bpyg: radial-gradient(circle at 40% 20%,
+      rgba(91, 97, 255, 0.2) 0%,
+      rgba(255, 187, 248, 0.5) 30%,
+      rgba(250, 255, 189, 0.3) 60%,
+      rgba(234, 255, 255, 1) 100%);
+  --background-image-gradient-soft-hero: radial-gradient(ellipse at 50% 10%,
+      rgba(91, 97, 255, 0.2) 0%,
+      rgba(255, 187, 248, 0.3) 30%,
+      rgba(250, 255, 189, 0.2) 60%,
+      rgba(234, 255, 255, 1) 100%);
+
+}
+
+/* =======================================================
+ 🧭 Inline Theme Tokens
+======================================================= */
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -12,6 +136,7 @@
   --font-mono: var(--font-geist-mono);
 }
 
+/* ========== 🌙 Dark Mode ========== */
 @media (prefers-color-scheme: dark) {
   :root {
     --background: #0a0a0a;
@@ -19,13 +144,147 @@
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* ===============================
+ 🇧🇩 Bangla Font Auto Detection
+=============================== */
+
+/* Any element containing Bangla characters (Unicode range) */
+:lang(bn),
+[lang="bn"],
+.bangla,
+*:has(:lang(bn)) {
+  font-family: var(--font-bangla) !important;
 }
 
-/* Custom Animations - Add to globals.css */
+/* Optional: Detect Bangla Unicode Range directly */
+@supports (font-family: var(--font-bangla)) {
+
+  *:not(code, pre):lang(bn),
+  [lang="bn"],
+  [class*="bangla"],
+  *:where(:lang(bn)) {
+    font-family: var(--font-bangla) !important;
+  }
+}
+
+@layer utilities {
+  .bg-gradient-creamy-panda {
+    @apply absolute inset-0;
+  }
+
+  .bg-gradient-creamy-panda::before {
+    content: "";
+    @apply absolute top-[-100px] left-[100px] w-[600px] h-[600px] bg-pink-300 opacity-40 blur-[120px] rounded-full;
+  }
+
+  .bg-gradient-creamy-panda::after {
+    content: "";
+    @apply absolute top-[0px] left-[400px] w-[500px] h-[500px] bg-purple-300 opacity-40 blur-[140px] rounded-full;
+  }
+
+  /* extra blobs (Tailwind pseudo elements only allow ::before and ::after),
+     so we’ll add small inner divs in the DOM for the other two */
+  .bg-gradient-creamy-panda .panda-blue {
+    @apply absolute top-[100px] right-[100px] w-[600px] h-[600px] bg-blue-200 opacity-40 blur-[160px] rounded-full;
+  }
+
+  .bg-gradient-creamy-panda .panda-orange {
+    @apply absolute bottom-[50px] right-[200px] w-[600px] h-[600px] bg-orange-200 opacity-40 blur-[120px] rounded-full;
+  }
+
+  /* Gradient Text Utility */
+  .gradient-text {
+    background: linear-gradient(to right, #faffbd, #ffbbf8, #5b61ff);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* Custom Radial Gradient Background */
+  .bg-gradient-radial {
+    background: radial-gradient(ellipse at center,
+        rgba(252, 231, 243, 0.5) 0%,
+        rgba(243, 232, 255, 0.5) 33%,
+        rgba(255, 237, 213, 0.5) 66%,
+        rgba(255, 250, 240, 0.5) 100%);
+  }
+
+  /* Smooth Scrollbar */
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-track {
+    @apply bg-gray-100 rounded-full;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    @apply bg-gray-300 rounded-full hover:bg-gray-400;
+  }
+
+  /* Glass Effect */
+  .glass-effect {
+    @apply bg-white/80 backdrop-blur-md border border-white/20 shadow-lg;
+  }
+
+  /* Animation Utilities */
+  .animate-fade-in {
+    animation: fadeIn 0.5s ease-in-out;
+  }
+
+  .animate-slide-up {
+    animation: slideUp 0.6s ease-out;
+  }
+
+  .animate-scale-up {
+    animation: scaleUp 0.4s ease-out;
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes slideUp {
+    from {
+      transform: translateY(30px);
+      opacity: 0;
+    }
+
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+
+  @keyframes scaleUp {
+    from {
+      transform: scale(0.9);
+      opacity: 0;
+    }
+
+    to {
+      transform: scale(1);
+      opacity: 1;
+    }
+  }
+
+  /* Hover Glow Effect */
+  .hover-glow {
+    @apply transition-all duration-300;
+  }
+
+  .hover-glow:hover {
+    box-shadow: 0 0 20px rgba(249, 115, 22, 0.3);
+  }
+}
+
+/* ========== 🎞️ Animations ========== */
 @keyframes blob {
 
   0%,
@@ -46,6 +305,10 @@ body {
   }
 }
 
+.animate-blob {
+  animation: blob 7s infinite;
+}
+
 @keyframes slide-in {
   from {
     transform: translateX(100%);
@@ -56,10 +319,6 @@ body {
     transform: translateX(0);
     opacity: 1;
   }
-}
-
-.animate-blob {
-  animation: blob 7s infinite;
 }
 
 .animate-slide-in {
@@ -80,4 +339,93 @@ body {
 
 .animate-slideIn {
   animation: slideIn 0.3s ease-out;
+}
+
+/* === 🌀 Custom Loader Animation === */
+.loader {
+  --path: #2f3545;
+  --dot: #fb992b;
+  --duration: 3s;
+}
+
+.loader::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  position: absolute;
+  background: var(--dot);
+  top: 37px;
+  left: 19px;
+  transform: translate(-18px, -18px);
+  animation: dotRect var(--duration) cubic-bezier(0.785, 0.135, 0.15, 0.86) infinite;
+}
+
+/* === Shape Stroke Animations === */
+.loader svg rect {
+  stroke: var(--path);
+  stroke-width: 10px;
+  fill: none;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  stroke-dasharray: 192 64 192 64;
+  stroke-dashoffset: 0;
+  animation: pathRect var(--duration) cubic-bezier(0.785, 0.135, 0.15, 0.86) infinite;
+}
+
+/* === Keyframes === */
+@keyframes pathRect {
+  25% {
+    stroke-dashoffset: 64;
+  }
+
+  50% {
+    stroke-dashoffset: 128;
+  }
+
+  75% {
+    stroke-dashoffset: 192;
+  }
+
+  100% {
+    stroke-dashoffset: 256;
+  }
+}
+
+@keyframes dotRect {
+  25% {
+    transform: translate(0, 0);
+  }
+
+  50% {
+    transform: translate(18px, -18px);
+  }
+
+  75% {
+    transform: translate(0, -36px);
+  }
+
+  100% {
+    transform: translate(-18px, -18px);
+  }
+}
+
+/* gradient-text-animated */
+.gradient-text-animated {
+  background: linear-gradient(90deg, #faffbd, #ffbbf8, #5b61ff, #faffbd);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: gradientShift 3s linear infinite;
+}
+
+@keyframes gradientShift {
+  0% {
+    background-position: 0% center;
+  }
+
+  100% {
+    background-position: 200% center;
+  }
 }

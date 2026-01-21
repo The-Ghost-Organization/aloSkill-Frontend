@@ -1,5 +1,6 @@
 "use client";
 
+import BorderGradientButton from "@/components/buttons/BorderGradientButton.tsx";
 import { apiClient } from "@/lib/api/client";
 import { AlertCircle, CheckCircle2, Loader2, Mail, XCircle } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -19,8 +20,8 @@ export default function VerifyEmailPage() {
   const token = searchParams.get("token");
 
   useEffect(() => {
+    let timer: NodeJS.Timeout | undefined;
     const verifyEmail = async () => {
-      // Validate URL parameters
       if (!id || !token) {
         setStatus("invalid");
         setMessage("Invalid verification link. Please check your email and try again.");
@@ -28,7 +29,6 @@ export default function VerifyEmailPage() {
       }
 
       try {
-        // Call backend verification endpoint
         const response = await apiClient.post("/auth/verify-user", {
           id,
           token,
@@ -38,33 +38,35 @@ export default function VerifyEmailPage() {
           setStatus("success");
           setMessage(response.message || "Your email has been verified successfully!");
 
-          // Start countdown to redirect
-          const timer = setInterval(() => {
+          timer = setInterval(() => {
             setCountdown(prev => {
               if (prev <= 1) {
-                clearInterval(timer);
                 router.push("/auth/signin");
                 return 0;
               }
               return prev - 1;
             });
           }, 1000);
-
-          return () => clearInterval(timer);
         } else {
           setStatus("error");
           setMessage(
             response.message || "Verification failed. The link may have expired or is invalid."
           );
         }
-      } catch (error) {
-        console.error("Verification error:", error);
+      } catch (_error) {
+        // console.error("Verification error:", error);
         setStatus("error");
         setMessage("An unexpected error occurred. Please try again or contact support.");
       }
     };
 
     verifyEmail();
+
+    return () => {
+      if (timer) {
+        clearInterval(timer);
+      }
+    };
   }, [id, token, router]);
 
   return (
@@ -77,7 +79,7 @@ export default function VerifyEmailPage() {
               <div className='w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-6 animate-pulse'>
                 <Loader2 className='w-10 h-10 text-blue-600 animate-spin' />
               </div>
-              <h1 className='text-2xl font-bold text-gray-900 mb-3'>Verifying Your Email</h1>
+              <h4 className='text-2xl font-bold text-gray-900 mb-3'>Verifying Your Email</h4>
               <p className='text-gray-600'>Please wait while we verify your email address...</p>
             </>
           )}
@@ -98,12 +100,18 @@ export default function VerifyEmailPage() {
                 </p>
               </div>
 
-              <button
+              <BorderGradientButton
+                onClick={() => router.push("/auth/signin")}
+                className='mt-4 w-full  disabled:opacity-50 disabled:cursor-not-allowed shadow-lg'
+              >
+                Sign In Now
+              </BorderGradientButton>
+              {/* <button
                 onClick={() => router.push("/auth/signin")}
                 className='w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 rounded-xl font-semibold hover:from-blue-700 hover:to-purple-700 transition-all shadow-lg'
               >
                 Sign In Now
-              </button>
+              </button> */}
             </>
           )}
 
@@ -113,7 +121,7 @@ export default function VerifyEmailPage() {
               <div className='w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6'>
                 <XCircle className='w-10 h-10 text-red-600' />
               </div>
-              <h1 className='text-2xl font-bold text-gray-900 mb-3'>Verification Failed</h1>
+              <h4 className='text-2xl font-bold text-gray-900 mb-3'>Verification Failed</h4>
               <p className='text-gray-600 mb-6'>{message}</p>
 
               <div className='bg-yellow-50 border border-yellow-200 rounded-xl p-4 mb-6'>
@@ -131,12 +139,18 @@ export default function VerifyEmailPage() {
               </div>
 
               <div className='space-y-3'>
-                <button
+                <BorderGradientButton
+                  onClick={() => router.push("/auth/resend-verification")}
+                  className='mt-4 w-full  disabled:opacity-50 disabled:cursor-not-allowed shadow-lg'
+                >
+                  Resend Verification Email
+                </BorderGradientButton>
+                {/* <button
                   onClick={() => router.push("/auth/resend-verification")}
                   className='w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 rounded-xl font-semibold hover:from-blue-700 hover:to-purple-700 transition-all shadow-lg'
                 >
                   Resend Verification Email
-                </button>
+                </button> */}
 
                 <button
                   onClick={() => router.push("/auth/signin")}

@@ -1,6 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-/* eslint-disable @typescript-eslint/no-explicit-any */
-/* eslint-disable no-console */
 import type { NextRequest } from "next/server";
 
 export interface GeoLocation {
@@ -129,7 +126,7 @@ export class ThreatIntelligence {
   async banIP(ip: string, reason: string, duration: number = 24 * 60 * 60 * 1000) {
     this.maliciousIPs.add(ip);
 
-    console.log(`IP Banned: ${ip} for reason: ${reason} for ${duration}ms`);
+    // console.log(`IP Banned: ${ip} for reason: ${reason} for ${duration}ms`);
 
     // Auto-remove after duration
     setTimeout(() => {

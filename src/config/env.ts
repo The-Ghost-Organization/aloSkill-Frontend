@@ -12,14 +12,10 @@ const envSchema = z.object({
     .string({ message: "NEXTAUTH_SECRET is required" })
     .min(32, { message: "NEXTAUTH_SECRET must be at least 32 character long" })
     .default(process.env.NEXTAUTH_SECRET as string),
-  GOOGLE_CLIENT_ID: z
-    .string()
-    .min(1, { message: "Google Client ID is Required" }),
-    // .default(process.env["GOOGLE_CLIENT_ID"] as string),
-  GOOGLE_CLIENT_SECRET: z
-    .string()
-    .min(1, { message: "Google Client Secret is Required" }),
-    // .default(process.env["GOOGLE_CLIENT_SECRET"] as string),
+  GOOGLE_CLIENT_ID: z.string().min(1, { message: "Google Client ID is Required" }),
+  // .default(process.env["GOOGLE_CLIENT_ID"] as string),
+  GOOGLE_CLIENT_SECRET: z.string().min(1, { message: "Google Client Secret is Required" }),
+  // .default(process.env["GOOGLE_CLIENT_SECRET"] as string),
 });
 
 export const config = envSchema.parse(process.env);

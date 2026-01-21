@@ -1,6 +1,6 @@
-// lib/api/client.ts - FOR COOKIE-BASED AUTH
+import { getSession } from "next-auth/react";
 
-const API_BASE_URL = process.env["NEXT_PUBLIC_BACKEND_API_URL"] || "http://localhost:5000/api/v1";
+const API_BASE_URL = process.env["BACKEND_API_URL"] || "http://localhost:5000/api/v1";
 
 interface ApiResponse<T = unknown> {
   success: boolean;
@@ -16,39 +16,24 @@ class ApiClient {
     this.baseURL = baseURL;
   }
 
-  /**
-   * Make HTTP request with automatic cookie handling
-   * Cookies are sent automatically by the browser
-   */
   private async request<T>(endpoint: string, options: RequestInit = {}): Promise<ApiResponse<T>> {
+    const session = await getSession();
     const headers: HeadersInit = {
       "Content-Type": "application/json",
-      ...options.headers,
+      ...(session?.accessToken ? { Authorization: `Bearer ${session.accessToken}` } : {}),
+      ...(options.headers || {}),
     };
 
     try {
       const response = await fetch(`${this.baseURL}${endpoint}`, {
         ...options,
         headers,
-        credentials: "include",
       });
 
       const data = await response.json();
-
-      if (!response.ok) {
-        return {
-          success: false,
-          message: data.message || "Request failed",
-          errors: data.errors || [],
-        };
-      }
-
-      return {
-        success: true,
-        ...data,
-      };
-    } catch (error) {
-      console.error("API request error:", error);
+      return data;
+    } catch (_error) {
+      // console.error("API request error:", error);
       return {
         success: false,
         message: "Network error. Please check your connection.",
@@ -64,11 +49,35 @@ class ApiClient {
   }
 
   // POST request
-  async post<T>(endpoint: string, body?: unknown): Promise<ApiResponse<T>> {
+  async post<T>(
+    endpoint: string,
+    body?: unknown,
+    customHeaders?: Record<string, string>
+  ): Promise<ApiResponse<T>> {
     return this.request<T>(endpoint, {
       method: "POST",
       body: JSON.stringify(body),
+      headers: customHeaders || {},
     });
+  }
+
+  async postFormData<T>(endpoint: string, formData: FormData): Promise<ApiResponse<T>> {
+    const session = await getSession();
+    const headers: HeadersInit = {
+      ...(session?.accessToken ? { Authorization: `Bearer ${session.accessToken}` } : {}),
+    };
+    try {
+      const response = await fetch(`${this.baseURL}${endpoint}`, {
+        method: "POST",
+        body: formData,
+        headers,
+      });
+      const data = await response.json();
+      return data;
+    } catch (_error) {
+      // console.error("API request error:", error);
+      return { success: false, message: "Network error." };
+    }
   }
 
   // PUT request
@@ -88,9 +97,10 @@ class ApiClient {
   }
 
   // DELETE request
-  async delete<T>(endpoint: string): Promise<ApiResponse<T>> {
+  async delete<T>(endpoint: string, body?: unknown): Promise<ApiResponse<T>> {
     return this.request<T>(endpoint, {
       method: "DELETE",
+      body: JSON.stringify(body),
     });
   }
 }

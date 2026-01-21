@@ -17,7 +17,7 @@ class RateLimiter {
   private store = new Map<string, { count: number; resetTime: number }>();
   private configs: { [key: string]: RateLimitConfig } = {
     "/auth/signin": { max: 5, windowMs: 15 * 60 * 1000 },
-    "/auth/signup": { max: 3, windowMs: 60 * 60 * 1000 },
+    "/auth/signup": { max: 5, windowMs: 60 * 60 * 1000 },
     "/api/": { max: 100, windowMs: 60 * 1000 },
     "/video/": { max: 20, windowMs: 60 * 1000 },
     "/exam/": { max: 10, windowMs: 30 * 1000 },
