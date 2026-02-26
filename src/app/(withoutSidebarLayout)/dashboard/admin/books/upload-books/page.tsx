@@ -119,6 +119,18 @@ const bookSchema = z
       message: "E-Book PDF file is required when E-Book format is selected",
       path: ["ebookPdf"],
     }
+  )
+  .refine(
+    data => {
+      if (data.regularPrice < data.salePrice) {
+        return false;
+      }
+      return true;
+    },
+    {
+      message: "Selling price cannot be higher than regular price",
+      path: ["salePrice"],
+    }
   );
 
 type BookFormValues = z.input<typeof bookSchema>;
@@ -346,9 +358,28 @@ export default function AddBookPage() {
     }
   };
 
+  const handleEbookFormatChange = async (format: string[]) => {
+    if (!format.includes("E-Book") && !watch("formats")?.includes("E-Book")) {
+      const value = watch("files") || [];
+      const ebookValue = value.find(b => b.fileType === "EBOOK")?.url;
+      if (!ebookValue || ebookValue !== "") {
+        await apiClient.delete("/course/delete-file", {
+          fileUrl: ebookValue,
+        });
+      }
+      setValue("ebookPdf", undefined as any);
+      trigger("ebookPdf");
+      const filteredFiles = value.filter(item => item.fileType !== "EBOOK");
+      setValue("files", [...filteredFiles]);
+    }
+  };
+
   const onSubmit = async (data: BookFormValues) => {
-    console.log("Form Data Validated:", data);
-    alert("Book successfully validated and ready for upload!");
+    const { ebookPdf, previewPdf, coverImage, ...rest } = data;
+    const uploadBookResult = await apiClient.post<{ id: string }>("/book/upload-book", rest);
+    if (uploadBookResult.success) {
+      alert(`Book successfully uploaded! for id ${uploadBookResult.data?.id}`);
+    }
   };
 
   return (
@@ -851,6 +882,7 @@ export default function AddBookPage() {
                                     ? [...field.value, fmt]
                                     : field.value.filter(v => v !== fmt);
                                   field.onChange(newValue);
+                                  handleEbookFormatChange(newValue);
                                 }}
                                 className='w-4 h-4 accent-orange-dark'
                               />
