@@ -1,8 +1,8 @@
 import { BookOpen, Users } from "lucide-react";
 import { getServerSession } from "next-auth";
+import type { DashboardDataType } from "../../../(withoutSidebarLayout)/courses/allCourses.types";
 import { apiClient } from "../../../../lib/api/client";
 import { authOptions } from "../../../api/auth/[...nextauth]/route";
-import type { DashboardDataType } from "../../courses/allCourses.types";
 
 const Dashboard = async () => {
   const session = await getServerSession(authOptions);

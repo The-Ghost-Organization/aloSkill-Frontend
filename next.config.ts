@@ -38,17 +38,12 @@ const nextConfig: NextConfig = {
       },
       {
         protocol: "https",
-        hostname: "aloskill-pull-zone-4.b-cdn.net",
+        hostname: "aloskill-pull-zone-5.b-cdn.net",
         pathname: "/**",
       },
       {
         protocol: "https",
-        hostname: "alosKill-pull-zone-4.b-cdn.net",
-        pathname: "/**",
-      },
-      {
-        protocol: "https",
-        hostname: "aloskill-backend-production.up.railway.app",
+        hostname: "aloskill-server-production.up.railway.app",
         pathname: "/**",
       },
       {

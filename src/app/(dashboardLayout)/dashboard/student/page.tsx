@@ -4,8 +4,8 @@ import { useSessionContext } from "@/app/contexts/SessionContext.tsx";
 import { apiClient } from "@/lib/api/client.ts";
 import { Loader } from "lucide-react";
 import { useEffect, useState } from "react";
-import type { CourseType } from "../../courses/allCourses.types.ts";
-import CourseCard from "../../courses/CourseCard.tsx";
+import type { CourseType } from "../../../(withoutSidebarLayout)/courses/allCourses.types.ts";
+import CourseCard from "../../../(withoutSidebarLayout)/courses/CourseCard.tsx";
 export default function DashboardPage() {
   // const [currentSlide, setCurrentSlide] = useState(0);
   const [courses, setCourses] = useState<CourseType[]>([]);

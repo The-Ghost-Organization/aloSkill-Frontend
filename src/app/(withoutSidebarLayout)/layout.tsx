@@ -9,8 +9,8 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   return (
-    <div className='flex flex-col bg-gray-50 '>
-      <div className='z-50 bg-white/80 backdrop-blur-md border-b border-gray-200/50 shadow-sm'>
+    <div className='min-h-screen flex flex-col bg-gray-50 '>
+      <div className='fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-md border-b border-gray-200/50 shadow-sm'>
         <AnnouncementBar />
         <NavBar onMenuToggle={() => setIsSidebarOpen(prev => !prev)} />
       </div>
@@ -20,7 +20,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
           onClose={() => setIsSidebarOpen(false)}
         />
       </div>
-      <main className=''>{children}</main>
+      <main className='pt-30 min-h-screen'>{children}</main>
       <FooterSimple />
     </div>
   );
