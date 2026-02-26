@@ -30,6 +30,7 @@ import { Controller, useForm } from "react-hook-form";
 import * as z from "zod";
 import { apiClient } from "../../../../../../lib/api/client";
 import { useSessionContext } from "../../../../../contexts/SessionContext";
+import { useRouter } from 'next/navigation';
 
 const PdfPreviewModal = dynamic(() => import("./PdfPreviewModal"), {
   ssr: false,
@@ -147,6 +148,7 @@ export default function AddBookPage() {
   const [imageUploadLoading, setImageUploadLoading] = useState<boolean>(false);
 
   const { user } = useSessionContext();
+  const router = useRouter();
 
   const {
     register,
@@ -379,6 +381,7 @@ export default function AddBookPage() {
     const uploadBookResult = await apiClient.post<{ id: string }>("/book/upload-book", rest);
     if (uploadBookResult.success) {
       alert(`Book successfully uploaded! for id ${uploadBookResult.data?.id}`);
+      router.push("/dashboard/admin/books");
     }
   };
 
