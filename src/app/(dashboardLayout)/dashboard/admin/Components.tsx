@@ -1,8 +1,14 @@
 "use client";
+
+import React from "react";
+
+// ═══════════════════════════════════════════════════════
+//   AVATAR
+// ═══════════════════════════════════════════════════════
 export function Avatar({
   name,
   size = 36,
-  gradient = "135deg, #074079, #da7c36",
+  gradient = "to-br from-[#074079] to-[#da7c36]",
 }: {
   name: string;
   size?: number;
@@ -17,14 +23,14 @@ export function Avatar({
 
   return (
     <div
-      className='rounded-[10px] flex items-center justify-center font-bold text-white shrink-0'
+      className={`
+        rounded-[10px] flex items-center justify-center font-bold text-white shrink-0
+        font-(family-name:--font-syne) bg-linear-${gradient}
+      `}
       style={{
         width: size,
         height: size,
-        minWidth: size,
         fontSize: size * 0.35,
-        fontFamily: "var(--font-syne)",
-        background: `linear-gradient(${gradient})`,
       }}
     >
       {initials}
@@ -36,16 +42,13 @@ export function Avatar({
 //   BADGE
 // ═══════════════════════════════════════════════════════
 const badgeVariants: Record<string, string> = {
-  green:
-    "bg-[color-mix(in_srgb,var(--color-green)_10%,transparent)]   text-(--color-green)         border border-[color-mix(in_srgb,var(--color-green)_20%,transparent)]",
-  red: "bg-[color-mix(in_srgb,var(--color-red)_10%,transparent)]     text-(--color-red)           border border-[color-mix(in_srgb,var(--color-red)_20%,transparent)]",
-  orange:
-    "bg-[color-mix(in_srgb,var(--color-accent)_12%,transparent)]  text-(--color-accent-light)  border border-[color-mix(in_srgb,var(--color-accent)_25%,transparent)]",
-  blue: "bg-[color-mix(in_srgb,var(--color-blue)_10%,transparent)]    text-(--color-blue)          border border-[color-mix(in_srgb,var(--color-blue)_20%,transparent)]",
-  gold: "bg-[color-mix(in_srgb,var(--color-gold)_10%,transparent)]    text-(--color-gold)          border border-[color-mix(in_srgb,var(--color-gold)_20%,transparent)]",
-  purple:
-    "bg-[color-mix(in_srgb,var(--color-purple)_10%,transparent)]  text-(--color-purple)        border border-[color-mix(in_srgb,var(--color-purple)_20%,transparent)]",
-  gray: "bg-[color-mix(in_srgb,var(--color-soft)_8%,transparent)]     text-(--color-soft)          border border-[color-mix(in_srgb,var(--color-soft)_15%,transparent)]",
+  green: "bg-green-500/10 text-green-500 border-green-500/20",
+  red: "bg-red-500/10 text-red-500 border-red-500/20",
+  orange: "bg-orange-500/12 text-orange-400 border-orange-500/25",
+  blue: "bg-blue-500/10 text-blue-500 border-blue-500/20",
+  gold: "bg-amber-500/10 text-amber-500 border-amber-500/20",
+  purple: "bg-purple-500/10 text-purple-500 border-purple-500/20",
+  gray: "bg-slate-500/8 text-slate-400 border-slate-500/15",
 };
 
 export function Badge({
@@ -57,9 +60,11 @@ export function Badge({
 }) {
   return (
     <span
-      className={`inline-flex items-center gap-1 px-[9px] py-[3px] rounded-full text-[11.5px] font-semibold font-(family-name:--font-mono) ${
-        badgeVariants[variant] ?? badgeVariants["gray"]
-      }`}
+      className={`
+        inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11.5px] 
+        font-semibold font-(family-name:--font-mono) border
+        ${badgeVariants[variant] ?? badgeVariants["gray"]}
+      `}
     >
       {children}
     </span>
@@ -72,12 +77,17 @@ export function Badge({
 export function Toggle({ on }: { on: boolean }) {
   return (
     <div
-      className='w-[42px] h-[23px] rounded-[12px] cursor-pointer relative transition-colors duration-200 border-0 shrink-0'
-      style={{ background: on ? "var(--color-accent)" : "var(--color-navy-border)" }}
+      className={`
+        w-10.5 h-5.75 rounded-full cursor-pointer relative transition-colors duration-200 shrink-0
+        ${on ? "bg-(--color-accent)" : "bg-bg-navy-border"}
+      `}
     >
       <div
-        className='w-[17px] h-[17px] rounded-full bg-white absolute top-[3px] transition-[left] duration-200 shadow-[0_2px_6px_rgba(0,0,0,0.4)]'
-        style={{ left: on ? 22 : 3 }}
+        className={`
+          w-4.25 h-4.25 rounded-full bg-white absolute top-[3px] 
+          transition-all duration-200 shadow-md
+          ${on ? "left-[22px]" : "left-[3px]"}
+        `}
       />
     </div>
   );
@@ -88,12 +98,15 @@ export function Toggle({ on }: { on: boolean }) {
 // ═══════════════════════════════════════════════════════
 export function ProgressBar({ value, color }: { value: number; color?: string }) {
   return (
-    <div className='h-[5px] rounded-full overflow-hidden flex-1 bg-(--color-navy-border)'>
+    <div className='h-[5px] rounded-full overflow-hidden flex-1 bg-bg-navy-border'>
       <div
-        className='h-full rounded-full transition-[width] duration-[600ms] [transition-timing-function:cubic-bezier(0.4,0,0.2,1)]'
+        className={`
+          h-full rounded-full transition-all duration-600 ease-in-out
+          ${!color ? "bg-linear-to-r from-[#074079] to-(--color-accent)" : ""}
+        `}
         style={{
           width: `${value}%`,
-          background: color ?? "linear-gradient(90deg, #074079, var(--color-accent))",
+          ...(color ? { backgroundColor: color } : {}),
         }}
       />
     </div>
@@ -123,45 +136,46 @@ export function KpiCard({
   return (
     <div
       className='
-        relative overflow-hidden rounded-[16px] p-[22px] cursor-default
-        bg-(--color-navy) border border-(--color-navy-border)
-        transition-all duration-[250ms]
-        hover:-translate-y-0.5 hover:shadow-[0_12px_32px_rgba(0,0,0,0.4)]
-        hover:border-(--color-navy-hover)
-      '
+      relative overflow-hidden rounded-2xl p-5.5 cursor-default
+      bg-navy border border-navy-border
+      transition-all duration-250
+      hover:-translate-y-0.5 hover:shadow-2xl hover:border-navy-hover
+    '
     >
-      {/* Replaces ::after pseudo-element accent bar */}
       <div
-        className='absolute bottom-0 left-0 right-0 h-[2px] opacity-40 transition-opacity duration-[250ms]'
+        className='absolute bottom-0 left-0 right-0 h-0.5 opacity-40 transition-opacity'
         style={{ background: accentColor }}
       />
 
       <div className='flex justify-between items-start mb-4'>
         <div
-          className='w-[42px] h-[42px] rounded-[11px] flex items-center justify-center'
+          className='w-10.5 h-10.5 rounded-xl flex items-center justify-center'
           style={{ background: `color-mix(in srgb, ${accentColor} 10%, transparent)` }}
         >
           {icon}
         </div>
         {trend && (
           <span
-            className='inline-flex items-center gap-1 px-[9px] py-[3px] rounded-full text-[11.5px] font-semibold font-(family-name:--font-mono)'
-            style={{
-              background: trendUp ? "rgba(0,229,160,0.08)" : "rgba(255,71,87,0.08)",
-              color: trendUp ? "var(--color-green)" : "var(--color-red)",
-              border: `1px solid ${trendUp ? "rgba(0,229,160,0.2)" : "rgba(255,71,87,0.2)"}`,
-            }}
+            className={`
+            inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11.5px] 
+            font-semibold font-(family-name:--font-mono) border
+            ${
+              trendUp
+                ? "bg-green-500/10 text-(--color-green) border-green-500/20"
+                : "bg-red-500/10 text-(--color-red) border-red-500/20"
+            }
+          `}
           >
             {trend}
           </span>
         )}
       </div>
 
-      <div className='text-[26px] font-bold mb-0.5 text-(--color-text) '>{value}</div>
-      <div className='text-[11px] uppercase tracking-[1px] text-(--color-muted) font-(family-name:--font-mono)'>
+      <div className='text-[26px] font-bold mb-0.5 text-(--color-text)'>{value}</div>
+      <div className='text-[11px] uppercase tracking-wider text-(--color-muted) font-(family-name:--font-mono)'>
         {label}
       </div>
-      {sub && <div className='text-[12px] mt-1.5 text-(--color-muted)'>{sub}</div>}
+      {sub && <div className='text-xs mt-1.5 text-(--color-muted)'>{sub}</div>}
     </div>
   );
 }
@@ -181,8 +195,8 @@ export function SectionHeader({
   return (
     <div className='flex justify-between items-start mb-6'>
       <div>
-        <h1 className='text-[22px] font-extrabold tracking-[-0.3px] text-navy-deep '>{title}</h1>
-        {sub && <div className='text-[13px] mt-[3px] text-(--color-muted)'>{sub}</div>}
+        <h1 className='text-[22px] font-extrabold tracking-tight text-slate-100'>{title}</h1>
+        {sub && <div className='text-[13px] mt-1 text-(--color-muted)'>{sub}</div>}
       </div>
       {action}
     </div>
@@ -204,8 +218,8 @@ export function CustomTooltip({
   if (!active || !payload?.length) return null;
 
   return (
-    <div className='bg-(--color-navy) border border-(--color-navy-border) rounded-[10px] px-[14px] py-[10px]'>
-      <div className='text-[11px] uppercase tracking-[1px] mb-1.5 text-(--color-soft) font-(family-name:--font-mono)'>
+    <div className='bg-navy border border-navy-border rounded-xl px-3.5 py-2.5 shadow-xl'>
+      <div className='text-[11px] uppercase tracking-wider mb-1.5 text-slate-500 font-(family-name:--font-mono)'>
         {label}
       </div>
       {payload.map((p, i) => (
@@ -236,18 +250,18 @@ export function SlidePanel({
 }) {
   return (
     <div
-      className='fixed inset-0 z-[100] flex justify-end backdrop-blur-[4px] animate-(--animate-fade-in) bg-[rgba(5,13,26,0.8)]'
+      className='fixed inset-0 z-100 flex justify-end backdrop-blur-sm animate-in fade-in bg-slate-950/80'
       onClick={onClose}
     >
       <div
-        className='w-full md:w-[480px] max-w-full h-screen overflow-y-auto bg-(--color-navy-deep) border-l border-(--color-navy-border) animate-(--animate-slide-in)'
+        className='w-full md:w-[480px] max-w-full h-screen overflow-y-auto bg-(--color-navy-deep) border-l border-navy-border animate-in slide-in-from-right duration-300'
         onClick={e => e.stopPropagation()}
       >
-        <div className='flex justify-between items-center px-6 py-5 border-b border-(--color-navy-border)'>
-          <div className='font-bold text-[16px] text-(--color-text) '>{title}</div>
+        <div className='flex justify-between items-center px-6 py-5 border-b border-navy-border'>
+          <div className='font-bold text-base text-(--color-text)'>{title}</div>
           <button
             onClick={onClose}
-            className='flex bg-transparent border-0 cursor-pointer'
+            className='flex bg-transparent border-0 cursor-pointer p-1 hover:bg-white/5 rounded-md transition-colors'
           >
             <svg
               viewBox='0 0 24 24'

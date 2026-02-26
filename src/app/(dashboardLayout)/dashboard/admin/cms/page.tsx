@@ -1,7 +1,6 @@
 "use client";
 
-import { SectionHeader, Badge } from "../Components";
-import styles from "../AdminDashboard.module.css";
+import { Badge, SectionHeader } from "../Components";
 
 const sections = [
   { title: "Homepage Banner", icon: "🖼️", desc: "Hero banners and call-to-actions", count: 3 },
@@ -16,31 +15,33 @@ const sections = [
 
 export default function CMSPage() {
   return (
-    <div className={styles['pageEnter']}>
-      <SectionHeader title="CMS & Content" sub="Manage all website content, pages and marketing" />
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 16 }}>
-        {sections.map((s) => (
+    <div className='animate-page-enter'>
+      <SectionHeader
+        title='CMS & Content'
+        sub='Manage all website content, pages and marketing'
+      />
+
+      <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4'>
+        {sections.map(s => (
           <div
             key={s.title}
-            className={styles['card']}
-            style={{ padding: 22, cursor: "pointer", transition: "all 0.2s" }}
-            onMouseEnter={(e) => {
-              (e.currentTarget as HTMLElement).style.borderColor = "rgba(218,124,54,0.3)";
-              (e.currentTarget as HTMLElement).style.transform = "translateY(-2px)";
-            }}
-            onMouseLeave={(e) => {
-              (e.currentTarget as HTMLElement).style.borderColor = "#1a3158";
-              (e.currentTarget as HTMLElement).style.transform = "none";
-            }}
+            className='group relative overflow-hidden bg-slate-900 border border-slate-800 rounded-2xl p-5.5 cursor-pointer transition-all duration-200 hover:border-orange-500/30 hover:-translate-y-0.5 before:absolute before:inset-0 before:bg-linear-to-br before:from-white/5 before:to-transparent before:pointer-events-none'
           >
-            <div style={{ fontSize: 28, marginBottom: 12 }}>{s.icon}</div>
-            <div className={styles['syneFont']} style={{ fontWeight: 700, fontSize: 15, color: "#e8f0fe", marginBottom: 5 }}>
-              {s.title}
+            {/* Icon */}
+            <div className='text-3xl mb-3 transition-transform duration-200 group-hover:scale-110 origin-left'>
+              {s.icon}
             </div>
-            <div style={{ fontSize: 12, color: "#3d5a80", marginBottom: 14, lineHeight: 1.4 }}>{s.desc}</div>
-            <div className="flex justify-between items-center">
-              {s.count !== null && <Badge variant="gray">{s.count} items</Badge>}
-              <button className={`${styles['btn']} ${styles['btnGhost']}`} style={{ fontSize: 12, padding: "5px 12px", marginLeft: "auto" }}>
+
+            {/* Title */}
+            <div className="font-['Syne'] font-bold text-base text-slate-100 mb-1.5">{s.title}</div>
+
+            {/* Description */}
+            <div className='text-xs text-slate-500 mb-3.5 leading-relaxed'>{s.desc}</div>
+
+            {/* Footer */}
+            <div className='flex justify-between items-center'>
+              {s.count !== null ? <Badge variant='gray'>{s.count} items</Badge> : <div />}
+              <button className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-['Outfit'] text-xs font-semibold transition-all bg-transparent text-slate-400 border border-slate-800 hover:bg-slate-950 hover:text-slate-100 hover:border-slate-700 ml-auto cursor-pointer">
                 Manage →
               </button>
             </div>

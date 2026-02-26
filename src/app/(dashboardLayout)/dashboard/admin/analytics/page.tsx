@@ -1,9 +1,8 @@
 "use client";
 
-import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Download } from "lucide-react";
-import { SectionHeader, CustomTooltip } from "../Components";
-import styles from "../AdminDashboard.module.css";
+import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { CustomTooltip, SectionHeader } from "../Components";
 
 const completionData = [
   { cat: "Dev", v: 74 },
@@ -24,48 +23,93 @@ const reports = [
 
 export default function AnalyticsPage() {
   return (
-    <div className={styles['pageEnter']}>
+    /* Using the custom animation defined in global.css */
+    <div className='animate-page-enter'>
       <SectionHeader
-        title="Analytics & Reports"
-        sub="Deep insights and downloadable CSV reports"
+        title='Analytics & Reports'
+        sub='Deep insights and downloadable CSV reports'
         action={
-          <div className="flex gap-3">
-            <button className={`${styles['btn']} ${styles['btnGhost']}`}>
+          <div className='flex gap-3'>
+            <button className="inline-flex items-center gap-1.5 px-4.5 py-2.5 rounded-lg font-['Outfit'] text-[13px] font-semibold cursor-pointer transition-all duration-150 bg-transparent text-slate-400 border border-slate-800 hover:bg-slate-900 hover:text-slate-100 hover:border-slate-700">
               <Download size={13} /> Export CSV
             </button>
-            <button className={`${styles['btn']} ${styles['btnPrimary']}`}>
-              <Download size={13} color="white" /> Export PDF
+            <button className="inline-flex items-center gap-1.5 px-4.5 py-2.5 rounded-lg font-['Outfit'] text-[13px] font-semibold cursor-pointer transition-all duration-150 border-none bg-linear-to-br from-orange-500 to-orange-700 text-white shadow-lg shadow-orange-500/25 hover:shadow-orange-500/45 hover:-translate-y-px">
+              <Download
+                size={13}
+                color='white'
+              />{" "}
+              Export PDF
             </button>
           </div>
         }
       />
-      <div className={`${styles['kpiGrid3']}`} style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14, marginBottom: 24 }}>
-        {reports.map((r) => (
-          <div key={r.name} className={styles['card']} style={{ padding: "16px 20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+
+      <div className='grid grid-cols-1 md:grid-cols-3 gap-3.5 mb-6'>
+        {reports.map(r => (
+          <div
+            key={r.name}
+            className="relative overflow-hidden bg-slate-900 border border-slate-800 rounded-2xl p-4 px-5 flex justify-between items-center before:content-[''] before:absolute before:inset-0 before:bg-linear-to-br before:from-white/5 before:to-transparent before:pointer-events-none"
+          >
             <div>
-              <div style={{ fontWeight: 600, fontSize: 13, color: "#e8f0fe", marginBottom: 3 }}>{r.name}</div>
-              <div className={styles['monoText']} style={{ fontSize: 11, color: "#3d5a80" }}>{r.size} · {r.updated}</div>
+              <div className='font-semibold text-[13px] text-slate-100 mb-1'>{r.name}</div>
+              <div className='font-mono text-[11px] text-slate-500 uppercase tracking-tight'>
+                {r.size} · {r.updated}
+              </div>
             </div>
-            <button className={`${styles['btn']} ${styles['btnGhost']}`} style={{ padding: "6px 12px", fontSize: 12, flexShrink: 0 }}>
-              <Download size={12} />
+            <button className="shrink-0 inline-flex items-center gap-1.5 p-2 rounded-lg font-['Outfit'] cursor-pointer transition-all duration-150 bg-transparent text-slate-400 border border-slate-800 hover:bg-slate-800 hover:text-slate-100 hover:border-slate-700">
+              <Download size={14} />
             </button>
           </div>
         ))}
       </div>
-      <div className={styles['card']} style={{ padding: 24 }}>
-        <div className={styles['syneFont']} style={{ fontWeight: 700, fontSize: 15, color: "#e8f0fe", marginBottom: 4 }}>
+
+      <div className="relative overflow-hidden bg-slate-900 border border-slate-800 rounded-2xl p-6 before:content-[''] before:absolute before:inset-0 before:bg-linear-to-br before:from-white/5 before:to-transparent before:pointer-events-none">
+        <div className="font-['Syne'] font-bold text-base text-slate-100 mb-1">
           Course Completion Rate by Category
         </div>
-        <div className={styles['metricLabel']} style={{ marginBottom: 24 }}>Current month performance</div>
-        <ResponsiveContainer width="100%" height={240}>
-          <BarChart data={completionData} barSize={36}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#1a3158" />
-            <XAxis dataKey="cat" tick={{ fontSize: 11, fill: "#3d5a80", fontFamily: "'DM Mono',monospace" }} axisLine={false} tickLine={false} />
-            <YAxis tick={{ fontSize: 11, fill: "#3d5a80", fontFamily: "'DM Mono',monospace" }} axisLine={false} tickLine={false} unit="%" />
-            <Tooltip content={<CustomTooltip />} />
-            <Bar dataKey="v" fill="#da7c36" radius={[6, 6, 0, 0]} name="Completion %" />
-          </BarChart>
-        </ResponsiveContainer>
+        <div className='font-mono text-[11px] uppercase tracking-widest text-slate-500 mb-6'>
+          Current month performance
+        </div>
+
+        <div className='h-60 w-full'>
+          <ResponsiveContainer
+            width='100%'
+            height='100%'
+          >
+            <BarChart
+              data={completionData}
+              barSize={36}
+            >
+              <CartesianGrid
+                strokeDasharray='3 3'
+                stroke='#1e293b'
+                vertical={false}
+              />
+              <XAxis
+                dataKey='cat'
+                tick={{ fontSize: 11, fill: "#64748b", fontFamily: "var(--font-dm-mono)" }}
+                axisLine={false}
+                tickLine={false}
+              />
+              <YAxis
+                tick={{ fontSize: 11, fill: "#64748b", fontFamily: "var(--font-dm-mono)" }}
+                axisLine={false}
+                tickLine={false}
+                unit='%'
+              />
+              <Tooltip
+                content={<CustomTooltip />}
+                cursor={{ fill: "rgba(255,255,255,0.03)" }}
+              />
+              <Bar
+                dataKey='v'
+                fill='#f97316'
+                radius={[6, 6, 0, 0]}
+                name='Completion %'
+              />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
       </div>
     </div>
   );
