@@ -1,23 +1,38 @@
-"use client";
-
 import { Plus } from "lucide-react";
+import { getServerSession } from "next-auth";
 import Link from "next/link";
+import { apiClient } from "../../../../../lib/api/client";
+import { authOptions } from "../../../../api/auth/[...nextauth]/route";
 import { Badge, SectionHeader } from "../Components";
 import { BOOKS } from "../Data";
+import type { BookState } from "./books.types";
 
-export default function BooksPage() {
+export default async function BooksPage() {
+  const session = await getServerSession(authOptions);
+  const getBookData = async () => {
+    const fetchData = await apiClient.get<BookState>("/book/admin/books-data", {
+      Authorization: `Bearer ${session?.accessToken}`,
+    });
+    if (!fetchData.success) {
+      return null;
+    }
+    return fetchData;
+  };
+
+  const data = await getBookData();
+  console.log("bookData : ", data);
   return (
-    <div className='animate-[pageEnter_0.3s_ease-out]'>
+    <div className='animate-slide-up'>
       <SectionHeader
         title='Books & Products'
         sub='Manage digital and physical book inventory'
         action={
           <Link href='/dashboard/admin/books/upload-books'>
-            <button className="inline-flex items-center gap-1.5 px-4.5 py-2.5 rounded-lg bg-linear-to-br from-orange-500 to-orange-700 text-white font-['Outfit'] font-semibold text-[13px] shadow-lg shadow-orange-500/25 hover:shadow-orange-500/45 hover:-translate-y-px transition-all cursor-pointer border-none">
+            <button className="inline-flex items-center gap-1.5 px-4.5 py-2.5 rounded bg-linear-to-br from-orange to-orange-dark text-white font-['Outfit'] font-semibold text-[13px] shadow shadow-orange-500/25 hover:shadow-orange-500/45 hover:-translate-y-px transition-all cursor-pointer border-none">
               <Plus
                 size={14}
                 color='white'
-              />{" "}
+              />
               Add Book
             </button>
           </Link>
@@ -44,7 +59,7 @@ export default function BooksPage() {
         ].map(s => (
           <div
             key={s.l}
-            className={`group relative bg-slate-900 border border-slate-800 rounded-2xl p-5.5 transition-all duration-250 hover:border-slate-700 hover:-translate-y-0.5 hover:shadow-2xl hover:shadow-black/40 overflow-hidden after:content-[''] after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:opacity-40 hover:after:opacity-100 after:transition-opacity ${s.border}`}
+            className={`group relative bg-slate-900 border border-slate-800 rounded p-3 pl-4 transition-all duration-250 hover:border-slate-700 hover:-translate-y-0.5 hover:shadow-2xl hover:shadow-black/40 overflow-hidden after:content-[''] after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:opacity-40 hover:after:opacity-100 after:transition-opacity ${s.border}`}
           >
             <div className={`font-['Syne'] text-[22px] font-bold mb-1 ${s.text}`}>{s.v}</div>
             <div className='font-mono text-[11px] uppercase tracking-widest text-slate-500'>
@@ -55,7 +70,7 @@ export default function BooksPage() {
       </div>
 
       {/* Table Card */}
-      <div className='bg-slate-900 border border-slate-800 rounded-2xl relative overflow-hidden before:absolute before:inset-0 before:bg-linear-to-br before:from-white/5 before:to-transparent before:pointer-events-none'>
+      <div className='border border-slate-800 rounded relative overflow-hidden'>
         <div className='overflow-x-auto'>
           <table className='w-full border-collapse'>
             <thead>
@@ -73,14 +88,14 @@ export default function BooksPage() {
                 ].map(h => (
                   <th
                     key={h}
-                    className='bg-slate-950/50 text-slate-500 text-[11px] font-semibold uppercase tracking-widest p-3.5 px-4.5 text-left font-mono border-b border-slate-800'
+                    className='bg-slate-900 text-slate-500 text-[11px] font-semibold uppercase tracking-widest p-3.5 px-4.5 text-left font-mono border-b border-slate-800'
                   >
                     {h}
                   </th>
                 ))}
               </tr>
             </thead>
-            <tbody className='divide-y divide-slate-800/50'>
+            <tbody className='divide-y divide-slate-800'>
               {BOOKS.map(b => (
                 <tr
                   key={b.id}
@@ -96,9 +111,7 @@ export default function BooksPage() {
                   <td className='p-4 px-4.5 text-[13.5px] text-slate-100 font-mono font-semibold'>
                     ${b.price}
                   </td>
-                  <td className='p-4 px-4.5'>
-                    <Badge variant='gray'>{b.sales}</Badge>
-                  </td>
+                  <td className='p-4 px-4.5 text-gray-200 font-mono text-xs!'>{b.sales}</td>
                   <td className='p-4 px-4.5 text-[13.5px] text-emerald-400 font-mono font-semibold'>
                     ${b.rev.toLocaleString()}
                   </td>
@@ -118,11 +131,11 @@ export default function BooksPage() {
                   </td>
                   <td className='p-4 px-4.5'>
                     <div className='flex gap-2'>
-                      <button className="px-2.5 py-1.5 rounded-lg bg-transparent text-slate-400 border border-slate-800 hover:bg-slate-900 hover:text-slate-100 hover:border-slate-700 transition-all cursor-pointer text-xs font-semibold font-['Outfit']">
+                      <button className="px-2 py-1 rounded bg-transparent text-slate-400 border border-slate-800 hover:bg-slate-900 hover:text-slate-100 hover:border-slate-700 transition-all cursor-pointer text-xs! font-semibold font-['Outfit']">
                         Edit
                       </button>
                       {b.status === "Pending" && (
-                        <button className="px-2.5 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 transition-all cursor-pointer text-xs font-semibold font-['Outfit']">
+                        <button className="px-2 py-1 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 transition-all cursor-pointer text-xs! font-semibold font-['Outfit']">
                           Approve
                         </button>
                       )}

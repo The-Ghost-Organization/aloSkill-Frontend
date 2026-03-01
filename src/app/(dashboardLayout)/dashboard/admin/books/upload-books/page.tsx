@@ -25,12 +25,12 @@ import {
 import dynamic from "next/dynamic";
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import React, { useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import * as z from "zod";
 import { apiClient } from "../../../../../../lib/api/client";
 import { useSessionContext } from "../../../../../contexts/SessionContext";
-import { useRouter } from 'next/navigation';
 
 const PdfPreviewModal = dynamic(() => import("./PdfPreviewModal"), {
   ssr: false,
@@ -408,7 +408,7 @@ export default function AddBookPage() {
             <button
               type='button'
               disabled={isSubmitting}
-              className='px-4 py-2 text-sm font-medium text-gray-400 border border-white/10 rounded hover:bg-white/5 hover:text-white transition-all disabled:opacity-50 cursor-pointer'
+              className='px-4 py-2 text-sm font-medium text-gray-400 border border-white/10 rounded hover:bg-white/5 hover:text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer'
             >
               Save Draft
             </button>
