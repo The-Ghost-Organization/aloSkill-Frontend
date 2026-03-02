@@ -61,8 +61,8 @@ export function Badge({
   return (
     <span
       className={`
-        inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11.5px] 
-        font-semibold font-(family-name:--font-mono) border
+        inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11.5px]
+        font-semibold font-mono border
         ${badgeVariants[variant] ?? badgeVariants["gray"]}
       `}
     >
@@ -84,7 +84,7 @@ export function Toggle({ on }: { on: boolean }) {
     >
       <div
         className={`
-          w-4.25 h-4.25 rounded-full bg-white absolute top-[3px] 
+          w-4.25 h-4.25 rounded-full bg-white absolute top-[3px]
           transition-all duration-200 shadow-md
           ${on ? "left-[22px]" : "left-[3px]"}
         `}
@@ -157,7 +157,7 @@ export function KpiCard({
         {trend && (
           <span
             className={`
-            inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11.5px] 
+            inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11.5px]
             font-semibold font-(family-name:--font-mono) border
             ${
               trendUp
