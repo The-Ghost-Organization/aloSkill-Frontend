@@ -122,7 +122,7 @@ const CourseDetailPage = () => {
               <Image
                 src={
                   courseDetails.thumbnailUrl
-                    ? encodeURI(courseDetails.thumbnailUrl)
+                    ? courseDetails.thumbnailUrl
                     : "/images/course-placeholder.png"
                 }
                 alt={courseDetails.title}

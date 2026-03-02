@@ -4,7 +4,6 @@ import type { InstructorCardProps } from "@/types/instructor.types";
 import { ArrowRight, Award, Share2, Star } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { useState } from "react";
 import userFallback from "../../../../public/images/userFallback.png";
 function InstructorCard({
   instructor,
@@ -13,9 +12,6 @@ function InstructorCard({
   onLeave,
   animationDelay = 0,
 }: InstructorCardProps) {
-  
-  const [imgSrc, setImgSrc] = useState(instructor?.avatarUrl || userFallback);
-
   const getBorderColor = () => {
     const colors = [
       "#3b82f6", // blue
@@ -79,11 +75,9 @@ function InstructorCard({
           <Image
             width={128}
             height={128}
-            src={imgSrc}
+            src={instructor.avatarUrl || userFallback}
             alt={instructor.displayName}
-            unoptimized
             className='w-full h-full object-cover'
-            onError={() => setImgSrc(userFallback)}
           />
 
           {/* Hover Overlay with Stats */}

@@ -51,6 +51,11 @@ const nextConfig: NextConfig = {
         hostname: "securepay.sslcommerz.com",
         pathname: "/**",
       },
+      {
+        protocol: "https",
+        hostname: "sg.storage.bunnycdn.com",
+        pathname: "/**",
+      },
     ],
 
     unoptimized: false,

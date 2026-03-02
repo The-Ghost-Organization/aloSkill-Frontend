@@ -11,7 +11,6 @@ import {
   Users,
   Youtube,
 } from "lucide-react";
-import type { StaticImageData } from "next/image";
 import Image from "next/image";
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -56,15 +55,15 @@ export default function InstructorDetailsPage() {
     }
   }, [instructorId, user]);
 
-  const [imgSrc, setImgSrc] = useState<string | StaticImageData>(userFallback);
+  // const [imgSrc, setImgSrc] = useState<string | StaticImageData>(userFallback);
 
-  useEffect(() => {
-    if (instructor?.avatarUrl) {
-      setImgSrc(encodeURI(instructor.avatarUrl));
-    } else {
-      setImgSrc(userFallback);
-    }
-  }, [instructor]);
+  // useEffect(() => {
+  //   if (instructor?.avatarUrl) {
+  //     setImgSrc(encodeURI(instructor.avatarUrl));
+  //   } else {
+  //     setImgSrc(userFallback);
+  //   }
+  // }, [instructor]);
 
   const tabs = [
     { id: "about-us", label: "About me" },
@@ -115,10 +114,9 @@ export default function InstructorDetailsPage() {
                 <Image
                   width={128}
                   height={128}
-                  src={imgSrc}
+                  src={instructor.avatarUrl || userFallback}
                   alt={instructor.displayName}
                   className='w-full h-full object-cover'
-                  onError={() => setImgSrc(userFallback)}
                 />
               </div>
               {/* {instructor.status === "approved" && (

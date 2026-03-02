@@ -105,7 +105,7 @@ export default withAuth(
     }
 
     if (
-      pathname.startsWith("/admin") &&
+      pathname.startsWith("/dashboard/admin") &&
       !(token?.["role"] && Array.isArray(token["role"]) && token["role"].includes("ADMIN"))
     ) {
       return NextResponse.redirect(new URL("/unauthorized", request.url));
@@ -384,7 +384,8 @@ export default withAuth(
           path.startsWith("/success") ||
           path.startsWith("/help") ||
           path.startsWith("/about") ||
-          path.startsWith("/products");
+          path.startsWith("/products") ||
+          path.startsWith("/alo");
 
         if (isPublicRoute) {
           return true;
@@ -473,6 +474,7 @@ async function enforceAccessControl(
     "/help",
     "/about",
     "/products",
+    "/alo/auth/admin",
   ];
   if (publicRoutes.includes(pathname)) {
     return { granted: true, redirectUrl: "" };
