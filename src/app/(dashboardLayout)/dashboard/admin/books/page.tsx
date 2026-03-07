@@ -1,26 +1,13 @@
 import { Plus } from "lucide-react";
-import { getServerSession } from "next-auth";
 import Link from "next/link";
-import { apiClient } from "../../../../../lib/api/client";
-import { authOptions } from "../../../../api/auth/[...nextauth]/route";
 import { Badge, SectionHeader } from "../Components";
-import { BOOKS } from "../Data";
-import type { BookState } from "./books.types";
+import { BookActionButtonApprove, BookActionButtonView } from "./BookComponents";
+import { getBookData } from "./action";
 
 export default async function BooksPage() {
-  const session = await getServerSession(authOptions);
-  const getBookData = async () => {
-    const fetchData = await apiClient.get<BookState>("/book/admin/books-data", {
-      Authorization: `Bearer ${session?.accessToken}`,
-    });
-    if (!fetchData.success) {
-      return null;
-    }
-    return fetchData;
-  };
-
   const data = await getBookData();
-  console.log("bookData : ", data);
+  const bookData = data?.data;
+
   return (
     <div className='animate-slide-up'>
       <SectionHeader
@@ -42,17 +29,27 @@ export default async function BooksPage() {
       {/* KPI Grid */}
       <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 mb-6'>
         {[
-          { l: "Total Books", v: "312", text: "text-blue-400", border: "after:bg-blue-400" },
+          {
+            l: "Total Books",
+            v: bookData?.totalBooks,
+            text: "text-blue-400",
+            border: "after:bg-blue-400",
+          },
           {
             l: "Digital Sales",
-            v: "1,160",
+            v: bookData?.totalSold,
             text: "text-emerald-400",
             border: "after:bg-emerald-400",
           },
-          { l: "Physical Stock", v: "148", text: "text-orange-500", border: "after:bg-orange-500" },
+          {
+            l: "Physical Stock",
+            v: bookData?.totalStock,
+            text: "text-orange-500",
+            border: "after:bg-orange-500",
+          },
           {
             l: "Total Revenue",
-            v: "$12,140",
+            v: bookData?.totalRevenue,
             text: "text-purple-400",
             border: "after:bg-purple-400",
           },
@@ -76,6 +73,7 @@ export default async function BooksPage() {
             <thead>
               <tr className='border-b border-slate-800'>
                 {[
+                  "Sr.",
                   "Title",
                   "Author",
                   "Type",
@@ -96,24 +94,42 @@ export default async function BooksPage() {
               </tr>
             </thead>
             <tbody className='divide-y divide-slate-800'>
-              {BOOKS.map(b => (
+              {bookData?.bookBreakdown.map((b, i) => (
                 <tr
-                  key={b.id}
+                  key={i + b.title.slice(0, 5)}
                   className='transition-colors hover:bg-slate-800/60'
                 >
                   <td className='p-4 px-4.5 text-[13.5px] text-slate-100 font-semibold'>
-                    {b.title}
+                    {i + 1 + "."}
+                  </td>
+                  <td className='p-4 px-4.5 text-[13.5px] text-slate-100 font-semibold'>
+                    {b.title.length > 20 ? b.title.slice(0, 20) + "..." : b.title}
                   </td>
                   <td className='p-4 px-4.5 text-[13.5px] text-slate-400'>{b.author}</td>
-                  <td className='p-4 px-4.5'>
-                    <Badge variant={b.type === "Digital" ? "blue" : "orange"}>{b.type}</Badge>
+                  <td className='p-4 px-4.5 flex flex-col items-center gap-1'>
+                    <Badge
+                      fontSize='9'
+                      variant={b.formats.includes("Hardcover") ? "blue" : "orange"}
+                    >
+                      {b.formats[0]}
+                    </Badge>
+                    {b.formats.length > 1 && (
+                      <Badge
+                        fontSize='9'
+                        variant={b.formats.includes("Hardcover") ? "blue" : "orange"}
+                      >
+                        {b.formats[1]}
+                      </Badge>
+                    )}
                   </td>
                   <td className='p-4 px-4.5 text-[13.5px] text-slate-100 font-mono font-semibold'>
-                    ${b.price}
+                    ${b.salePrice}
                   </td>
-                  <td className='p-4 px-4.5 text-gray-200 font-mono text-xs!'>{b.sales}</td>
+                  <td className='p-4 px-4.5 text-gray-200 font-mono text-xs!'>
+                    {b.orderItem.length}
+                  </td>
                   <td className='p-4 px-4.5 text-[13.5px] text-emerald-400 font-mono font-semibold'>
-                    ${b.rev.toLocaleString()}
+                    ${b.totalEarning}
                   </td>
                   <td
                     className={`p-4 px-4.5 text-[13.5px] font-mono ${
@@ -127,17 +143,16 @@ export default async function BooksPage() {
                     {b.stock === null ? "∞" : b.stock}
                   </td>
                   <td className='p-4 px-4.5'>
-                    <Badge variant={b.status === "Approved" ? "green" : "orange"}>{b.status}</Badge>
+                    <Badge variant={b.status === "APPROVED" ? "green" : "orange"}>{b.status}</Badge>
                   </td>
                   <td className='p-4 px-4.5'>
                     <div className='flex gap-2'>
-                      <button className="px-2 py-1 rounded bg-transparent text-slate-400 border border-slate-800 hover:bg-slate-900 hover:text-slate-100 hover:border-slate-700 transition-all cursor-pointer text-xs! font-semibold font-['Outfit']">
-                        Edit
-                      </button>
-                      {b.status === "Pending" && (
-                        <button className="px-2 py-1 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 transition-all cursor-pointer text-xs! font-semibold font-['Outfit']">
-                          Approve
-                        </button>
+                      <BookActionButtonView />
+                      {b.status === "PENDING" && (
+                        <BookActionButtonApprove
+                          bookId={b.id}
+                          bookData={bookData}
+                        />
                       )}
                     </div>
                   </td>

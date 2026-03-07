@@ -54,14 +54,16 @@ const badgeVariants: Record<string, string> = {
 export function Badge({
   children,
   variant = "gray",
+  fontSize = "11.5",
 }: {
   children: React.ReactNode;
   variant?: string;
+  fontSize?: string;
 }) {
   return (
     <span
       className={`
-        inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11.5px]
+        inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[${fontSize}px]
         font-semibold font-mono border
         ${badgeVariants[variant] ?? badgeVariants["gray"]}
       `}
@@ -84,9 +86,9 @@ export function Toggle({ on }: { on: boolean }) {
     >
       <div
         className={`
-          w-4.25 h-4.25 rounded-full bg-white absolute top-[3px]
+          w-4.25 h-4.25 rounded-full bg-white absolute top-0.75
           transition-all duration-200 shadow-md
-          ${on ? "left-[22px]" : "left-[3px]"}
+          ${on ? "left-5.5" : "left-0.75"}
         `}
       />
     </div>
@@ -254,11 +256,11 @@ export function SlidePanel({
       onClick={onClose}
     >
       <div
-        className='w-full md:w-[480px] max-w-full h-screen overflow-y-auto bg-(--color-navy-deep) border-l border-navy-border animate-in slide-in-from-right duration-300'
+        className='w-full md:w-120 max-w-full h-screen overflow-y-auto bg-navy-deep border-l border-navy-border animate-in slide-in-from-right duration-300'
         onClick={e => e.stopPropagation()}
       >
         <div className='flex justify-between items-center px-6 py-5 border-b border-navy-border'>
-          <div className='font-bold text-base text-(--color-text)'>{title}</div>
+          <div className='font-bold text-base text-text'>{title}</div>
           <button
             onClick={onClose}
             className='flex bg-transparent border-0 cursor-pointer p-1 hover:bg-white/5 rounded-md transition-colors'
