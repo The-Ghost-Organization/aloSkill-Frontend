@@ -4,6 +4,7 @@ export type BookState = {
   totalStock: number;
   totalRevenue: number;
   bookBreakdown: {
+    id: string;
     status: string;
     title: string;
     author: string;

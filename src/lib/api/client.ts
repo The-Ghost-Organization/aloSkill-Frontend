@@ -43,7 +43,7 @@ class ApiClient {
   }
 
   // GET request
-  async get<T>(endpoint: string,customHeaders?: Record<string, string>): Promise<ApiResponse<T>> {
+  async get<T>(endpoint: string, customHeaders?: Record<string, string>): Promise<ApiResponse<T>> {
     return this.request<T>(endpoint, {
       method: "GET",
       headers: customHeaders || {},
@@ -91,10 +91,15 @@ class ApiClient {
   }
 
   // PATCH request
-  async patch<T>(endpoint: string, body?: unknown): Promise<ApiResponse<T>> {
+  async patch<T>(
+    endpoint: string,
+    body?: unknown,
+    customHeaders?: Record<string, string>
+  ): Promise<ApiResponse<T>> {
     return this.request<T>(endpoint, {
       method: "PATCH",
       body: JSON.stringify(body),
+      headers: customHeaders || {},
     });
   }
 

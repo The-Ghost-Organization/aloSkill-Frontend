@@ -1,4 +1,5 @@
 "use client";
+import "@/app/globals.css";
 import { apiClient } from "@/lib/api/client.ts";
 import {
   BookOpen,
@@ -24,7 +25,6 @@ export default function InstructorDetailsPage() {
   const params = useParams();
   const instructorId = params["id"] as string;
   const { user } = useSessionContext();
-
   const [activeTab, setActiveTab] = useState("about-us");
   const [instructor, setInstructor] = useState<InstructorDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -54,16 +54,6 @@ export default function InstructorDetailsPage() {
       fetchInstructor();
     }
   }, [instructorId, user]);
-
-  // const [imgSrc, setImgSrc] = useState<string | StaticImageData>(userFallback);
-
-  // useEffect(() => {
-  //   if (instructor?.avatarUrl) {
-  //     setImgSrc(encodeURI(instructor.avatarUrl));
-  //   } else {
-  //     setImgSrc(userFallback);
-  //   }
-  // }, [instructor]);
 
   const tabs = [
     { id: "about-us", label: "About me" },
@@ -262,46 +252,6 @@ export default function InstructorDetailsPage() {
           </div>
         </div>
       </div>
-
-      <style jsx>{`
-        @keyframes fade-in {
-          from {
-            opacity: 0;
-            transform: translateY(20px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-        @keyframes slide-up {
-          from {
-            opacity: 0;
-            transform: translateY(30px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-        @keyframes expand {
-          from {
-            transform: scaleX(0);
-          }
-          to {
-            transform: scaleX(1);
-          }
-        }
-        .animate-fade-in {
-          animation: fade-in 0.6s ease-out;
-        }
-        .animate-slide-up {
-          animation: slide-up 0.6s ease-out 0.2s both;
-        }
-        .animate-expand {
-          animation: expand 0.3s ease-out;
-        }
-      `}</style>
     </div>
   );
 }
