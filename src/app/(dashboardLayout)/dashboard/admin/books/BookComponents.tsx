@@ -41,7 +41,7 @@ export function BookActionButtonApprove({
   );
 }
 
-export function BookActionButtonView() {
+export function BookActionButtonEditandView({ bookId }: { bookId: string }) {
   const [panelOpen, setPanelOpen] = useState<boolean>(false);
   return (
     <>
@@ -51,7 +51,7 @@ export function BookActionButtonView() {
       >
         <Eye size={13} />
       </button>
-      <Link href={"/dashboard/admin/books/upload-books"}>
+      <Link href={`/dashboard/admin/books/upload-books?editBookid=${bookId}`}>
         <button className="px-2 py-1 rounded bg-transparent text-slate-400 border border-slate-800 hover:bg-slate-900 hover:text-slate-100 hover:border-slate-700 transition-all cursor-pointer text-xs! font-semibold font-['Outfit']">
           Edit
         </button>

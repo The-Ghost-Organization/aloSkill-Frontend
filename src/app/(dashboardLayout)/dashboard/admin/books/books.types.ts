@@ -19,3 +19,41 @@ export type BookState = {
     totalEarning: number;
   }[];
 };
+
+export type BookEditData = {
+  id: string;
+  title: string;
+  author: string;
+  translator: string | null;
+  editor: string | null;
+  publisher: string;
+  description: string;
+  regularPrice: number;
+  salePrice: number;
+  stock: number;
+  isbn: string | null;
+  edition: string | null;
+  pages: number | null;
+  language: string;
+  formats: string[];
+  totalEarning: number;
+  viewCount: number;
+  status: string;
+  metaKeywords: string | null;
+  metaDescription: string | null;
+  coverImage: string;
+  category: {
+    id: string;
+    name: string;
+    slug: string;
+    parentId: string | null;
+  } | null;
+  files: {
+    id: string;
+    createdAt: string;
+    name: string;
+    url: string;
+    fileType: string;
+    bookId: string;
+  }[];
+} | null;

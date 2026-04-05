@@ -7,7 +7,7 @@ import { type BookState } from "./books.types";
 
 export const getBookData = async () => {
   const session = await getServerSession(authOptions);
-  const fetchData = await apiClient.get<BookState>("/book/admin/books-data", {
+  const fetchData = await apiClient.get<BookState>("/book/admin/all-books-data", {
     Authorization: `Bearer ${session?.accessToken}`,
   });
   if (!fetchData.success) {

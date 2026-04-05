@@ -1,7 +1,7 @@
 import { Plus } from "lucide-react";
 import Link from "next/link";
 import { Badge, SectionHeader } from "../Components";
-import { BookActionButtonApprove, BookActionButtonView } from "./BookComponents";
+import { BookActionButtonApprove, BookActionButtonEditandView } from "./BookComponents";
 import { getBookData } from "./action";
 
 export default async function BooksPage() {
@@ -147,7 +147,7 @@ export default async function BooksPage() {
                   </td>
                   <td className='p-4 px-4.5'>
                     <div className='flex gap-2'>
-                      <BookActionButtonView />
+                      <BookActionButtonEditandView bookId={b.id} />
                       {b.status === "PENDING" && (
                         <BookActionButtonApprove
                           bookId={b.id}
