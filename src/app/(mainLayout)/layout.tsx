@@ -23,7 +23,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
           onClose={() => setIsSidebarOpen(false)}
         />
         <main className='flex-1 min-w-0 lg:ml-0 xl:mr-0'>
-          <div className='container mx-auto  py-6 max-w-7xl'>{children}</div>
+          <div className='container mx-auto  py-6 '>{children}</div>
         </main>
         <RightSidebar />
       </div>

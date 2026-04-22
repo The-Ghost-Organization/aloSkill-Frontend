@@ -19,8 +19,8 @@ const nextConfig: NextConfig = {
 
   // === Image Optimizations ===
   images: {
-    loader: "custom",
-    loaderFile: "./lib/bunny-img-loader.js",
+    // loader: "custom",
+    // loaderFile: "./lib/bunny-img-loader.js",
     formats: ["image/avif", "image/webp"],
     remotePatterns: [
       {
