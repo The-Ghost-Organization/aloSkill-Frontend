@@ -25,12 +25,13 @@ import {
 import dynamic from "next/dynamic";
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import React, { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import React, { useEffect, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import * as z from "zod";
 import { apiClient } from "../../../../../../lib/api/client";
 import { useSessionContext } from "../../../../../contexts/SessionContext";
+import { type BookEditData } from "../books.types";
 
 const PdfPreviewModal = dynamic(() => import("./PdfPreviewModal"), {
   ssr: false,
@@ -145,10 +146,13 @@ export default function AddBookPage() {
   const [imageUploadError, setImageUploadError] = useState<string>("");
   const [fileUploadError, setFileUploadError] = useState<string>("");
   const [fileLoading, setFileLoading] = useState<boolean>(false);
+  const [loadEditDataError, setLoadEditDataError] = useState<string>("");
   const [imageUploadLoading, setImageUploadLoading] = useState<boolean>(false);
 
   const { user } = useSessionContext();
   const router = useRouter();
+  const querydata = useSearchParams();
+  const editBookId = querydata.get("editBookid");
 
   const {
     register,
@@ -167,6 +171,66 @@ export default function AddBookPage() {
       stock: 0,
     },
   });
+
+  useEffect(() => {
+    if (!editBookId) return;
+    try {
+      const fetchBookData = async () => {
+        const response = await apiClient.get<BookEditData>(
+          `/book/admin/books/edit?bookId=${editBookId}`
+        );
+        console.log("response in bookEdit : ", response.data);
+        if (response.success && response.data) {
+          const book = response.data;
+          setValue("title", book.title);
+          setValue("author", book.author);
+          setValue("translator", book.translator || "");
+          setValue("editor", book.editor || "");
+          setValue("publisher", book.publisher);
+          setValue("description", book.description);
+          setValue("regularPrice", book.regularPrice);
+          setValue("salePrice", book.salePrice);
+          setValue("stock", book.stock);
+          setValue("isbn", book.isbn || "");
+          setValue("edition", book.edition || "");
+          setValue("pages", book.pages || undefined);
+          setValue("language", book.language);
+          setValue("category", book.category?.name || "");
+          setValue(
+            "formats",
+            book.formats.map(f => (f === "HARDCOVER" ? "Hardcover" : "E-Book"))
+          );
+          setValue("metaKeywords", book.metaKeywords || "");
+          setValue("metaDescription", book.metaDescription || "");
+          setValue("coverImageUrl", book.coverImage);
+          setCoverPreview(book.coverImage);
+          const files = book.files || [];
+          setValue(
+            "files",
+            files.map(f => ({
+              name: f.name,
+              url: f.url,
+              fileType: f.fileType as "PREVIEW" | "EBOOK",
+            }))
+          );
+          const previewFile = files.find((f: any) => f.fileType === "PREVIEW");
+          if (previewFile) {
+            setValue("previewPdf", previewFile as unknown as File);
+            setPdfPreviewUrl(previewFile.url);
+          }
+          const ebookFile = files.find((f: any) => f.fileType === "EBOOK");
+          if (ebookFile) {
+            setValue("ebookPdf", ebookFile as unknown as File);
+          }
+        } else {
+          setLoadEditDataError("Failed to load book data. Please try again.");
+        }
+      };
+      fetchBookData();
+    } catch (error) {
+      setLoadEditDataError("Failed to load book data. Please try again.");
+    }
+  }, [editBookId, setValue]);
 
   const selectedFormats = watch("formats");
   const isEbookSelected = selectedFormats.includes("E-Book");
@@ -405,27 +469,46 @@ export default function AddBookPage() {
           </div>
 
           <div className='flex items-center gap-3'>
-            <button
-              type='button'
-              disabled={isSubmitting}
-              className='px-4 py-2 text-sm font-medium text-gray-400 border border-white/10 rounded hover:bg-white/5 hover:text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer'
-            >
-              Save Draft
-            </button>
-            <button
-              onClick={handleSubmit(onSubmit)}
-              disabled={isSubmitting}
-              className='flex items-center gap-2 px-5 py-2 text-sm font-semibold rounded bg-linear-to-r from-orange to-orange-dark hover:from-orange-dark hover:to-orange shadow shadow-orange/20 transition-colors duration-500 disabled:opacity-70 disabled:cursor-not-allowed cursor-pointer'
-            >
-              {isSubmitting ? (
-                <span className='animate-pulse'>Processing...</span>
-              ) : (
-                <>
-                  <Save size={15} />
-                  Publish Book
-                </>
-              )}
-            </button>
+            {!editBookId ? (
+              <>
+                <button
+                  type='button'
+                  disabled={isSubmitting}
+                  className='px-4 py-2 text-sm font-medium text-gray-400 border border-white/10 rounded hover:bg-white/5 hover:text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer'
+                >
+                  Save Draft
+                </button>
+                <button
+                  onClick={handleSubmit(onSubmit)}
+                  disabled={isSubmitting}
+                  className='flex items-center gap-2 px-5 py-2 text-sm font-semibold rounded bg-linear-to-r from-orange to-orange-dark hover:from-orange-dark hover:to-orange shadow shadow-orange/20 transition-colors duration-500 disabled:opacity-70 disabled:cursor-not-allowed cursor-pointer'
+                >
+                  {isSubmitting ? (
+                    <span className='animate-pulse'>Processing...</span>
+                  ) : (
+                    <>
+                      <Save size={15} />
+                      Publish Book
+                    </>
+                  )}
+                </button>
+              </>
+            ) : (
+              <button
+                onClick={handleSubmit(onSubmit)}
+                disabled={isSubmitting}
+                className='flex items-center gap-2 px-5 py-2 text-sm font-semibold rounded bg-linear-to-r from-orange to-orange-dark hover:from-orange-dark hover:to-orange shadow shadow-orange/20 transition-colors duration-500 disabled:opacity-70 disabled:cursor-not-allowed cursor-pointer'
+              >
+                {isSubmitting ? (
+                  <span className='animate-pulse'>Updating...</span>
+                ) : (
+                  <>
+                    <Save size={15} />
+                    Update Book
+                  </>
+                )}
+              </button>
+            )}
           </div>
         </div>
       </header>
