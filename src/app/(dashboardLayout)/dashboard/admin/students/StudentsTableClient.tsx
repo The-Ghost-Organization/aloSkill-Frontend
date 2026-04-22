@@ -1,17 +1,21 @@
 "use client";
 
 import {
+  AlertTriangle,
   Award,
   BookOpen,
   Check,
   ChevronDown,
   Eye,
+  ReceiptText,
   Search,
   ShieldCheck,
   ShieldOff,
   X,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import Image from "next/image";
+import { useEffect, useMemo, useState } from "react";
+import { apiClient } from "../../../../../lib/api/client";
 import { Avatar, Badge, ProgressBar, SlidePanel } from "../Components";
 import type { StudentForAdmin } from "./student.type";
 
@@ -30,6 +34,14 @@ function ManualEnrollModal({
   const [note, setNote] = useState("");
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+
+  useEffect(() => {
+    const getCourses = async () => {
+      const courseRes = await apiClient.get("/course/admin/student-view");
+      console.log("cousse resposone : ", courseRes);
+    };
+    getCourses();
+  }, []);
 
   // Mock course list — replace with real data from props/fetch
   const courses = [
@@ -988,6 +1000,492 @@ function SuspendModal({ student, onClose }: { student: StudentForAdmin[0]; onClo
   );
 }
 
+function RefundModal({ student, onClose }: { student: StudentForAdmin[0]; onClose: () => void }) {
+  // Mock orders — replace with real data from student.orders
+  const orders =
+    student.orders.length > 0
+      ? student.orders.map((o: any, i: number) => ({
+          id: o.id ?? `ORD-${i + 1}`,
+          course: o.course?.title ?? o.courseName ?? `Order #${i + 1}`,
+          amount: o.amount ?? o.price ?? 0,
+          date: o.createdAt ? new Date(o.createdAt).toLocaleDateString() : "—",
+          status: o.status ?? "Completed",
+        }))
+      : [
+          {
+            id: "ORD-001",
+            course: "Full-Stack Web Dev Bootcamp",
+            amount: 29,
+            date: "Feb 10, 2025",
+            status: "Completed",
+          },
+          {
+            id: "ORD-002",
+            course: "Python for Data Science",
+            amount: 19,
+            date: "Jan 22, 2025",
+            status: "Completed",
+          },
+          {
+            id: "ORD-003",
+            course: "UI/UX Design Masterclass",
+            amount: 24,
+            date: "Dec 5, 2024",
+            status: "Completed",
+          },
+        ];
+
+  const [selectedOrder, setSelectedOrder] = useState<string | null>(null);
+  const [refundType, setRefundType] = useState<"full" | "partial">("full");
+  const [partialAmount, setPartialAmount] = useState("");
+  const [reason, setReason] = useState("");
+  const [reasonOther, setReasonOther] = useState("");
+  const [notify, setNotify] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState(false);
+  const [step, setStep] = useState<1 | 2>(1);
+
+  const REASONS = [
+    "Content quality not as expected",
+    "Accidentally purchased wrong course",
+    "Technical issues preventing access",
+    "Duplicate purchase",
+    "Course not delivered as described",
+    "Other",
+  ];
+
+  const order = orders.find(o => o.id === selectedOrder);
+  const refundAmount =
+    refundType === "full" ? (order?.amount ?? 0) : parseFloat(partialAmount) || 0;
+
+  const canProceedStep1 = selectedOrder !== null;
+  const canConfirm =
+    reason.trim().length > 0 &&
+    (reason !== "Other" || reasonOther.trim().length > 0) &&
+    (refundType === "full" ||
+      (parseFloat(partialAmount) > 0 && parseFloat(partialAmount) <= (order?.amount ?? 0)));
+
+  const handleSubmit = async () => {
+    if (!canConfirm) return;
+    setLoading(true);
+    // Replace with your actual refund API call:
+    // await triggerRefund({ studentId: student.id, orderId: selectedOrder, amount: refundAmount, reason: reason === "Other" ? reasonOther : reason, notify })
+    await new Promise(r => setTimeout(r, 1200));
+    setLoading(false);
+    setSuccess(true);
+    setTimeout(onClose, 1800);
+  };
+
+  return (
+    <div
+      className='fixed inset-0 z-110 flex items-center justify-center'
+      style={{ background: "rgba(5,13,26,0.85)", backdropFilter: "blur(6px)" }}
+      onClick={onClose}
+    >
+      <div
+        className='w-full max-w-md h-[calc(100vh-4rem)] mx-4 rounded-2xl border border-slate-800 overflow-hidden overflow-y-auto'
+        style={{ background: "#070f1e" }}
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className='flex items-center justify-between px-6 py-4 border-b border-slate-800'>
+          <div className='flex items-center gap-3'>
+            <div
+              className='w-8 h-8 rounded-lg flex items-center justify-center'
+              style={{ background: "rgba(74,158,255,0.12)" }}
+            >
+              <ReceiptText
+                size={15}
+                color='#4a9eff'
+              />
+            </div>
+            <div>
+              <div className="font-['Syne'] font-bold text-slate-100 text-[15px]">
+                Trigger Refund
+              </div>
+              <div className='text-[11px] text-slate-500 font-mono uppercase tracking-wider'>
+                {student.studentProfile?.displayName}
+              </div>
+            </div>
+          </div>
+          <div className='flex items-center gap-3'>
+            {/* Step indicator */}
+            <div className='flex items-center gap-1.5'>
+              {[1, 2].map(s => (
+                <div
+                  key={s}
+                  className='transition-all'
+                  style={{
+                    width: step === s ? 20 : 6,
+                    height: 6,
+                    borderRadius: 3,
+                    background: step >= s ? "#4a9eff" : "#1a3158",
+                  }}
+                />
+              ))}
+            </div>
+            <button
+              onClick={onClose}
+              className='w-8 h-8 flex items-center justify-center rounded-lg border border-slate-800 text-slate-500 hover:text-slate-300 hover:border-slate-700 transition-all'
+            >
+              <X size={15} />
+            </button>
+          </div>
+        </div>
+
+        <div className='p-6 space-y-4 max-h-[72vh] overflow-y-auto'>
+          {success ? (
+            /* ── Success state ── */
+            <div className='flex flex-col items-center justify-center py-8 gap-3'>
+              <div
+                className='w-14 h-14 rounded-full flex items-center justify-center'
+                style={{
+                  background: "rgba(0,229,160,0.1)",
+                  border: "1px solid rgba(0,229,160,0.3)",
+                }}
+              >
+                <Check
+                  size={24}
+                  color='#00e5a0'
+                />
+              </div>
+              <div className="font-['Syne'] font-bold text-slate-100 text-[15px]">
+                Refund Initiated
+              </div>
+              <div className='text-[12px] text-slate-500 text-center leading-relaxed'>
+                <span className='text-emerald-400 font-semibold'>${refundAmount.toFixed(2)}</span>{" "}
+                refund for <span className='text-slate-300'>{order?.course}</span> has been
+                submitted.
+                {notify && " Student will be notified by email."}
+              </div>
+            </div>
+          ) : step === 1 ? (
+            /* ── Step 1: Select order ── */
+            <>
+              <div>
+                <label className='font-mono text-[10px] uppercase tracking-widest text-slate-500 mb-2 block'>
+                  Select Order to Refund
+                </label>
+                {orders.length === 0 ? (
+                  <div
+                    className='rounded-xl p-6 flex flex-col items-center gap-2 text-center'
+                    style={{
+                      background: "rgba(255,255,255,0.02)",
+                      border: "1px solid rgba(255,255,255,0.06)",
+                    }}
+                  >
+                    <AlertTriangle
+                      size={20}
+                      color='#3d5a80'
+                    />
+                    <div className='text-[13px] text-slate-500'>
+                      No orders found for this student
+                    </div>
+                  </div>
+                ) : (
+                  <div className='rounded-xl border border-slate-800 overflow-hidden divide-y divide-slate-800/60'>
+                    {orders.map(o => (
+                      <button
+                        key={o.id}
+                        onClick={() => setSelectedOrder(o.id)}
+                        className={`w-full flex items-center justify-between px-4 py-3.5 text-left transition-all cursor-pointer ${
+                          selectedOrder === o.id
+                            ? "bg-blue-500/10 border-l-2 border-blue-500"
+                            : "hover:bg-slate-800/50"
+                        }`}
+                      >
+                        <div className='flex-1 min-w-0'>
+                          <div
+                            className={`text-[13px] font-semibold truncate ${
+                              selectedOrder === o.id ? "text-blue-400" : "text-slate-200"
+                            }`}
+                          >
+                            {o.course}
+                          </div>
+                          <div className='flex items-center gap-2 mt-0.5'>
+                            <span className='font-mono text-[10px] text-slate-600'>{o.id}</span>
+                            <span className='text-slate-700'>·</span>
+                            <span className='text-[11px] text-slate-500'>{o.date}</span>
+                          </div>
+                        </div>
+                        <div className='flex items-center gap-2 ml-3 flex-shrink-0'>
+                          <span className='font-mono text-[13px] font-bold text-emerald-400'>
+                            ${o.amount}
+                          </span>
+                          {selectedOrder === o.id && (
+                            <Check
+                              size={14}
+                              color='#4a9eff'
+                            />
+                          )}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Refund type */}
+              {selectedOrder && (
+                <div>
+                  <label className='font-mono text-[10px] uppercase tracking-widest text-slate-500 mb-2 block'>
+                    Refund Type
+                  </label>
+                  <div className='grid grid-cols-2 gap-2'>
+                    {(["full", "partial"] as const).map(t => (
+                      <button
+                        key={t}
+                        onClick={() => setRefundType(t)}
+                        className='rounded-xl p-3.5 text-left transition-all cursor-pointer'
+                        style={{
+                          background:
+                            refundType === t ? "rgba(74,158,255,0.08)" : "rgba(255,255,255,0.02)",
+                          border: `1px solid ${refundType === t ? "rgba(74,158,255,0.25)" : "rgba(255,255,255,0.06)"}`,
+                        }}
+                      >
+                        <div className='flex items-center justify-between mb-1'>
+                          <span
+                            className='text-[13px] font-semibold capitalize'
+                            style={{ color: refundType === t ? "#4a9eff" : "#e8f0fe" }}
+                          >
+                            {t} Refund
+                          </span>
+                          {refundType === t && (
+                            <Check
+                              size={13}
+                              color='#4a9eff'
+                            />
+                          )}
+                        </div>
+                        <div className='text-[11px] text-slate-500'>
+                          {t === "full"
+                            ? `Full $${order?.amount} returned`
+                            : "Specify a custom amount"}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+
+                  {refundType === "partial" && (
+                    <div className='mt-2'>
+                      <label className='font-mono text-[10px] uppercase tracking-widest text-slate-500 mb-2 block'>
+                        Partial Amount (max ${order?.amount})
+                      </label>
+                      <div className='relative'>
+                        <span className='absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 text-[13px] font-mono'>
+                          $
+                        </span>
+                        <input
+                          type='number'
+                          min='0.01'
+                          max={order?.amount}
+                          step='0.01'
+                          className='w-full bg-slate-950 border border-slate-800 rounded-lg py-2.5 pl-7 pr-3.5 text-[13px] text-slate-100 outline-none focus:border-blue-500 transition-all placeholder:text-slate-600'
+                          placeholder={`0.00 – ${order?.amount}.00`}
+                          value={partialAmount}
+                          onChange={e => setPartialAmount(e.target.value)}
+                        />
+                      </div>
+                      {partialAmount && parseFloat(partialAmount) > (order?.amount ?? 0) && (
+                        <p className='text-[11px] text-red-400/70 mt-1.5'>
+                          Amount cannot exceed the original order value (${order?.amount}).
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
+          ) : (
+            /* ── Step 2: Reason & confirm ── */
+            <>
+              {/* Order summary */}
+              <div
+                className='rounded-xl p-3.5'
+                style={{
+                  background: "rgba(74,158,255,0.06)",
+                  border: "1px solid rgba(74,158,255,0.15)",
+                }}
+              >
+                <div className='flex justify-between items-start'>
+                  <div>
+                    <div className='text-[12px] font-semibold text-blue-400'>{order?.course}</div>
+                    <div className='font-mono text-[10px] text-slate-500 mt-0.5'>
+                      {order?.id} · {order?.date}
+                    </div>
+                  </div>
+                  <div className='text-right'>
+                    <div className='font-mono text-[13px] font-bold text-emerald-400'>
+                      ${refundAmount.toFixed(2)}
+                    </div>
+                    <div className='text-[10px] text-slate-500 capitalize'>{refundType} refund</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Reason */}
+              <div>
+                <label className='font-mono text-[10px] uppercase tracking-widest text-slate-500 mb-2 block'>
+                  Reason for Refund <span className='text-red-500'>*</span>
+                </label>
+                <div className='grid grid-cols-1 gap-1.5 mb-2'>
+                  {REASONS.map(r => (
+                    <button
+                      key={r}
+                      onClick={() => setReason(r)}
+                      className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-lg text-left text-[13px] transition-all cursor-pointer ${
+                        reason === r
+                          ? "bg-blue-500/10 text-blue-400 border border-blue-500/25"
+                          : "text-slate-400 border border-slate-800/60 hover:border-slate-700 hover:text-slate-200"
+                      }`}
+                    >
+                      {r}
+                      {reason === r && (
+                        <Check
+                          size={13}
+                          color='#4a9eff'
+                        />
+                      )}
+                    </button>
+                  ))}
+                </div>
+                {reason === "Other" && (
+                  <textarea
+                    className='w-full bg-slate-950 border border-slate-800 rounded-lg p-3.5 text-[13px] text-slate-100 outline-none focus:border-blue-500 transition-all resize-none placeholder:text-slate-600 mt-1'
+                    rows={2}
+                    placeholder='Describe the reason...'
+                    value={reasonOther}
+                    onChange={e => setReasonOther(e.target.value)}
+                    autoFocus
+                  />
+                )}
+              </div>
+
+              {/* Notify toggle */}
+              <div
+                className='flex items-center justify-between rounded-xl p-3.5'
+                style={{
+                  background: "rgba(255,255,255,0.02)",
+                  border: "1px solid rgba(255,255,255,0.06)",
+                }}
+              >
+                <div>
+                  <div className='text-[13px] font-semibold text-slate-200'>
+                    Notify Student by Email
+                  </div>
+                  <div className='text-[11px] text-slate-500 mt-0.5'>
+                    Send a refund confirmation with transaction details
+                  </div>
+                </div>
+                <button
+                  onClick={() => setNotify(!notify)}
+                  className='w-10 h-[22px] rounded-full relative transition-all flex-shrink-0 ml-4'
+                  style={{ background: notify ? "#da7c36" : "#1a3158" }}
+                >
+                  <div
+                    className='w-4 h-4 rounded-full bg-white absolute top-[3px] transition-all shadow-md'
+                    style={{ left: notify ? 22 : 3 }}
+                  />
+                </button>
+              </div>
+
+              {/* Warning */}
+              <div
+                className='rounded-xl p-3.5 flex gap-2.5 items-start'
+                style={{
+                  background: "rgba(255,193,7,0.06)",
+                  border: "1px solid rgba(255,193,7,0.15)",
+                }}
+              >
+                <AlertTriangle
+                  size={14}
+                  color='#ffc107'
+                  className='flex-shrink-0 mt-0.5'
+                />
+                <div className='text-[11px] text-yellow-600/90 leading-relaxed'>
+                  Refunds are irreversible. The student will lose access to the course once the
+                  refund is processed.
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Footer */}
+        {!success && (
+          <div className='px-6 py-4 border-t border-slate-800 flex gap-3'>
+            <button
+              onClick={() => {
+                if (step === 2) setStep(1);
+                else onClose();
+              }}
+              className='flex-1 py-2.5 rounded-lg border border-slate-800 text-slate-400 text-[13px] font-semibold hover:bg-slate-800 hover:text-slate-100 transition-all'
+            >
+              {step === 2 ? "← Back" : "Cancel"}
+            </button>
+            {step === 1 ? (
+              <button
+                onClick={() => setStep(2)}
+                disabled={!canProceedStep1 || orders.length === 0}
+                className='flex-1 py-2.5 rounded-lg text-white text-[13px] font-semibold transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2'
+                style={{
+                  background: "linear-gradient(135deg, #4a9eff, #1a6fd4)",
+                  boxShadow: canProceedStep1 ? "0 4px 14px rgba(74,158,255,0.25)" : "none",
+                }}
+              >
+                Next → Review
+              </button>
+            ) : (
+              <button
+                onClick={handleSubmit}
+                disabled={!canConfirm || loading}
+                className='flex-1 py-2.5 rounded-lg text-white text-[13px] font-semibold transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2'
+                style={{
+                  background: "linear-gradient(135deg, #4a9eff, #1a6fd4)",
+                  boxShadow: canConfirm ? "0 4px 14px rgba(74,158,255,0.25)" : "none",
+                }}
+              >
+                {loading ? (
+                  <>
+                    <svg
+                      className='animate-spin'
+                      width={14}
+                      height={14}
+                      viewBox='0 0 24 24'
+                      fill='none'
+                    >
+                      <circle
+                        cx='12'
+                        cy='12'
+                        r='10'
+                        stroke='white'
+                        strokeWidth='3'
+                        strokeOpacity='0.3'
+                      />
+                      <path
+                        d='M12 2a10 10 0 0 1 10 10'
+                        stroke='white'
+                        strokeWidth='3'
+                        strokeLinecap='round'
+                      />
+                    </svg>
+                    Processing...
+                  </>
+                ) : (
+                  <>
+                    <ReceiptText size={14} />
+                    Confirm Refund ${refundAmount.toFixed(2)}
+                  </>
+                )}
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── Main Component ─────────────────────────────────────────────────────────
 export default function StudentsTableClient({
   initialStudents,
@@ -1000,6 +1498,7 @@ export default function StudentsTableClient({
   const [enrollModal, setEnrollModal] = useState(false);
   const [badgeModal, setBadgeModal] = useState(false);
   const [suspendModal, setSuspendModal] = useState(false);
+  const [refundModal, setRefundModal] = useState(false);
 
   const filtered = useMemo(() => {
     return initialStudents.filter(s => {
@@ -1008,8 +1507,8 @@ export default function StudentsTableClient({
         s.email.toLowerCase().includes(search.toLowerCase()) ||
         s.studentProfile?.encryptedPhone.toLowerCase().includes(search.toLowerCase());
 
-      if (filter === "active") return matchesSearch && s.status === "Active";
-      if (filter === "suspended") return matchesSearch && s.status === "Suspended";
+      if (filter === "active") return matchesSearch && s.status === "ACTIVE";
+      if (filter === "suspended") return matchesSearch && s.status === "SUSPENDED";
       return matchesSearch;
     });
   }, [search, filter, initialStudents]);
@@ -1031,11 +1530,11 @@ export default function StudentsTableClient({
           />
         </div>
 
-        <div className='flex gap-0.5 bg-slate-950 rounded-xl p-1 border border-slate-800 overflow-x-auto'>
+        <div className='flex gap-0.5 bg-slate-950 rounded-lg p-1 border border-slate-800 overflow-x-auto'>
           {["all", "active", "suspended"].map(f => (
             <button
               key={f}
-              className={`px-4.5 py-2 rounded-lg text-[13px] font-semibold transition-all cursor-pointer ${
+              className={`px-4.5 py-2 rounded-lg text-[13px] font-semibold cursor-pointer ${
                 filter === f
                   ? "bg-slate-900 text-orange-400 border border-orange-500/25"
                   : "text-slate-500 hover:text-slate-300"
@@ -1049,7 +1548,7 @@ export default function StudentsTableClient({
       </div>
 
       {/* Table Content */}
-      <div className='bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden'>
+      <div className='bg-slate-900 border border-slate-800 rounded-lg overflow-hidden'>
         <div className='overflow-x-auto'>
           <table className='w-full border-collapse'>
             <thead>
@@ -1081,10 +1580,24 @@ export default function StudentsTableClient({
                 >
                   <td className='p-4 px-4.5'>
                     <div className='flex items-center gap-3'>
-                      <Avatar
+                      {/* <Avatar
                         name={s.studentProfile?.displayName as string}
                         size={34}
-                      />
+                      /> */}
+                      {s.avatarUrl ? (
+                        <Image
+                          width={40}
+                          height={40}
+                          src={s.avatarUrl as string}
+                          alt={"this is an avater image"}
+                          className='w-10 h-10 rounded-full object-cover'
+                        />
+                      ) : (
+                        <Avatar
+                          name={s.studentProfile?.displayName as string}
+                          size={34}
+                        />
+                      )}
                       <div>
                         <div className='font-semibold text-slate-100'>
                           {s.studentProfile?.displayName}
@@ -1131,10 +1644,20 @@ export default function StudentsTableClient({
           title='Student Profile'
         >
           <div className='flex gap-4 mb-6'>
-            <Avatar
-              name={panel.studentProfile?.displayName as string}
-              size={56}
-            />
+            {panel.avatarUrl ? (
+              <Image
+                width={40}
+                height={40}
+                src={panel.avatarUrl as string}
+                alt={"this is an avater image"}
+                className='w-10 h-10 rounded-full object-cover'
+              />
+            ) : (
+              <Avatar
+                name={panel.studentProfile?.displayName as string}
+                size={34}
+              />
+            )}
             <div>
               <div className="font-bold text-lg text-slate-100 font-['Syne']">
                 {panel.studentProfile?.displayName}
@@ -1211,7 +1734,11 @@ export default function StudentsTableClient({
             >
               {panel.status === "ACTIVE" ? "Suspend Account" : "Activate Account"}
             </button>
-            <button className='flex justify-center items-center gap-1.5 px-4 py-2.5 rounded-lg bg-transparent text-slate-400 border border-slate-800 hover:bg-slate-900 hover:text-slate-100 transition-all cursor-pointer'>
+            <button
+              onClick={() => setRefundModal(true)}
+              className='flex justify-center items-center gap-1.5 px-4 py-2.5 rounded-lg bg-transparent text-slate-400 border border-slate-800 hover:bg-slate-900 hover:text-slate-100 transition-all cursor-pointer'
+            >
+              <ReceiptText size={13} />
               Trigger Refund
             </button>
           </div>
@@ -1249,6 +1776,12 @@ export default function StudentsTableClient({
         <SuspendModal
           student={panel}
           onClose={() => setSuspendModal(false)}
+        />
+      )}
+      {panel && refundModal && (
+        <RefundModal
+          student={panel}
+          onClose={() => setRefundModal(false)}
         />
       )}
     </>
