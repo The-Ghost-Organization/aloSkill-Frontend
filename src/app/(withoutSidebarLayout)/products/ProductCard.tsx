@@ -1,21 +1,18 @@
 // components/ProductCard.tsx
+import type { StaticImageData } from "next/image";
 import Image from "next/image";
 
-type Spec = {
-  title: string;
-  description: string;
-};
-
+type Spec = { title: string; description: string };
 type AccentColor = "pink" | "orange" | "purple" | "blue";
 
 type ProductCardProps = {
   name: string;
   description: string;
   price: number;
-  rating: number; // 1–5
-  image: string;
+  rating: number;
+  image: string | StaticImageData;
   imageAlt?: string;
-  specs?: Spec[]; // 3 recommended
+  specs?: Spec[];
   accentColor?: AccentColor;
   onAddToCart?: () => void;
 };
@@ -25,28 +22,38 @@ const THEMES: Record<
   {
     dot: string;
     badge: string;
-    body: string;
+    border: string;
+    accent: string;
+    button: string;
   }
 > = {
   pink: {
-    dot: "bg-gradient-to-br from-purple-500 to-pink-500",
+    dot: "bg-gradient-to-br from-purple-400 to-pink-500",
     badge: "bg-pink-500",
-    body: "bg-gradient-to-br from-pink-500 to-pink-700",
+    border: "border-pink-200/80",
+    accent: "text-pink-600",
+    button: "border-pink-300 text-pink-600 hover:bg-pink-50/80",
   },
   orange: {
-    dot: "bg-gradient-to-br from-orange-500 to-red-500",
+    dot: "bg-gradient-to-br from-orange-400 to-red-500",
     badge: "bg-amber-400",
-    body: "bg-gradient-to-br from-orange-500 to-orange-700",
+    border: "border-orange-200/80",
+    accent: "text-orange-600",
+    button: "border-orange-300 text-orange-600 hover:bg-orange-50/80",
   },
   purple: {
-    dot: "bg-gradient-to-br from-indigo-500 to-purple-600",
+    dot: "bg-gradient-to-br from-indigo-400 to-purple-600",
     badge: "bg-purple-500",
-    body: "bg-gradient-to-br from-purple-600 to-indigo-700",
+    border: "border-purple-200/80",
+    accent: "text-purple-600",
+    button: "border-purple-300 text-purple-600 hover:bg-purple-50/80",
   },
   blue: {
     dot: "bg-gradient-to-br from-cyan-400 to-blue-600",
     badge: "bg-blue-500",
-    body: "bg-gradient-to-br from-blue-500 to-blue-700",
+    border: "border-blue-200/80",
+    accent: "text-blue-600",
+    button: "border-blue-300 text-blue-600 hover:bg-blue-50/80",
   },
 };
 
@@ -60,7 +67,7 @@ function StarRating({ rating }: { rating: number }) {
       {Array.from({ length: 5 }, (_, i) => (
         <svg
           key={i}
-          className={`w-4 h-4 ${i < rating ? "text-yellow-400" : "text-white/30"}`}
+          className={`w-4 h-4 ${i < rating ? "text-yellow-400" : "text-gray-300"}`}
           fill='currentColor'
           viewBox='0 0 20 20'
           aria-hidden='true'
@@ -86,8 +93,9 @@ export default function ProductCard({
   const theme = THEMES[accentColor];
 
   return (
-    // Outer wrapper — transparent so it sits on any bg (white page, dark section, etc.)
-    <div className='relative w-[260px] flex flex-col overflow-visible'>
+    <div
+      className={`relative w-[260px] flex flex-col overflow-visible rounded-[22px] border-2 ${theme.border}`}
+    >
       {/* Decorative dot — top-left */}
       <div className={`absolute top-3 left-3 w-7 h-7 rounded-full z-10 ${theme.dot}`} />
 
@@ -98,45 +106,63 @@ export default function ProductCard({
         ${price}
       </span>
 
-      {/* Product image — floats above the card body */}
-      <div className='relative z-10 h-48 flex items-end justify-center pb-0 pointer-events-none select-none'>
-        <Image
-          src={image}
-          alt={imageAlt ?? name}
-          width={220}
-          height={190}
-          className='object-contain drop-shadow-2xl'
-          priority
-        />
+      {/* Book cover — portrait ratio */}
+      <div className='relative z-10 h-64 flex items-end justify-center pointer-events-none select-none'>
+        <div className='relative'>
+          <Image
+            src={image}
+            alt={imageAlt ?? name}
+            width={138}
+            height={200}
+            className='object-contain rounded-sm'
+            style={{
+              filter:
+                "drop-shadow(0 12px 24px rgba(0,0,0,0.20)) drop-shadow(0 3px 6px rgba(0,0,0,0.12))",
+            }}
+            priority
+          />
+          {/* Subtle right-edge — page thickness illusion */}
+          <div className='absolute top-0 right-0 w-[3px] h-full bg-black/10 rounded-r-sm' />
+        </div>
       </div>
 
-      {/* Info card — sits behind / below image with negative margin pull-up */}
-      <div className={`relative z-0 -mt-5 rounded-[18px] px-4 pt-5 pb-4 ${theme.body}`}>
+      {/* ✅ Glassmorphism card body */}
+      <div
+        className={`
+          relative z-0 -mt-6
+          rounded-[18px] px-4 pt-8 pb-4
+          bg-white/60 backdrop-blur-xl
+          border-t-2 ${theme.border}
+          shadow-xl shadow-black/[0.06]
+        `}
+      >
         {/* Main content row */}
         <div className='flex gap-3'>
-          {/* Left column: name + description + stars */}
+          {/* Left: name + description + stars */}
           <div className='flex flex-col gap-1.5 flex-[1.1]'>
-            <h2 className='text-white font-black text-[22px] uppercase leading-none tracking-wide font-sans'>
+            <h2
+              className={`font-black text-[20px] uppercase leading-tight tracking-wide ${theme.accent}`}
+            >
               {name}
             </h2>
-            <p className='text-white/80 text-[11px] leading-relaxed'>{description}</p>
+            <p className='text-gray-500 text-[11px] leading-relaxed'>{description}</p>
             <StarRating rating={rating} />
           </div>
 
           {/* Divider */}
           {specs.length > 0 && (
-            <div className='w-px bg-white/25 self-stretch flex-shrink-0 mx-0.5' />
+            <div className='w-px bg-gray-200 self-stretch flex-shrink-0 mx-0.5' />
           )}
 
-          {/* Right column: specs */}
+          {/* Right: specs */}
           {specs.length > 0 && (
             <div className='flex flex-col gap-2 flex-1'>
               {specs.slice(0, 3).map((spec, i) => (
                 <div key={i}>
-                  <p className='text-white text-[11px] font-bold uppercase tracking-wide leading-none mb-0.5'>
+                  <p className='text-gray-700 text-[11px] font-bold uppercase tracking-wide leading-none mb-0.5'>
                     {spec.title}
                   </p>
-                  <p className='text-white/75 text-[10.5px] leading-snug'>{spec.description}</p>
+                  <p className='text-gray-400 text-[10.5px] leading-snug'>{spec.description}</p>
                 </div>
               ))}
             </div>
@@ -144,7 +170,16 @@ export default function ProductCard({
         </div>
 
         {/* CTA button */}
-        <button className='mt-4 w-full border-2 border-white/80 text-white text-[13px] font-black uppercase tracking-[0.12em] rounded-full py-2 bg-transparent hover:bg-white/15 active:scale-[0.98] transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60'>
+        <button
+          onClick={onAddToCart}
+          className={`
+            mt-4 w-full border-2 text-[13px] font-black uppercase
+            tracking-[0.12em] rounded-full py-2 bg-transparent
+            active:scale-[0.98] transition-all duration-150
+            focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1
+            ${theme.button}
+          `}
+        >
           Add to Cart
         </button>
       </div>
