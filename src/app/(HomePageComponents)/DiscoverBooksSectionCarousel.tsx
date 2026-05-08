@@ -124,7 +124,7 @@ export function DiscoverBooksSectionCarousel() {
   /* ------------------ RENDER ------------------ */
 
   return (
-    <section className='py-20 bg-gradient-to-br from-orange-50 via-white to-blue-50 overflow-hidden'>
+    <section className='py-20 bg-linear-to-br from-orange-50 via-white to-blue-50 overflow-hidden'>
       <div className='max-w-7xl mx-auto px-4'>
         {/* Section Header */}
         <SectionHeader

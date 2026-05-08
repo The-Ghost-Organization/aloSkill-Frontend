@@ -38,7 +38,7 @@ const nextConfig: NextConfig = {
       },
       {
         protocol: "https",
-        hostname: "aloskill-pull-zone-5.b-cdn.net",
+        hostname: "aloskill-pull-zone-6.b-cdn.net",
         pathname: "/**",
       },
       {
@@ -51,6 +51,7 @@ const nextConfig: NextConfig = {
         hostname: "securepay.sslcommerz.com",
         pathname: "/**",
       },
+      { protocol: "https", hostname: "picsum.photos", pathname: "/**" },
     ],
 
     unoptimized: false,
