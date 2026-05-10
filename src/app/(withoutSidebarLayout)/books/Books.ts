@@ -143,8 +143,7 @@ export const books: Book[] = [
     rating: 4.1,
     reviewCount: 32100,
     cover: "https://picsum.photos/seed/book5/300/450",
-    description:
-      "A psychological thriller about the marriage between Nick Dunne and Amy Elliott.",
+    description: "A psychological thriller about the marriage between Nick Dunne and Amy Elliott.",
     longDescription:
       "On a warm summer morning in North Carthage, Missouri, it is Nick and Amy Dunne's fifth wedding anniversary. Presents are being wrapped and reservations are being made when Nick's clever and beautiful wife disappears from their rented McMansion on the Mississippi River. Under mounting pressure from the police and media—as well as Amy's fiercely doting parents—the town golden boy parades an endless series of lies, deceits, and inappropriate behavior.",
     publishedYear: 2012,
