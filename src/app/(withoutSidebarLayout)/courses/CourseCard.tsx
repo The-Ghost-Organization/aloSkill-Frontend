@@ -130,7 +130,6 @@ const CourseCard = memo(function CourseCard({
             fill
             sizes='(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw'
             className='object-cover hover:scale-110 transition-transform duration-500'
-            unoptimized
             onError={() => {
               if (imgSrc !== "/images/course-placeholder.png") {
                 setImgSrc("/images/course-placeholder.png");

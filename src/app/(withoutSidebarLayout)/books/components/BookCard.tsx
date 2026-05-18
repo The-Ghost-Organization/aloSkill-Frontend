@@ -77,7 +77,7 @@ function GridCard({ book }: BookCardProps) {
     >
       <article className='bg-white rounded-lg border border-gray-100 shadow-sm overflow-hidden transition-all duration-300 ease-out hover:-translate-y-1.5 hover:shadow-xl hover:shadow-gray-200/70 hover:border-gray-200'>
         {/* ── Cover Image ── */}
-        <div className='relative w-full h-42.5 overflow-hidden bg-gray-100'>
+        <div className='relative w-full h-56 overflow-hidden bg-gray-100'>
           <Image
             src={book.cover}
             alt={`Cover of ${book.title}`}

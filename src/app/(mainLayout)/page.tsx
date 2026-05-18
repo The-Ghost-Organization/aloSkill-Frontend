@@ -10,13 +10,11 @@ import { InstructorsSectionAdvanced } from "@/app/(HomePageComponents)/Instructo
 import { WhyLearnSectionAnimated } from "@/app/(HomePageComponents)/WhyLearnSectionAnimated";
 import BackToTop from "@/components/shared/BackToTop";
 import TabletDrawer from "@/components/shared/menu/TabletDrawer";
-import { Suspense } from "react";
 import GCommunitySection from "../(HomePageComponents)/(CommunitySection)/GCommunitySection.tsx";
 import ProcessPerfect from "../(HomePageComponents)/(Process)/Process.tsx";
 import TestimonialSlider from "../(HomePageComponents)/(TestimonialSection)/TestimonialSlider";
 import FAQStickyStack from "../(HomePageComponents)/FAQStickyStack.tsx";
 import StdTestimonials from "../(HomePageComponents)/StdTestimonials.tsx";
-import CourseSkeleton from "../../components/CourseSkeleton.tsx";
 
 const MobileMenuWrapper = dynamic(() => import("../(HomePageComponents)/MobileMenuWrapper.tsx"));
 
@@ -31,17 +29,13 @@ export default function HomePage() {
       <StatsSection />
       <CategoriesSectionAnimated />
       <WhyLearnSectionAnimated />
-      <Suspense fallback={<CourseSkeleton />}>
-        <PopularCoursesSection />
-      </Suspense>
+      <PopularCoursesSection />
       <DiscoverBooksSectionCarousel />
       <InstructorsSectionAdvanced />
       <StdTestimonials />
       <ProcessPerfect />
       <FAQStickyStack />
-      <Suspense fallback={<div>Testimonial Loading...</div>}>
-        <TestimonialSlider />
-      </Suspense>
+      <TestimonialSlider />
       <GCommunitySection />
       <CertificateSectionSimple />
       <ContactSection />

@@ -1,3 +1,4 @@
+import { ChevronDown } from "lucide-react";
 import { type Dispatch, type SetStateAction } from "react";
 import { type SubmitHandler, useForm } from "react-hook-form";
 import { type Category, useSessionContext } from "../../contexts/SessionContext.tsx";
@@ -31,6 +32,7 @@ const InstructorStep3 = ({
     formState: { errors, isSubmitting },
   } = useForm<Inputs>();
 
+  // ── Handlers — unchanged ────────────────────────────────────────────────────
   const onSubmit: SubmitHandler<Inputs> = async data => {
     if (currentStep < 4) {
       setCurrentStep(currentStep + 1);
@@ -45,137 +47,166 @@ const InstructorStep3 = ({
     setCurrentStep(currentStep - 1);
   };
 
+  // ── Style helpers ───────────────────────────────────────────────────────────
+  const selectBase =
+    "w-full min-w-0 appearance-none text-sm px-3 py-2.5 pr-9 rounded-lg border " +
+    "focus:ring-2 focus:ring-orange-400/30 focus:border-orange-400 focus:outline-none " +
+    "transition-all bg-gray-50 focus:bg-white text-gray-700 cursor-pointer";
+  const selectError = "border-red-300 bg-red-50 focus:ring-red-200 focus:border-red-400";
+  const selectNormal = "border-gray-200";
+
+  // Reusable wrapper that adds the chevron icon over any select
+  const SelectWrapper = ({ children }: { children: React.ReactNode }) => (
+    <div className='relative'>
+      {children}
+      <ChevronDown
+        className='pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400'
+        aria-hidden='true'
+      />
+    </div>
+  );
+
+  const ErrorMsg = ({ msg }: { msg: string }) => (
+    <p className='mt-1.5 flex items-start gap-1 text-xs text-red-500'>
+      <span className='mt-0.5 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-red-400' />
+      {msg}
+    </p>
+  );
+
+  const FieldLabel = ({
+    children,
+    required,
+  }: {
+    children: React.ReactNode;
+    required?: boolean;
+  }) => (
+    <label className='mb-1.5 block text-xs font-semibold uppercase tracking-wide text-gray-500'>
+      {children}
+      {required && <span className='ml-0.5 text-orange-500'>*</span>}
+    </label>
+  );
+
   return (
-    <div className='space-y-4'>
+    <div className='space-y-5'>
       <form
         onSubmit={handleSubmit(onSubmit)}
-        className='space-y-4'
+        className='space-y-5'
       >
-        <h2 className='mb-4'>Course Details</h2>
-        <div className='grid grid-cols-1 md:grid-cols-2 gap-3'>
-          {/* Proposed Course Category */}
-          <div>
-            <label className='block text-sm font-medium text-gray-700 mb-1'>
-              <span className=''>Proposed Course Category *</span>
-            </label>
-            <select
-              {...register("proposedCourseCategory", {
-                required: "Enter Your proposed Course Category",
-              })}
-              defaultValue={instructorData.proposedCourseCategory}
-              className={`w-full text-sm px-3 py-2 rounded border focus:ring-1 focus:ring-orange focus:border-transparent focus:outline-none transition placeholder:text-sm resize-none ${errors.proposedCourseCategory ? "border-red-200 bg-red-50" : "border-gray-200"}`}
-            >
-              <option value=''>Select Course Category</option>
-              {categories &&
-                categories
-                  .filter((category: Category) => category.parentId === null)
-                  .map((cat: Category) => (
-                    <option
-                      key={cat.id}
-                      value={cat.name}
-                    >
-                      {cat.name}
-                    </option>
-                  ))}
-            </select>
+        {/* ── Section header ── */}
+        <div>
+          <h2 className='text-lg font-extrabold text-gray-900 sm:text-xl'>Course Details</h2>
+          <p className='mt-0.5 text-xs text-gray-400'>
+            Tell us about the course you plan to create on AloSkill.
+          </p>
+        </div>
+
+        <div className='grid grid-cols-1 gap-4 sm:grid-cols-2'>
+          {/* ── Proposed Course Category — full width for long dynamic option names ── */}
+          <div className='col-span-1 min-w-0 sm:col-span-2'>
+            <FieldLabel required>Proposed Course Category</FieldLabel>
+            <SelectWrapper>
+              <select
+                {...register("proposedCourseCategory", {
+                  required: "Enter Your proposed Course Category",
+                })}
+                defaultValue={instructorData.proposedCourseCategory}
+                className={`${selectBase} ${errors.proposedCourseCategory ? selectError : selectNormal}`}
+              >
+                <option value=''>Select Course Category</option>
+                {categories &&
+                  categories
+                    .filter((category: Category) => category.parentId === null)
+                    .map((cat: Category) => (
+                      <option
+                        key={cat.id}
+                        value={cat.name}
+                      >
+                        {cat.name}
+                      </option>
+                    ))}
+              </select>
+            </SelectWrapper>
             {errors.proposedCourseCategory && (
-              <span className='text-xs text-red-500 mt-1'>
-                {errors.proposedCourseCategory.message}
-              </span>
+              <ErrorMsg msg={errors.proposedCourseCategory.message!} />
             )}
           </div>
 
-          {/* Course Level */}
-          <div>
-            <label className='block text-sm font-medium text-gray-700 mb-1'>
-              <span className=''>Course Level *</span>
-            </label>
-            <select
-              {...register("courseLevel", {
-                required: "Select Course Level",
-              })}
-              defaultValue={instructorData.courseLevel}
-              className={`w-full text-sm px-3 py-2 rounded border focus:ring-1 focus:ring-orange focus:border-transparent focus:outline-none transition placeholder:text-sm resize-none ${errors.courseLevel ? "border-red-200 bg-red-50" : "border-gray-200"}`}
-            >
-              <option value=''>Select Level</option>
-              <option value='BEGINNER'>Beginner</option>
-              <option value='INTERMEDIATE'>Intermediate</option>
-              <option value='ADVANCED'>Advanced</option>
-              <option value='EXPERT'>Expert</option>
-            </select>
-            {errors.courseLevel && (
-              <span className='text-xs text-red-500 mt-1'>{errors.courseLevel.message}</span>
-            )}
-          </div>
-          {/* Course Type */}
-          <div>
-            <label className='block text-sm font-medium text-gray-700 mb-1'>
-              <span className=''>Course Type *</span>
-            </label>
-            <select
-              {...register("courseType", {
-                required: "Select Course Type",
-              })}
-              defaultValue={instructorData.courseType}
-              className={`w-full text-sm px-3 py-2 rounded border focus:ring-1 focus:ring-orange focus:border-transparent focus:outline-none transition placeholder:text-sm resize-none ${errors.courseType ? "border-red-200 bg-red-50" : "border-gray-200"}`}
-            >
-              <option value=''>Select Type</option>
-              <option value='LIVE'>Live</option>
-              <option value='PRE_RECORDED'>Pre-Recorded</option>
-              <option value='HYBRID'>Hybrid</option>
-              <option value='SELF_STUDY'>Self-Study</option>
-            </select>
-            {errors.courseType && (
-              <span className='text-xs text-red-500 mt-1'>{errors.courseType.message}</span>
-            )}
-          </div>
-          {/* Teaching Approach */}
-          <div>
-            <label className='block text-sm font-medium text-gray-700 mb-1'>
-              <span className=''>Teaching Approach *</span>
-            </label>
-            <select
-              {...register("prevTeachingApproach", {
-                required: "Select Teaching Approach",
-              })}
-              defaultValue={instructorData.prevTeachingApproach}
-              className={`w-full text-sm px-3 py-2 rounded border focus:ring-1 focus:ring-orange focus:border-transparent focus:outline-none transition placeholder:text-sm resize-none ${errors.prevTeachingApproach ? "border-red-200 bg-red-50" : "border-gray-200"}`}
-            >
-              <option value=''>Select Approach</option>
-              <option value='INTERACTIVE'>Activity Based</option>
-              <option value='VIDEO'>Lecture Based</option>
-              <option value='LIVE'>Flipped Classroom</option>
-              <option value='PROJECT_BASED'>Project Based</option>
-            </select>
-            {errors.prevTeachingApproach && (
-              <span className='text-xs text-red-500 mt-1'>
-                {errors.prevTeachingApproach.message}
-              </span>
-            )}
+          {/* ── Course Level ── */}
+          <div className='min-w-0'>
+            <FieldLabel required>Course Level</FieldLabel>
+            <SelectWrapper>
+              <select
+                {...register("courseLevel", { required: "Select Course Level" })}
+                defaultValue={instructorData.courseLevel}
+                className={`${selectBase} ${errors.courseLevel ? selectError : selectNormal}`}
+              >
+                <option value=''>Select Level</option>
+                <option value='BEGINNER'>Beginner</option>
+                <option value='INTERMEDIATE'>Intermediate</option>
+                <option value='ADVANCED'>Advanced</option>
+                <option value='EXPERT'>Expert</option>
+              </select>
+            </SelectWrapper>
+            {errors.courseLevel && <ErrorMsg msg={errors.courseLevel.message!} />}
           </div>
 
-          {/* Teaching Language */}
-          <div>
-            <label className='block text-sm font-medium text-gray-700 mb-1'>
-              <span className=''>Teaching Language *</span>
-            </label>
-            <select
-              {...register("language", {
-                required: "Enter your Teaching Language",
-              })}
-              defaultValue={instructorData.language}
-              className={`w-full text-sm px-3 py-2 rounded border focus:ring-1 focus:ring-orange focus:border-transparent focus:outline-none transition placeholder:text-sm resize-none ${errors.language ? "border-red-200 bg-red-50" : "border-gray-200"}`}
-            >
-              <option value=''>Select language</option>
-              <option value='BANGLA'>Bangla</option>
-              <option value='ENGLISH'>English</option>
-            </select>
-            {errors.language && (
-              <span className='text-xs text-red-500 mt-1'>{errors.language.message}</span>
-            )}
+          {/* ── Course Type ── */}
+          <div className='min-w-0'>
+            <FieldLabel required>Course Type</FieldLabel>
+            <SelectWrapper>
+              <select
+                {...register("courseType", { required: "Select Course Type" })}
+                defaultValue={instructorData.courseType}
+                className={`${selectBase} ${errors.courseType ? selectError : selectNormal}`}
+              >
+                <option value=''>Select Type</option>
+                <option value='LIVE'>Live</option>
+                <option value='PRE_RECORDED'>Pre-Recorded</option>
+                <option value='HYBRID'>Hybrid</option>
+                <option value='SELF_STUDY'>Self-Study</option>
+              </select>
+            </SelectWrapper>
+            {errors.courseType && <ErrorMsg msg={errors.courseType.message!} />}
+          </div>
+
+          {/* ── Teaching Approach ── */}
+          <div className='min-w-0'>
+            <FieldLabel required>Teaching Approach</FieldLabel>
+            <SelectWrapper>
+              <select
+                {...register("prevTeachingApproach", { required: "Select Teaching Approach" })}
+                defaultValue={instructorData.prevTeachingApproach}
+                className={`${selectBase} ${errors.prevTeachingApproach ? selectError : selectNormal}`}
+              >
+                <option value=''>Select Approach</option>
+                <option value='INTERACTIVE'>Activity Based</option>
+                <option value='VIDEO'>Lecture Based</option>
+                <option value='LIVE'>Flipped Classroom</option>
+                <option value='PROJECT_BASED'>Project Based</option>
+              </select>
+            </SelectWrapper>
+            {errors.prevTeachingApproach && <ErrorMsg msg={errors.prevTeachingApproach.message!} />}
+          </div>
+
+          {/* ── Teaching Language ── */}
+          <div className='min-w-0'>
+            <FieldLabel required>Teaching Language</FieldLabel>
+            <SelectWrapper>
+              <select
+                {...register("language", { required: "Enter your Teaching Language" })}
+                defaultValue={instructorData.language}
+                className={`${selectBase} ${errors.language ? selectError : selectNormal}`}
+              >
+                <option value=''>Select Language</option>
+                <option value='BANGLA'>Bangla</option>
+                <option value='ENGLISH'>English</option>
+              </select>
+            </SelectWrapper>
+            {errors.language && <ErrorMsg msg={errors.language.message!} />}
           </div>
         </div>
-        {/* Footer Actions */}
+
+        {/* ── Footer actions — unchanged component ── */}
         <InstructorRegistrationFooterAction
           handlePrevious={handlePrevious}
           isSubmitting={isSubmitting}

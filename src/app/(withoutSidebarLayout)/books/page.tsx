@@ -14,7 +14,6 @@
 import { books } from './Books';
 import BooksClient from './components/BooksClient';
 
-
 export const metadata = {
   title: "All Books — Our Collection",
   description: `Browse our curated collection of ${books.length} titles.`,
