@@ -77,29 +77,32 @@ const BasicInformaton = ({
     | []
   >([]);
 
-  const checkUniqueSlug = useCallback(async (slug: string) => {
-    if (!slug) return false;
-    if(courseData.slug === slug) return true;
-    try {
-      const response = await apiClient.get<{ canProceed: boolean }>(`/course/slug-check/${slug}`);
-      if (response.success && response.data) {
-        const userData = response.data;
-        if (!userData?.canProceed) {
-          setSlugError("This slug is already registered. Please enter a new slug");
-          return false;
+  const checkUniqueSlug = useCallback(
+    async (slug: string) => {
+      if (!slug) return false;
+      if (courseData.slug === slug) return true;
+      try {
+        const response = await apiClient.get<{ canProceed: boolean }>(`/course/slug-check/${slug}`);
+        if (response.success && response.data) {
+          const userData = response.data;
+          if (!userData?.canProceed) {
+            setSlugError("This slug is already registered. Please enter a new slug");
+            return false;
+          } else {
+            setSlugError("");
+            return true;
+          }
         } else {
-          setSlugError("");
-          return true;
+          return false;
         }
-      } else {
+      } catch (_error) {
+        // console.error("Error checking slug uniqueness:", error);
+        setSlugError("Error checking slug");
         return false;
       }
-    } catch (_error) {
-      // console.error("Error checking slug uniqueness:", error);
-      setSlugError("Error checking slug");
-      return false;
-    }
-  }, [courseData.slug]);
+    },
+    [courseData.slug]
+  );
 
   const {
     register,
