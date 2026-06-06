@@ -106,9 +106,20 @@ const bookSchema = z
         fileType: z.enum(["PREVIEW", "EBOOK"]),
       })
     ),
-    coverImage: z.custom<File>(v => v instanceof File, "Cover image is required"),
-    previewPdf: z.custom<File>(v => v instanceof File, "Preview PDF is required"),
-    ebookPdf: z.custom<File>(v => v instanceof File).optional(),
+    coverImage: z.union([
+      z.url("Cover image must be a valid URL"),
+      z.custom<File>(v => v instanceof File, "Cover image must be a File"),
+    ]),
+    previewPdf: z.union([
+      z.url("Preview PDF must be a valid URL"),
+      z.custom<File>(v => v instanceof File, "Preview PDF must be a File"),
+    ]),
+    ebookPdf: z
+      .union([
+        z.url("E-Book PDF must be a valid URL"),
+        z.custom<File>(v => v instanceof File, "E-Book PDF must be a File"),
+      ])
+      .optional(),
   })
   .refine(
     data => {
@@ -203,6 +214,7 @@ export default function AddBookPage() {
           setValue("metaKeywords", book.metaKeywords || "");
           setValue("metaDescription", book.metaDescription || "");
           setValue("coverImageUrl", book.coverImage);
+          setValue("coverImage", book.coverImage as unknown as File);
           setCoverPreview(book.coverImage);
           const files = book.files || [];
           setValue(
@@ -216,7 +228,7 @@ export default function AddBookPage() {
           const previewFile = files.find((f: any) => f.fileType === "PREVIEW");
           if (previewFile) {
             setValue("previewPdf", previewFile as unknown as File);
-            setPdfPreviewUrl(previewFile.url);
+            setPdfPreviewUrl(encodeURI(previewFile.url));
           }
           const ebookFile = files.find((f: any) => f.fileType === "EBOOK");
           if (ebookFile) {
@@ -442,10 +454,21 @@ export default function AddBookPage() {
 
   const onSubmit = async (data: BookFormValues) => {
     const { ebookPdf, previewPdf, coverImage, ...rest } = data;
-    const uploadBookResult = await apiClient.post<{ id: string }>("/book/upload-book", rest);
-    if (uploadBookResult.success) {
-      alert(`Book successfully uploaded! for id ${uploadBookResult.data?.id}`);
-      router.push("/dashboard/admin/books");
+    if (editBookId) {
+      const updateResult = await apiClient.put<{ id: string }>(
+        `/book/update-book?bookId=${editBookId}`,
+        rest
+      );
+      if (updateResult.success) {
+        alert(`Book successfully updated!`);
+        router.push("/dashboard/admin/books");
+      }
+    } else {
+      const uploadBookResult = await apiClient.post<{ id: string }>("/book/upload-book", rest);
+      if (uploadBookResult.success) {
+        alert(`Book successfully uploaded! for id ${uploadBookResult.data?.id}`);
+        router.push("/dashboard/admin/books");
+      }
     }
   };
 
@@ -818,12 +841,12 @@ export default function AddBookPage() {
                   </div>
                 ) : (
                   <>
-                    {uploadedCover && coverPreview ? (
+                    {uploadedCover || coverPreview ? (
                       <div className='relative rounded overflow-hidden border border-white/10 group'>
                         <Image
                           width={800}
                           height={1200}
-                          src={coverPreview}
+                          src={coverPreview as string}
                           alt='Cover'
                           className='w-full h-auto object-cover'
                         />

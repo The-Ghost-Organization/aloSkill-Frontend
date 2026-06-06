@@ -6,6 +6,7 @@ import { type Book, MAX_PRICE } from "../Books";
 import { type FilterState, initialFilters } from "../Filters";
 import BookCard from "./BookCard";
 import FilterPanel from "./Filterpanel";
+import { BookResponse } from '../bookAction';
 
 // ─── Active Filter Chips ──────────────────────────────────────────────────────
 
@@ -144,11 +145,11 @@ function EmptyState({ onReset }: { onReset: () => void }) {
 
 // ─── BooksClient ──────────────────────────────────────────────────────────────
 
-export default function BooksClient({ initialBooks }: { initialBooks: Book[] }) {
+export default function BooksClient({ initialBooks }: { initialBooks: BookResponse }) {
   const [filters, setFilters] = useState<FilterState>(initialFilters);
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
-
+console.log("inital : ", initialBooks);
   const filteredBooks = useMemo(() => {
     return initialBooks
       .filter(book => {
@@ -157,25 +158,25 @@ export default function BooksClient({ initialBooks }: { initialBooks: Book[] }) 
           if (!book.title.toLowerCase().includes(q) && !book.author.toLowerCase().includes(q))
             return false;
         }
-        if (filters.genres.length > 0 && !filters.genres.includes(book.genre)) return false;
-        if (book.price < filters.priceRange[0] || book.price > filters.priceRange[1]) return false;
-        if (book.rating < filters.minRating) return false;
+        // if (filters.genres.length > 0 && !filters.genres.includes(book.genre)) return false;
+        if ((book.salePrice? book.salePrice : book.regularPrice) < filters.priceRange[0] || (book.salePrice? book.salePrice : book.regularPrice) > filters.priceRange[1]) return false;
+        // if (book.rating < filters.minRating) return false;
         return true;
       })
       .sort((a, b) => {
         switch (filters.sort) {
           case "newest":
-            return b.publishedYear - a.publishedYear;
+            return b.createdAt.localeCompare(a.createdAt);
           case "oldest":
-            return a.publishedYear - b.publishedYear;
+            return a.createdAt.localeCompare(b.createdAt);
           case "price-asc":
-            return a.price - b.price;
+            return (a.salePrice ?? a.regularPrice) - (b.salePrice ?? b.regularPrice);
           case "price-desc":
-            return b.price - a.price;
-          case "rating":
-            return b.rating - a.rating;
+            return (b.salePrice ?? b.regularPrice) - (a.salePrice ?? a.regularPrice);
+          // case "rating":
+          //   return b.rating - a.rating;
           default:
-            return b.reviewCount - a.reviewCount;
+            return 0;
         }
       });
   }, [initialBooks, filters]);
@@ -295,7 +296,7 @@ export default function BooksClient({ initialBooks }: { initialBooks: Book[] }) 
 
           {/* ── Book grid / list ── */}
           <div className='flex-1 min-w-0'>
-            {filteredBooks.length === 0 ? (
+            {initialBooks.length === 0 ? (
               <EmptyState onReset={handleReset} />
             ) : (
               <div
@@ -305,7 +306,7 @@ export default function BooksClient({ initialBooks }: { initialBooks: Book[] }) 
                     : "flex flex-col gap-3"
                 }
               >
-                {filteredBooks.map((book, index) => (
+                {initialBooks.map((book, index) => (
                   <BookCard
                     key={book.id}
                     book={book}
