@@ -5,7 +5,7 @@ import { MessageSquare, User } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 
-const hasData = false; // Set to true when you implement the instructors fetch
+const hasData = true; // Set to true when you implement the instructors fetch
 
 export default function TeachersPage() {
   if (!hasData) return <ComingSoon pageName='My Instructors' />;

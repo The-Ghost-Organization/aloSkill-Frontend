@@ -73,11 +73,11 @@ function InstructorCard({
         {/* Instructor Image */}
         <div className='relative h-72 sm:h-80 overflow-hidden bg-gray-200'>
           <Image
-            width={128}
-            height={128}
             src={instructor.avatarUrl || userFallback}
             alt={instructor.displayName}
-            className='w-full h-full object-cover'
+            fill
+            sizes='(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw'
+            className='object-cover'
           />
 
           {/* Hover Overlay with Stats */}

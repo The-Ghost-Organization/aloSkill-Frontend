@@ -2,11 +2,11 @@
 
 import { LayoutGrid, LayoutList, SlidersHorizontal, X } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
-import { type Book, MAX_PRICE } from "../Books";
+import { type BookResponse } from "../bookAction";
+import { MAX_PRICE } from "../Books";
 import { type FilterState, initialFilters } from "../Filters";
 import BookCard from "./BookCard";
 import FilterPanel from "./Filterpanel";
-import { BookResponse } from '../bookAction';
 
 // ─── Active Filter Chips ──────────────────────────────────────────────────────
 
@@ -149,7 +149,7 @@ export default function BooksClient({ initialBooks }: { initialBooks: BookRespon
   const [filters, setFilters] = useState<FilterState>(initialFilters);
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
-console.log("inital : ", initialBooks);
+  console.log("inital : ", initialBooks);
   const filteredBooks = useMemo(() => {
     return initialBooks
       .filter(book => {
@@ -159,27 +159,32 @@ console.log("inital : ", initialBooks);
             return false;
         }
         // if (filters.genres.length > 0 && !filters.genres.includes(book.genre)) return false;
-        if ((book.salePrice? book.salePrice : book.regularPrice) < filters.priceRange[0] || (book.salePrice? book.salePrice : book.regularPrice) > filters.priceRange[1]) return false;
+        const currentPrice = book.salePrice ? book.salePrice : book.regularPrice;
+        if (currentPrice <= filters.priceRange[0] || currentPrice >= filters.priceRange[1]) {
+          return false;
+        }
         // if (book.rating < filters.minRating) return false;
         return true;
       })
-      .sort((a, b) => {
-        switch (filters.sort) {
-          case "newest":
-            return b.createdAt.localeCompare(a.createdAt);
-          case "oldest":
-            return a.createdAt.localeCompare(b.createdAt);
-          case "price-asc":
-            return (a.salePrice ?? a.regularPrice) - (b.salePrice ?? b.regularPrice);
-          case "price-desc":
-            return (b.salePrice ?? b.regularPrice) - (a.salePrice ?? a.regularPrice);
-          // case "rating":
-          //   return b.rating - a.rating;
-          default:
-            return 0;
-        }
-      });
+      // .sort((a, b) => {
+      //   switch (filters.sort) {
+      //     case "newest":
+      //       return b.createdAt.localeCompare(a.createdAt);
+      //     case "oldest":
+      //       return a.createdAt.localeCompare(b.createdAt);
+      //     case "price-asc":
+      //       return (a.salePrice ?? a.regularPrice) - (b.salePrice ?? b.regularPrice);
+      //     case "price-desc":
+      //       return (b.salePrice ?? b.regularPrice) - (a.salePrice ?? a.regularPrice);
+      //     // case "rating":
+      //     //   return b.rating - a.rating;
+      //     default:
+      //       return 0;
+      //   }
+      // });
   }, [initialBooks, filters]);
+
+  console.log("filtered Books : ", filteredBooks, "filters : ", filters);
 
   const handleReset = useCallback(
     () => setFilters({ ...initialFilters, sort: filters.sort }),

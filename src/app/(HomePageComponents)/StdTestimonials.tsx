@@ -131,6 +131,7 @@ export default function StdTestimonials() {
                       }
                       alt={t.author}
                       fill
+                      sizes='48px'
                       className='object-cover'
                     />
                   </div>

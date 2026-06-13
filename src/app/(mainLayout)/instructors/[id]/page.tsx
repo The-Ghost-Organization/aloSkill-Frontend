@@ -107,6 +107,7 @@ export default function InstructorDetailsPage() {
                   src={instructor.avatarUrl || userFallback}
                   alt={instructor.displayName}
                   className='w-full h-full object-cover'
+                  priority
                 />
               </div>
               {/* {instructor.status === "approved" && (

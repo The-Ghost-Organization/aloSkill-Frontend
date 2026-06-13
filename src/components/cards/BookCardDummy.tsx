@@ -20,7 +20,7 @@ interface BookCardProps {
   onAddToCart?: (bookId: number) => void;
 }
 
-export function BookCard({ book, isInWishlist, onToggleWishlist, onAddToCart }: BookCardProps) {
+export function BookCardDummy({ book, isInWishlist, onToggleWishlist, onAddToCart }: BookCardProps) {
   // Prevent event bubbling for interactive elements inside the link
   const handleWishlistClick = (e: React.MouseEvent) => {
     e.preventDefault();

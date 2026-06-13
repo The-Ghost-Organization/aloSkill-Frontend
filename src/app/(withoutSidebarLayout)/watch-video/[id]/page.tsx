@@ -23,6 +23,8 @@ import BunnyVideoPlayer from "./BunnyVideoPlayer";
 import CommentsTab from "./CommentsTab";
 import DescriptionTab from "./DescriptionTab";
 import LectureNotesTab from "./LectureNotesTab";
+import { useRightClickProtection } from "./Userightclickprotection.ts";
+import VideoProtectionWrapper from "./Videoprotectionwrapper.tsx";
 
 const mapUser = new Map<string, string>();
 export default function CoursePage() {
@@ -44,6 +46,23 @@ export default function CoursePage() {
   if (user) {
     mapUser.set("storedUser", user?.id);
   }
+
+  const handleSuspiciousActivity = useCallback(
+    async (action: string) => {
+      // Fire-and-forget — don't await so it doesn't block the user
+      apiClient
+        .post("/course/security-event", {
+          userId: user?.id,
+          courseId: id,
+          lessonId: activeContent?.id,
+          action,
+          timestamp: new Date().toISOString(),
+          userAgent: navigator.userAgent,
+        })
+        .catch(() => {}); // silently swallow — never break the player for this
+    },
+    [user?.id, id, activeContent?.id]
+  );
 
   const handleSetActiveContents = useCallback(
     (moduleId = 1, lessonId = 1) => {
@@ -182,7 +201,7 @@ export default function CoursePage() {
           expiresAt: number;
         }>("/course/get-video-url", {
           filePath: getFileIdFromUrl(activeContent?.contentUrl as string),
-          duration: 20,
+          duration: 1,
         });
         if (!getVideoFromBunny.success) {
           return;
@@ -205,7 +224,18 @@ export default function CoursePage() {
       prev.includes(sectionId) ? prev.filter(id => id !== sectionId) : [...prev, sectionId]
     );
   };
-
+  useRightClickProtection({
+    disabled: process.env.NODE_ENV === "development", // remove this line in prod if you want it always on
+    onAttempt: e => {
+      // Optional: log to backend for abuse monitoring
+      // apiClient.post("/course/security-event", {
+      //   userId: user?.id,
+      //   courseId: id,
+      //   action: "right-click",
+      //   timestamp: new Date().toISOString(),
+      // }).catch(() => {});
+    },
+  });
   const progressCount = () => {
     if (course) {
       const allLessons = course.modules.flatMap(m => m.lessons);
@@ -246,10 +276,26 @@ export default function CoursePage() {
   }
 
   return (
-    <div className='min-h-screen bg-linear-to-br from-purple-50 via-pink-50 to-blue-50 py-6'>
+    <div
+      className='min-h-screen  bg-linear-to-br from-purple-50 via-pink-50 to-blue-50 py-6'
+      onContextMenu={e => e.preventDefault()}
+      style={{ userSelect: "none" }}
+    >
+      {/* <DevToolsBlocker
+        // disabled={process.env.NODE_ENV === "development"}
+        onDetected={() =>
+          apiClient
+            .post("/course/security-event", {
+              userId: user?.id,
+              courseId: id,
+              action: "devtools-opened",
+            })
+            .catch(() => {})
+        }
+      /> */}
       {/* Header */}
       <header className='bg-transparent shadow-md'>
-        <div className='max-w-8xl mx-auto px-3 sm:px-4 lg:px-6 py-2.5'>
+        <div className='max-w-[90%]  mx-auto px-3 sm:px-4 lg:px-6 py-2.5'>
           <div className='flex items-center justify-between'>
             <div className='flex items-center space-x-4'>
               <button
@@ -290,13 +336,13 @@ export default function CoursePage() {
         </div>
       </header>
 
-      <div className='max-w-8xl mx-auto px-3 sm:px-4 lg:px-6 py-6'>
+      <div className='max-w-[90%] mx-auto px-3 sm:px-4 lg:px-6 py-6'>
         <div className='grid grid-cols-1 lg:grid-cols-3 gap-6'>
           {/* Main Content */}
           <div className='lg:col-span-2'>
             {/* Video/Image Player */}
             <div className='bg-white overflow-hidden'>
-              <div className='aspect-video bg-linear-to-br from-teal-400 to-teal-500'>
+              {/* <div className='aspect-video bg-linear-to-br from-teal-400 to-teal-500'>
                 {videoData ? (
                   <>
                     <BunnyVideoPlayer
@@ -312,6 +358,29 @@ export default function CoursePage() {
                     <p className='text-gray-500'>Loading Lesson Video.</p>
                   </div>
                 )}
+              </div> */}
+              <div className='aspect-video bg-linear-to-br from-teal-400 to-teal-500'>
+                <VideoProtectionWrapper
+                  watermarkText={user?.email ?? user?.id} // ties the watermark to the enrolled user
+                  onSuspiciousActivity={handleSuspiciousActivity}
+                  disableDevToolsDetection={false} // set true in dev to avoid annoyance
+                >
+                  {videoData ? (
+                    <BunnyVideoPlayer
+                      videoUrl={`https://iframe.mediadelivery.net/embed/${videoData.libraryId}/${videoData.videoId}?token=${videoData.token}&expires=${videoData.expiresAt}&autoplay=false&api=true&enableStats=true`}
+                      lessonId={activeContent?.id as string}
+                      lastPosition={activeContent?.lessonProgress[0]?.lastPosition as number}
+                      handleUpdateProgress={handleUpdateProgress}
+                      watermarkText={user?.email}
+                      // disableProtection={process.env.NODE_ENV === "development"}
+                    />
+                  ) : (
+                    <div className='min-h-screen flex gap-3 items-center justify-center'>
+                      <Loader className='w-8 h-8 text-gray-500 animate-spin' />
+                      <p className='text-gray-500'>Loading Lesson Video.</p>
+                    </div>
+                  )}
+                </VideoProtectionWrapper>
               </div>
             </div>
             {/* <div className='space-y-2'>

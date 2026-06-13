@@ -1,7 +1,7 @@
 "use client";
 
 import { apiClient } from "@/lib/api/client.ts";
-import { FileText, Globe, Layers, LucidePlaySquare } from "lucide-react";
+import { Check, FileText, Globe, Layers, Loader2, LucidePlaySquare } from "lucide-react";
 import { useParams } from "next/navigation";
 import React, { useCallback, useEffect, useState } from "react";
 import { type Category, useSessionContext } from "../../../../../contexts/SessionContext.tsx";
@@ -9,6 +9,8 @@ import AdvanceInformation from "./AdvanceInformation.tsx";
 import BasicInformaton from "./BasicInformaton.tsx";
 import CourseCurriculum from "./CourseCurriculum.tsx";
 import FinalStep from "./FinalStep.tsx";
+
+// ── Types (unchanged) ────────────────────────────────────────────────────────
 
 type Quiz = {
   title: string;
@@ -79,7 +81,110 @@ export type CreateCourseData = {
   status: "DRAFT" | "PUBLISHED";
 };
 
+// ── Step definitions ─────────────────────────────────────────────────────────
+
+const STEPS = [
+  { id: 1, name: "Basic Information", shortName: "Basic", icon: Layers },
+  { id: 2, name: "Advance Information", shortName: "Advanced", icon: FileText },
+  { id: 3, name: "Curriculum", shortName: "Curriculum", icon: LucidePlaySquare },
+  { id: 4, name: "Publish Course", shortName: "Publish", icon: Globe },
+] as const;
+
+// ── Stepper connector ─────────────────────────────────────────────────────────
+const StepConnector = ({ completed }: { completed: boolean }) => (
+  <div className='relative mx-2 h-0.5 flex-1 overflow-hidden rounded-full bg-gray-200'>
+    <div
+      className={`absolute inset-y-0 left-0 rounded-full bg-orange-500 transition-all duration-500 ease-out ${
+        completed ? "w-full" : "w-0"
+      }`}
+    />
+  </div>
+);
+
+// ── Step circle + label ───────────────────────────────────────────────────────
+const StepItem = ({
+  step,
+  isActive,
+  isCompleted,
+  onClick,
+}: {
+  step: (typeof STEPS)[number];
+  isActive: boolean;
+  isCompleted: boolean;
+  onClick: () => void;
+}) => {
+  const Icon = step.icon;
+  return (
+    <button
+      type='button'
+      onClick={onClick}
+      aria-current={isActive ? "step" : undefined}
+      className='group flex flex-col items-center gap-1.5 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-2'
+    >
+      <div
+        className={`relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 transition-all duration-300 ${
+          isActive
+            ? "border-orange-500 bg-orange-500 shadow-md shadow-orange-200 scale-110"
+            : isCompleted
+              ? "border-orange-400 bg-orange-400"
+              : "border-gray-200 bg-white group-hover:border-orange-200"
+        }`}
+      >
+        {isCompleted ? (
+          <Check
+            className='h-4 w-4 text-white'
+            strokeWidth={2.5}
+            aria-hidden='true'
+          />
+        ) : (
+          <Icon
+            className={`h-4 w-4 transition-colors ${
+              isActive ? "text-white" : "text-gray-400 group-hover:text-orange-400"
+            }`}
+            aria-hidden='true'
+          />
+        )}
+      </div>
+      <span
+        className={`hidden text-xs font-semibold tracking-wide transition-colors sm:block ${
+          isActive
+            ? "text-orange-500"
+            : isCompleted
+              ? "text-orange-400"
+              : "text-gray-400 group-hover:text-gray-600"
+        }`}
+      >
+        {step.name}
+      </span>
+    </button>
+  );
+};
+
+// ── Error banner ──────────────────────────────────────────────────────────────
+const ErrorBanner = ({ message }: { message: string }) => (
+  <div
+    role='alert'
+    className='mx-4 mt-4 flex items-start gap-2.5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 sm:mx-6'
+  >
+    <span className='mt-0.5 shrink-0 text-red-400'>⚠</span>
+    <p className='font-medium'>{message}</p>
+  </div>
+);
+
+// ── Loading overlay ───────────────────────────────────────────────────────────
+const LoadingOverlay = () => (
+  <div className='flex flex-col items-center justify-center gap-3 py-24 text-gray-400'>
+    <Loader2
+      className='h-8 w-8 animate-spin text-orange-500'
+      aria-hidden='true'
+    />
+    <p className='text-sm font-medium text-gray-500'>Loading course data…</p>
+  </div>
+);
+
+// ── Main component ────────────────────────────────────────────────────────────
 export default function CourseCreationForm() {
+  // ── State & logic (unchanged) ─────────────────────────────────────────────
   const { courseId } = useParams();
   const { categories } = useSessionContext();
   const [loading, setLoading] = useState<boolean>(false);
@@ -158,91 +263,131 @@ export default function CourseCreationForm() {
     handleGetCourse();
   }, [courseId, handleGetCourse]);
 
-  const steps = [
-    { id: 1, name: "Basic Information", icon: Layers },
-    { id: 2, name: "Advance Information", icon: FileText },
-    { id: 3, name: "Curriculum", icon: LucidePlaySquare },
-    { id: 4, name: "Publish Course", icon: Globe },
-  ];
+  // ── Derived values ────────────────────────────────────────────────────────
+  const progressPercent = ((currentStep - 1) / (STEPS.length - 1)) * 100;
+  const currentStepMeta = STEPS.find(s => s.id === currentStep)!;
 
+  // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <div className='bg-white w-full overflow-y-auto overflow-x-hidden'>
-      {/* Step Navigation */}
-      <div className='bg-white border-b border-gray-200'>
-        <div className='w-full flex items-center justify-between'>
-          {steps.map(step => {
-            const Icon = step.icon;
-            const isActive = currentStep === step.id;
-            const isCompleted = currentStep > step.id;
+    <div className='min-h-screen w-full overflow-x-hidden bg-[#F8F9FC]'>
+      {/* ── Sticky step navigation ── */}
+      <header className='sticky top-0 z-20 border-b border-gray-200 bg-white shadow-sm'>
+        {/* Desktop stepper (sm+) */}
+        <nav
+          aria-label='Course creation steps'
+          className='hidden items-center px-6 py-4 sm:flex'
+        >
+          {STEPS.map((step, idx) => (
+            <React.Fragment key={step.id}>
+              <StepItem
+                step={step}
+                isActive={currentStep === step.id}
+                isCompleted={currentStep > step.id}
+                onClick={() => setCurrentStep(step.id)}
+              />
+              {idx < STEPS.length - 1 && <StepConnector completed={currentStep > step.id} />}
+            </React.Fragment>
+          ))}
+        </nav>
 
-            return (
-              <React.Fragment key={step.id}>
-                <button
-                  onClick={() => setCurrentStep(step.id)}
-                  className={`flex items-center gap-2 px-5 py-4 border-b transition-colors relative cursor-pointer ${
-                    isActive
-                      ? "border-orange-light text-gray-900"
-                      : isCompleted
-                        ? "border-transparent text-gray-600 hover:text-gray-900"
-                        : "border-transparent text-gray-400"
-                  }`}
-                >
-                  <Icon size={18} />
-                  <span className='font-medium text-sm'>{step.name}</span>
-                </button>
-              </React.Fragment>
-            );
-          })}
+        {/* Mobile stepper (xs only) */}
+        <div className='space-y-2 px-4 py-3 sm:hidden'>
+          <div className='flex items-center justify-between'>
+            <div className='flex items-center gap-2'>
+              <span className='inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-orange-500 text-xs font-bold text-white'>
+                {currentStep}
+              </span>
+              <span className='text-sm font-semibold text-gray-900'>{currentStepMeta.name}</span>
+            </div>
+            <span className='text-xs font-medium tabular-nums text-gray-400'>
+              {currentStep} / {STEPS.length}
+            </span>
+          </div>
+
+          {/* Progress bar */}
+          <div
+            className='h-1.5 w-full overflow-hidden rounded-full bg-gray-100'
+            role='progressbar'
+            aria-valuenow={currentStep}
+            aria-valuemin={1}
+            aria-valuemax={STEPS.length}
+          >
+            <div
+              className='h-full rounded-full bg-orange-500 transition-all duration-500 ease-out'
+              style={{ width: `${progressPercent}%` }}
+            />
+          </div>
+
+          {/* Mini step dots */}
+          <div className='flex items-center justify-center gap-3 pt-0.5'>
+            {STEPS.map(step => (
+              <button
+                key={step.id}
+                type='button'
+                onClick={() => setCurrentStep(step.id)}
+                aria-label={`Go to ${step.name}`}
+                aria-current={currentStep === step.id ? "step" : undefined}
+                className={`h-1.5 rounded-full transition-all duration-300 ${
+                  currentStep === step.id
+                    ? "w-6 bg-orange-500"
+                    : currentStep > step.id
+                      ? "w-3 bg-orange-300"
+                      : "w-3 bg-gray-200"
+                }`}
+              />
+            ))}
+          </div>
         </div>
-      </div>
+      </header>
 
-      {/* Form Content Step -1*/}
-      <div className='w-full'>
-        {categoryError !== "" && (
-          <p className='text-red-500 text-md mb-2 p-2 font-semibold'>{categoryError}</p>
-        )}
-        {courseUploadError !== "" && (
-          <p className='text-red-500 text-md mb-2 p-2 font-semibold'>{courseUploadError}</p>
-        )}
-        {currentStep === 1 && (
-          <BasicInformaton
-            currentStep={currentStep}
-            setCurrentStep={setCurrentStep}
-            courseData={courseData}
-            setCourseData={setCourseData}
-            loading={loading}
-          />
-        )}
+      {/* ── Error banners ── */}
+      {categoryError && <ErrorBanner message={categoryError} />}
+      {courseUploadError && <ErrorBanner message={courseUploadError} />}
 
-        {currentStep === 2 && (
-          <AdvanceInformation
-            currentStep={currentStep}
-            setCurrentStep={setCurrentStep}
-            courseData={courseData}
-            setCourseData={setCourseData}
-          />
+      {/* ── Step content ── */}
+      <main className='w-full'>
+        {loading ? (
+          <LoadingOverlay />
+        ) : (
+          <>
+            {currentStep === 1 && (
+              <BasicInformaton
+                currentStep={currentStep}
+                setCurrentStep={setCurrentStep}
+                courseData={courseData}
+                setCourseData={setCourseData}
+                loading={loading}
+              />
+            )}
+            {currentStep === 2 && (
+              <AdvanceInformation
+                currentStep={currentStep}
+                setCurrentStep={setCurrentStep}
+                courseData={courseData}
+                setCourseData={setCourseData}
+              />
+            )}
+            {currentStep === 3 && (
+              <CourseCurriculum
+                currentStep={currentStep}
+                setCurrentStep={setCurrentStep}
+                courseData={courseData}
+                setCourseData={setCourseData}
+              />
+            )}
+            {currentStep === 4 && (
+              <FinalStep
+                currentStep={currentStep}
+                setCurrentStep={setCurrentStep}
+                courseData={courseData}
+                setCourseData={setCourseData}
+                isParamsExisting={courseId !== undefined}
+                setCourseUploadError={setCourseUploadError}
+              />
+            )}
+          </>
         )}
-
-        {currentStep === 3 && (
-          <CourseCurriculum
-            currentStep={currentStep}
-            setCurrentStep={setCurrentStep}
-            courseData={courseData}
-            setCourseData={setCourseData}
-          />
-        )}
-
-        {currentStep === 4 && (
-          <FinalStep
-            currentStep={currentStep}
-            setCurrentStep={setCurrentStep}
-            courseData={courseData}
-            setCourseData={setCourseData}
-            isParamsExisting={courseId !== undefined ? true : false}
-            setCourseUploadError={setCourseUploadError}
-          />
-        )}
-      </div>
+      </main>
     </div>
   );
 }

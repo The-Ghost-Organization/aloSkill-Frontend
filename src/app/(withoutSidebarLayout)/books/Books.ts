@@ -36,7 +36,7 @@ export const GENRES = [
 
 export type Genre = (typeof GENRES)[number];
 
-export const MAX_PRICE = 60;
+export const MAX_PRICE = 5000;
 
 export const books: Book[] = [
   {
@@ -50,7 +50,8 @@ export const books: Book[] = [
     originalPrice: 19.99,
     rating: 4.7,
     reviewCount: 28450,
-    cover: "https://picsum.photos/seed/book1/300/450",
+    cover:
+      "https://images.unsplash.com/photo-1629992101753-56d196c8aabb?q=80&w=690&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
     description:
       "Between life and death there is a library, and within that library, the shelves go on forever.",
     longDescription:
@@ -73,7 +74,8 @@ export const books: Book[] = [
     price: 16.99,
     rating: 4.9,
     reviewCount: 35120,
-    cover: "https://picsum.photos/seed/book2/300/450",
+    cover:
+      "https://images.unsplash.com/photo-1660092626370-4c3b99ca86da?q=80&w=687&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
     description:
       "A lone astronaut must save the earth from disaster in this propulsive science-based thriller.",
     longDescription:
@@ -98,7 +100,8 @@ export const books: Book[] = [
     originalPrice: 16.99,
     rating: 4.8,
     reviewCount: 42300,
-    cover: "https://picsum.photos/seed/book3/300/450",
+    cover:
+      "https://images.unsplash.com/photo-1726600348076-65e5a630259c?q=80&w=758&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
     description:
       "The tale of Kvothe, from his childhood in a troupe of traveling players, to years spent as a near-feral orphan.",
     longDescription:

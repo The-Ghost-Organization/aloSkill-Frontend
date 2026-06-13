@@ -180,7 +180,7 @@ export default function FilterPanel({
               <input
                 type="number"
                 min={0}
-                max={filters.priceRange[1] - 1}
+                // max={filters.priceRange[1] - 1}
                 value={filters.priceRange[0]}
                 onChange={(e) =>
                   update({
@@ -203,8 +203,9 @@ export default function FilterPanel({
               </span>
               <input
                 type="number"
-                min={filters.priceRange[0] + 1}
-                max={MAX_PRICE}
+                // min={filters.priceRange[0] + 1}
+                min={0}
+                // max={MAX_PRICE}
                 value={filters.priceRange[1]}
                 onChange={(e) =>
                   update({

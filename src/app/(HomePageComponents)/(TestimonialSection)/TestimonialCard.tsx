@@ -38,13 +38,13 @@ export default function TestimonialCard({
           {/* Avatar Section */}
           <div className='shrink-0'>
             <div className='relative'>
-              <div className='w-16 h-16 md:w-32 md:h-32 rounded-full overflow-hidden ring-4 ring-white shadow-xl'>
+              <div className='w-16 h-16 md:w-32 md:h-32 rounded-full overflow-hidden ring-4 ring-white shadow-xl relative'>
                 <Image
-                  width={100}
-                  height={100}
                   src={image}
                   alt={name}
-                  className='w-full h-full object-cover'
+                  fill
+                  sizes='(max-width: 768px) 64px, 128px'
+                  className='object-cover'
                 />
               </div>
               {/* Verified Badge */}
