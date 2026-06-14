@@ -17,6 +17,5 @@ async function getAllCourses() {
 
 export default async function AllCoursesPage() {
   const initialCourses = await getAllCourses();
-
   return <AllCoursesClientPage initialCourses={initialCourses} />;
 }

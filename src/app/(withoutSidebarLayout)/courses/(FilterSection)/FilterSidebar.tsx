@@ -45,15 +45,15 @@ const CATEGORIES = [
 
 const LEVELS = [
   { value: "", label: "All Levels", count: 125 },
-  { value: "beginner", label: "Beginner", count: 55 },
-  { value: "intermediate", label: "Intermediate", count: 42 },
-  { value: "advanced", label: "Advanced", count: 28 },
+  { value: "BEGINNER", label: "Beginner", count: 55 },
+  { value: "INTERMEDIATE", label: "Intermediate", count: 42 },
+  { value: "ADVANCED", label: "Advanced", count: 28 },
 ];
 
 const LANGUAGES = [
   { value: "", label: "All Languages", count: 125 },
-  { value: "english", label: "English", count: 98 },
-  { value: "bangla", label: "Bangla", count: 15 },
+  { value: "ENGLISH", label: "English", count: 98 },
+  { value: "BANGLA", label: "Bangla", count: 15 },
 ];
 
 const RATINGS = [
@@ -118,7 +118,7 @@ function FilterSidebar({
           </label>
           {categories &&
             categories
-              .filter(category => category.parentId === null)
+              .filter(category => category.parentId !== null)
               .map(cat => (
                 <label
                   key={cat.id}

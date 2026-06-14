@@ -10,6 +10,7 @@ import FilterSidebar from "./(FilterSection)/FilterSidebar.tsx";
 import type { CourseType } from "./allCourses.types.ts";
 import { courseAddToCartHandler } from '../../../lib/course/courseHelper.ts';
 
+
 const SORT_OPTIONS = [
   { value: "popular", label: "Most Popular" },
   { value: "rating", label: "Highest Rated" },
@@ -23,6 +24,7 @@ interface ClientPageProps {
 }
 
 export default function AllCoursesClientPage({ initialCourses }: ClientPageProps) {
+
   const [searchQuery, setSearchQuery] = useState("");
   const [filteredQuery, setFilteredQuery] = useState({
     category: "",
@@ -41,7 +43,7 @@ export default function AllCoursesClientPage({ initialCourses }: ClientPageProps
     new Set(["category", "rating", "level"])
   );
 
-  const { setCartUpdate } = useSessionContext();
+  const { setCartUpdate, user } = useSessionContext();
 
   // Load cart data
   useEffect(() => {
@@ -65,7 +67,7 @@ export default function AllCoursesClientPage({ initialCourses }: ClientPageProps
 
     // 2. Sidebar Filters
     if (filteredQuery.category && filteredQuery.category !== "all") {
-      result = result.filter(course => course.category  === filteredQuery.category);
+      result = result.filter(course => course.category?.name  === filteredQuery.category);
     }
     if (filteredQuery.level && filteredQuery.level !== "all") {
       result = result.filter(course => course.level === filteredQuery.level);
@@ -74,29 +76,29 @@ export default function AllCoursesClientPage({ initialCourses }: ClientPageProps
       result = result.filter(course => course.language === filteredQuery.language);
     }
     if (filteredQuery.rating && filteredQuery.rating !== "all") {
-      result = result.filter(course => course.rating >= parseFloat(filteredQuery.rating));
+      result = result.filter(course => course?.ratingAverage >= parseFloat(filteredQuery.rating));
     }
 
     // Price Range Filter
-    result = result.filter(course =>
-      course.price >= filteredQuery.priceRange[0] &&
-      course.price <= filteredQuery.priceRange[1]
-    );
+    // result = result.filter(course =>
+    //   (course.discountPrice ? course.discountPrice : course.originalPrice) >= filteredQuery.priceRange[0] &&
+    //   (course.discountPrice ? course.discountPrice : course.originalPrice) <= filteredQuery.priceRange[1]
+    // );
 
     // 3. Sorting Logic
-    result.sort((a, b) => {
-      if (sortBy === "price-low") return a.price - b.price;
-      if (sortBy === "price-high") return b.price - a.price;
-      if (sortBy === "rating") return b.rating - a.rating;
-      if (sortBy === "newest") {
-        return new Date(b.createdAt || '').getTime() - new Date(a.createdAt || '').getTime();
-      }
-      // Default: "popular" (assumes your course item has an enrollment or student count field)
-      return (b.studentsCount || 0) - (a.studentsCount || 0);
-    });
+    // result.sort((a, b) => {
+    //   if (sortBy === "price-low") return a.price - b.price;
+    //   if (sortBy === "price-high") return b.price - a.price;
+    //   if (sortBy === "rating") return b.rating - a.rating;
+    //   if (sortBy === "newest") {
+    //     return new Date(b.createdAt || '').getTime() - new Date(a.createdAt || '').getTime();
+    //   }
+    //   // Default: "popular" (assumes your course item has an enrollment or student count field)
+    //   return (b.studentsCount || 0) - (a.studentsCount || 0);
+    // });
 
     return result;
-  }, [initialCourses, searchQuery, filteredQuery, sortBy]);
+  }, [initialCourses, searchQuery, filteredQuery]);
 
   const toggleSection = (section: string) => {
     setExpandedSections(prev => {
@@ -151,9 +153,11 @@ export default function AllCoursesClientPage({ initialCourses }: ClientPageProps
     filteredQuery.priceRange[0] !== 0 ||
     filteredQuery.priceRange[1] !== 10000;
 
+  const isEnrolled = user.id ? filteredAndSortedCourses.some(course => course.enrollments.some(enrollment => enrollment.userId === user.id)) : false;
+
   return (
     <div className='min-h-screen bg-linear-to-br from-slate-50 via-white to-purple-50/30 py-10'>
-      <div className='mx-auto max-w-[1920px] '>
+      <div className='mx-auto max-w-480 '>
         <PageHeading />
 
         {/* Mobile Filter Button */}
@@ -302,6 +306,7 @@ export default function AllCoursesClientPage({ initialCourses }: ClientPageProps
                 cartItems={cartItems}
                 wishlistItems={wishlistItems}
                 emptyStateMessage='No courses found. Try adjusting your filters.'
+                isEnrolled={isEnrolled}
               />
             </div>
           </main>

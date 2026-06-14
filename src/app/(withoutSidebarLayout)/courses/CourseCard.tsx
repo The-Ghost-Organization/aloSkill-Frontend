@@ -40,6 +40,8 @@ const CourseCard = memo(function CourseCard({
     lessonProgress,
   } = course;
 
+  console.log("is enrolled : ", isEnrolled);
+
   // hasProgress
   const hasProgress = lessonProgress && lessonProgress.length > 0;
   const overallProgress = hasProgress
@@ -71,7 +73,7 @@ const CourseCard = memo(function CourseCard({
   const students = _count.enrollments;
 
   const [imgSrc, setImgSrc] = useState(thumbnailUrl || "/images/course-placeholder.png");
-  
+
   const [isWishlistLoading, setIsWishlistLoading] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
 

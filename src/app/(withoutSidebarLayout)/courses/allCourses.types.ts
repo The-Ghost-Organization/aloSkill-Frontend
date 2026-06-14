@@ -30,7 +30,9 @@ export type CourseType = {
   id: string;
   title: string;
   thumbnailUrl: string | null;
-
+  level: string;
+  language: string;
+  ratingAverage: number;
   originalPrice: number;
   discountPrice: number | null;
 
