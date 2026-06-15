@@ -2,12 +2,13 @@
 
 import { LayoutGrid, LayoutList, SlidersHorizontal, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { bookDraftStorage } from "../../../../lib/storage/courseDraftStorage";
+import { useSessionContext } from "../../../contexts/SessionContext";
 import { type BookResponse } from "../bookAction";
 import { MAX_PRICE } from "../Books";
 import { type FilterState, initialFilters } from "../Filters";
 import BookCard from "./BookCard";
 import FilterPanel from "./Filterpanel";
-import { courseDraftStorage } from '../../../../lib/storage/courseDraftStorage';
 
 // ─── Active Filter Chips ──────────────────────────────────────────────────────
 
@@ -150,12 +151,12 @@ export default function BooksClient({ initialBooks }: { initialBooks: BookRespon
   const [filters, setFilters] = useState<FilterState>(initialFilters);
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
-  const [cartItems, setCartItems] = useState<{ courseId: string; quantity: number }[]>([]);
+  const [cartItems, setCartItems] = useState<{ bookId: string; quantity: number }[]>([]);
   const [updateCart, setUpdateCart] = useState<boolean>(false);
+  const { setCartUpdate } = useSessionContext();
 
   useEffect(() => {
-    const storedCartItems =
-      courseDraftStorage.get<{ courseId: string; quantity: number }[]>() || [];
+    const storedCartItems = bookDraftStorage.get<{ bookId: string; quantity: number }[]>() || [];
     setCartItems(storedCartItems);
   }, [updateCart]);
 
@@ -196,6 +197,23 @@ export default function BooksClient({ initialBooks }: { initialBooks: BookRespon
   const handleReset = useCallback(
     () => setFilters({ ...initialFilters, sort: filters.sort }),
     [filters.sort]
+  );
+
+  const bookAddToCartHandler = (bookId: string) => {
+    const getStorageData = bookDraftStorage.get<{ bookId: string; quantity: number }[]>() || [];
+    if (getStorageData?.find(item => item.bookId === bookId)) return getStorageData;
+    getStorageData?.push({ bookId, quantity: 1 });
+    bookDraftStorage.save(getStorageData);
+    return getStorageData;
+  };
+
+  const handleAddToCart = useCallback(
+    (bookId: string) => {
+      bookAddToCartHandler(bookId);
+      setUpdateCart(prev => !prev);
+      setCartUpdate?.(prev => !prev);
+    },
+    [setCartUpdate]
   );
 
   return (
@@ -297,6 +315,7 @@ export default function BooksClient({ initialBooks }: { initialBooks: BookRespon
                     index={index}
                     viewMode={viewMode}
                     cartItems={cartItems}
+                    onAddToCart={handleAddToCart}
                   />
                 ))}
               </div>

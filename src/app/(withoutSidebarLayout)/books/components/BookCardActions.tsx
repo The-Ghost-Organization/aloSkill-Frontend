@@ -5,39 +5,20 @@ import { BookOpen, Heart, ShoppingCart } from "lucide-react";
 interface Props {
   bookId: string;
   bookTitle: string;
+  isInCart?: boolean;
+  onAddToCart?: (bookId: string) => void;
 }
 
-export default function BookCardActions({ bookId, bookTitle }: Props) {
+export default function BookCardActions({ bookId, bookTitle, isInCart, onAddToCart }: Props) {
 
   const stop = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
   };
-  // const handleCart = useCallback(
-  //   (courseId: string) => {
-  //     courseAddToCartHandler(courseId);
-  //     setUpdateCart(prev => !prev);
-  //     setCartUpdate?.(prev => !prev);
-  //   },
-  //   [setCartUpdate]
-  // );
 
-  // const handleAddToWishlist = useCallback(async (courseId: string | number) => {
-  //   setWishlistItems(prev => {
-  //     const newSet = new Set(prev);
-  //     if (newSet.has(courseId)) {
-  //       newSet.delete(courseId);
-  //     } else {
-  //       newSet.add(courseId);
-  //     }
-  //     return newSet;
-  //   });
-  //   await new Promise(resolve => setTimeout(resolve, 300));
-  // }, []);
   const handleCart = (e: React.MouseEvent) => {
     stop(e);
-    // TODO: dispatch to cart context / call server action
-    console.log("Add to cart:", bookId);
+    onAddToCart?.(bookId);
   };
 
   const handleWishlist = (e: React.MouseEvent) => {

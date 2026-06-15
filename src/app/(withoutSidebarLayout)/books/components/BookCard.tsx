@@ -62,12 +62,13 @@ interface BookCardProps {
   book: BookResponse[0];
   index?: number;
   viewMode?: "grid" | "list";
-  cartItems?: {courseId: string; quantity: number}[];
+  cartItems?: {bookId: string; quantity: number}[];
+  onAddToCart?: (bookId: string) => void;
 }
 
 // ─── Grid Card ────────────────────────────────────────────────────────────────
 
-function GridCard({ book }: BookCardProps) {
+function GridCard({ book, cartItems, onAddToCart }: BookCardProps) {
   const discount = book.regularPrice
     ? Math.round(((book.regularPrice - book.salePrice) / book.regularPrice) * 100)
     : null;
@@ -100,6 +101,8 @@ function GridCard({ book }: BookCardProps) {
             <BookCardActions
               bookId={book.id}
               bookTitle={book.title}
+              isInCart={cartItems?.some(item => item.bookId === book.id) ?? false}
+              onAddToCart={onAddToCart}
             />
           </div>
 
@@ -159,7 +162,7 @@ function GridCard({ book }: BookCardProps) {
 
 // ─── List Card ────────────────────────────────────────────────────────────────
 
-function ListCard({ book }: BookCardProps) {
+function ListCard({ book, cartItems, onAddToCart }: BookCardProps) {
   const discount = book.regularPrice
     ? Math.round(((book.regularPrice - book.salePrice) / book.regularPrice) * 100)
     : null;
@@ -236,9 +239,8 @@ function ListCard({ book }: BookCardProps) {
 
 // ─── Export ───────────────────────────────────────────────────────────────────
 
-export default function BookCard({ book, index = 0, viewMode = "grid" ,cartItems = [] }: BookCardProps) {
-  // index is accepted for API compatibility; used for potential future CSS delay
+export default function BookCard({ book, index = 0, viewMode = "grid" ,cartItems = [], onAddToCart }: BookCardProps) {
   void index;
-  if (viewMode === "list") return <ListCard book={book} />;
-  return <GridCard book={book} />;
+  if (viewMode === "list") return <ListCard book={book} cartItems={cartItems} onAddToCart={onAddToCart} />;
+  return <GridCard book={book} cartItems={cartItems} onAddToCart={onAddToCart} />;
 }
