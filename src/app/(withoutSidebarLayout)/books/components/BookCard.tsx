@@ -62,6 +62,7 @@ interface BookCardProps {
   book: BookResponse[0];
   index?: number;
   viewMode?: "grid" | "list";
+  cartItems?: {courseId: string; quantity: number}[];
 }
 
 // ─── Grid Card ────────────────────────────────────────────────────────────────
@@ -210,7 +211,7 @@ function ListCard({ book }: BookCardProps) {
             </div> */}
             <div className='flex items-center gap-2'>
               <div className='flex items-baseline gap-1'>
-                <span className='font-bold text-gray-900 text-sm'>${book.salePrice.toFixed(2)}</span>
+                <span className='font-bold text-gray-900 text-sm'>${book.salePrice}</span>
                 {discount && (
                   <span className='text-[10px] font-bold text-red-500'>-{discount}%</span>
                 )}
@@ -235,7 +236,7 @@ function ListCard({ book }: BookCardProps) {
 
 // ─── Export ───────────────────────────────────────────────────────────────────
 
-export default function BookCard({ book, index = 0, viewMode = "grid" }: BookCardProps) {
+export default function BookCard({ book, index = 0, viewMode = "grid" ,cartItems = [] }: BookCardProps) {
   // index is accepted for API compatibility; used for potential future CSS delay
   void index;
   if (viewMode === "list") return <ListCard book={book} />;

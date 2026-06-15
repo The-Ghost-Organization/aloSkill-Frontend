@@ -4,12 +4,11 @@ import CourseGrid from "@/components/grids/CourseGrid";
 import { PageHeading } from "@/components/shared/PageHeading.tsx";
 import { ChevronRight, Filter, Grid, LayoutList, Search, SlidersHorizontal, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { courseAddToCartHandler } from "../../../lib/course/courseHelper.ts";
 import { courseDraftStorage } from "../../../lib/storage/courseDraftStorage.ts";
 import { useSessionContext } from "../../contexts/SessionContext.tsx";
 import FilterSidebar from "./(FilterSection)/FilterSidebar.tsx";
 import type { CourseType } from "./allCourses.types.ts";
-import { courseAddToCartHandler } from '../../../lib/course/courseHelper.ts';
-
 
 const SORT_OPTIONS = [
   { value: "popular", label: "Most Popular" },
@@ -24,7 +23,6 @@ interface ClientPageProps {
 }
 
 export default function AllCoursesClientPage({ initialCourses }: ClientPageProps) {
-
   const [searchQuery, setSearchQuery] = useState("");
   const [filteredQuery, setFilteredQuery] = useState({
     category: "",
@@ -47,7 +45,8 @@ export default function AllCoursesClientPage({ initialCourses }: ClientPageProps
 
   // Load cart data
   useEffect(() => {
-    const storedCartItems = courseDraftStorage.get<{ courseId: string; quantity: number }[]>() || [];
+    const storedCartItems =
+      courseDraftStorage.get<{ courseId: string; quantity: number }[]>() || [];
     setCartItems(storedCartItems);
   }, [updateCart]);
 
@@ -67,7 +66,7 @@ export default function AllCoursesClientPage({ initialCourses }: ClientPageProps
 
     // 2. Sidebar Filters
     if (filteredQuery.category && filteredQuery.category !== "all") {
-      result = result.filter(course => course.category?.name  === filteredQuery.category);
+      result = result.filter(course => course.category?.name === filteredQuery.category);
     }
     if (filteredQuery.level && filteredQuery.level !== "all") {
       result = result.filter(course => course.level === filteredQuery.level);
@@ -80,22 +79,12 @@ export default function AllCoursesClientPage({ initialCourses }: ClientPageProps
     }
 
     // Price Range Filter
-    // result = result.filter(course =>
-    //   (course.discountPrice ? course.discountPrice : course.originalPrice) >= filteredQuery.priceRange[0] &&
-    //   (course.discountPrice ? course.discountPrice : course.originalPrice) <= filteredQuery.priceRange[1]
-    // );
-
-    // 3. Sorting Logic
-    // result.sort((a, b) => {
-    //   if (sortBy === "price-low") return a.price - b.price;
-    //   if (sortBy === "price-high") return b.price - a.price;
-    //   if (sortBy === "rating") return b.rating - a.rating;
-    //   if (sortBy === "newest") {
-    //     return new Date(b.createdAt || '').getTime() - new Date(a.createdAt || '').getTime();
-    //   }
-    //   // Default: "popular" (assumes your course item has an enrollment or student count field)
-    //   return (b.studentsCount || 0) - (a.studentsCount || 0);
-    // });
+    result = result.filter(course => {
+      const activePrice = course.discountPrice || course.originalPrice;
+      const minPrice = filteredQuery?.priceRange?.[0] ?? 0;
+      const maxPrice = filteredQuery?.priceRange?.[1] ?? 10000;
+      return activePrice >= minPrice && activePrice <= maxPrice;
+    });
 
     return result;
   }, [initialCourses, searchQuery, filteredQuery]);
@@ -103,8 +92,11 @@ export default function AllCoursesClientPage({ initialCourses }: ClientPageProps
   const toggleSection = (section: string) => {
     setExpandedSections(prev => {
       const newSet = new Set(prev);
-      if (newSet.has(section)) { newSet.delete(section); }
-      else { newSet.add(section); }
+      if (newSet.has(section)) {
+        newSet.delete(section);
+      } else {
+        newSet.add(section);
+      }
       return newSet;
     });
   };
@@ -116,17 +108,23 @@ export default function AllCoursesClientPage({ initialCourses }: ClientPageProps
     setFilteredQuery(prev => ({ ...prev, [fieldName]: value }));
   };
 
-  const handleAddToCart = useCallback((courseId: string) => {
-    courseAddToCartHandler(courseId);
-    setUpdateCart(prev => !prev);
-    setCartUpdate?.(prev => !prev);
-  }, [setCartUpdate]);
+  const handleAddToCart = useCallback(
+    (courseId: string) => {
+      courseAddToCartHandler(courseId);
+      setUpdateCart(prev => !prev);
+      setCartUpdate?.(prev => !prev);
+    },
+    [setCartUpdate]
+  );
 
   const handleAddToWishlist = useCallback(async (courseId: string | number) => {
     setWishlistItems(prev => {
       const newSet = new Set(prev);
-      if (newSet.has(courseId)) { newSet.delete(courseId); }
-      else { newSet.add(courseId); }
+      if (newSet.has(courseId)) {
+        newSet.delete(courseId);
+      } else {
+        newSet.add(courseId);
+      }
       return newSet;
     });
     await new Promise(resolve => setTimeout(resolve, 300));
@@ -153,7 +151,11 @@ export default function AllCoursesClientPage({ initialCourses }: ClientPageProps
     filteredQuery.priceRange[0] !== 0 ||
     filteredQuery.priceRange[1] !== 10000;
 
-  const isEnrolled = user.id ? filteredAndSortedCourses.some(course => course.enrollments.some(enrollment => enrollment.userId === user.id)) : false;
+  const isEnrolled = user.id
+    ? filteredAndSortedCourses.some(course =>
+        course.enrollments.some(enrollment => enrollment.userId === user.id)
+      )
+    : false;
 
   return (
     <div className='min-h-screen bg-linear-to-br from-slate-50 via-white to-purple-50/30 py-10'>
@@ -262,7 +264,10 @@ export default function AllCoursesClientPage({ initialCourses }: ClientPageProps
                         className='appearance-none px-5 py-2 pr-10 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10 text-sm bg-white font-medium text-gray-700 cursor-pointer transition-all shadow-sm hover:shadow-md'
                       >
                         {SORT_OPTIONS.map(option => (
-                          <option key={option.value} value={option.value}>
+                          <option
+                            key={option.value}
+                            value={option.value}
+                          >
                             {option.label}
                           </option>
                         ))}
@@ -275,7 +280,9 @@ export default function AllCoursesClientPage({ initialCourses }: ClientPageProps
                       <button
                         onClick={() => setViewMode("grid")}
                         className={`p-2 rounded-lg transition-all duration-200 ${
-                          viewMode === "grid" ? "bg-white text-orange-600 shadow-sm" : "text-gray-500 hover:text-gray-700"
+                          viewMode === "grid"
+                            ? "bg-white text-orange-600 shadow-sm"
+                            : "text-gray-500 hover:text-gray-700"
                         }`}
                         aria-label='Grid view'
                       >
@@ -284,7 +291,9 @@ export default function AllCoursesClientPage({ initialCourses }: ClientPageProps
                       <button
                         onClick={() => setViewMode("list")}
                         className={`p-2 rounded-lg transition-all duration-200 ${
-                          viewMode === "list" ? "bg-white text-orange-600 shadow-sm" : "text-gray-500 hover:text-gray-700"
+                          viewMode === "list"
+                            ? "bg-white text-orange-600 shadow-sm"
+                            : "text-gray-500 hover:text-gray-700"
                         }`}
                         aria-label='List view'
                       >
@@ -307,6 +316,7 @@ export default function AllCoursesClientPage({ initialCourses }: ClientPageProps
                 wishlistItems={wishlistItems}
                 emptyStateMessage='No courses found. Try adjusting your filters.'
                 isEnrolled={isEnrolled}
+                user={user}
               />
             </div>
           </main>

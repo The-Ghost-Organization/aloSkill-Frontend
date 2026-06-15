@@ -25,6 +25,7 @@ const CourseCard = memo(function CourseCard({
   dashboardActions,
   isEnrolled,
   isOwner,
+  user
 }: CourseCardProps) {
   const {
     id,
@@ -39,8 +40,6 @@ const CourseCard = memo(function CourseCard({
     status,
     lessonProgress,
   } = course;
-
-  console.log("is enrolled : ", isEnrolled);
 
   // hasProgress
   const hasProgress = lessonProgress && lessonProgress.length > 0;
@@ -347,7 +346,7 @@ const CourseCard = memo(function CourseCard({
                 </Link>
               ) : dashboardActions ? (
                 <></>
-              ) : !course?.enrollments[0]?.userId ? (
+              ) : !course?.enrollments?.some(enrollment => enrollment.userId === user?.id) ? (
                 <>
                   {onAddToCart && (
                     <button

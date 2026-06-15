@@ -94,6 +94,7 @@ export type CourseCardProps = {
   wishlistItems?: Set<string | number>;
   isEnrolled?: boolean;
   isOwner?: boolean;
+  user?: any;
   dashboardActions?: {
     onView?: (courseId: string | number) => void;
     onEdit?: (courseId: string) => void;

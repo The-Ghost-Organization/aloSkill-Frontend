@@ -1,12 +1,13 @@
 "use client";
 
 import { LayoutGrid, LayoutList, SlidersHorizontal, X } from "lucide-react";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { type BookResponse } from "../bookAction";
 import { MAX_PRICE } from "../Books";
 import { type FilterState, initialFilters } from "../Filters";
 import BookCard from "./BookCard";
 import FilterPanel from "./Filterpanel";
+import { courseDraftStorage } from '../../../../lib/storage/courseDraftStorage';
 
 // ─── Active Filter Chips ──────────────────────────────────────────────────────
 
@@ -149,42 +150,48 @@ export default function BooksClient({ initialBooks }: { initialBooks: BookRespon
   const [filters, setFilters] = useState<FilterState>(initialFilters);
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
-  console.log("inital : ", initialBooks);
-  const filteredBooks = useMemo(() => {
-    return initialBooks
-      .filter(book => {
-        if (filters.search) {
-          const q = filters.search.toLowerCase();
-          if (!book.title.toLowerCase().includes(q) && !book.author.toLowerCase().includes(q))
-            return false;
-        }
-        // if (filters.genres.length > 0 && !filters.genres.includes(book.genre)) return false;
-        const currentPrice = book.salePrice ? book.salePrice : book.regularPrice;
-        if (currentPrice <= filters.priceRange[0] || currentPrice >= filters.priceRange[1]) {
-          return false;
-        }
-        // if (book.rating < filters.minRating) return false;
-        return true;
-      })
-      // .sort((a, b) => {
-      //   switch (filters.sort) {
-      //     case "newest":
-      //       return b.createdAt.localeCompare(a.createdAt);
-      //     case "oldest":
-      //       return a.createdAt.localeCompare(b.createdAt);
-      //     case "price-asc":
-      //       return (a.salePrice ?? a.regularPrice) - (b.salePrice ?? b.regularPrice);
-      //     case "price-desc":
-      //       return (b.salePrice ?? b.regularPrice) - (a.salePrice ?? a.regularPrice);
-      //     // case "rating":
-      //     //   return b.rating - a.rating;
-      //     default:
-      //       return 0;
-      //   }
-      // });
-  }, [initialBooks, filters]);
+  const [cartItems, setCartItems] = useState<{ courseId: string; quantity: number }[]>([]);
+  const [updateCart, setUpdateCart] = useState<boolean>(false);
 
-  console.log("filtered Books : ", filteredBooks, "filters : ", filters);
+  useEffect(() => {
+    const storedCartItems =
+      courseDraftStorage.get<{ courseId: string; quantity: number }[]>() || [];
+    setCartItems(storedCartItems);
+  }, [updateCart]);
+
+  const filteredBooks = useMemo(() => {
+    return initialBooks.filter(book => {
+      if (filters.search) {
+        const q = filters.search.toLowerCase();
+        if (!book.title.toLowerCase().includes(q) && !book.author.toLowerCase().includes(q))
+          return false;
+      }
+      if (filters.genres.length > 0 && !filters.genres.includes(book.category?.name as string))
+        return false;
+      const currentPrice = book.salePrice ? book.salePrice : book.regularPrice;
+      if (currentPrice <= filters.priceRange[0] || currentPrice >= filters.priceRange[1]) {
+        return false;
+      }
+      // if (book.rating < filters.minRating) return false;
+      return true;
+    });
+    // .sort((a, b) => {
+    //   switch (filters.sort) {
+    //     case "newest":
+    //       return b.createdAt.localeCompare(a.createdAt);
+    //     case "oldest":
+    //       return a.createdAt.localeCompare(b.createdAt);
+    //     case "price-asc":
+    //       return (a.salePrice ?? a.regularPrice) - (b.salePrice ?? b.regularPrice);
+    //     case "price-desc":
+    //       return (b.salePrice ?? b.regularPrice) - (a.salePrice ?? a.regularPrice);
+    //     // case "rating":
+    //     //   return b.rating - a.rating;
+    //     default:
+    //       return 0;
+    //   }
+    // });
+  }, [initialBooks, filters]);
 
   const handleReset = useCallback(
     () => setFilters({ ...initialFilters, sort: filters.sort }),
@@ -254,35 +261,7 @@ export default function BooksClient({ initialBooks }: { initialBooks: BookRespon
 
       {/* ── Main layout ── */}
       <div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8'>
-        {/*
-          ─── WHY `items-start` IS MANDATORY ────────────────────────────────
-          By default, flex children stretch to fill the container's cross-axis
-          height. When the sidebar stretches to match the book grid's height,
-          `position: sticky` has no room to scroll within its parent — so it
-          never activates. `items-start` makes each flex child only as tall as
-          its own content, giving the sidebar the scrollable space it needs.
-          ────────────────────────────────────────────────────────────────────
-        */}
         <div className='flex flex-col lg:flex-row gap-8 items-start'>
-          {/*
-            ─── STICKY SIDEBAR ─────────────────────────────────────────────
-            `sticky` MUST be on the direct flex child — not on a nested
-            element inside it. If it's nested, the sticky offset is
-            calculated relative to the nearest scrollable ancestor of the
-            nested element, which is the non-scrolling flex child, so it
-            appears stuck immediately and never moves.
-
-            top-[var] controls where the sidebar "parks" when sticking.
-            Adjust the value to sit just below your app's navbar height.
-
-            `self-start` is redundant when `items-start` is on the parent
-            but is included here as a clear, explicit reminder of the intent.
-
-            max-h + overflow-y-auto lets the sidebar scroll independently
-            when filter options are taller than the viewport — the sidebar
-            won't overflow off-screen on short viewports.
-            ────────────────────────────────────────────────────────────────
-          */}
           <div
             className={`
               w-full shrink-0
@@ -301,7 +280,7 @@ export default function BooksClient({ initialBooks }: { initialBooks: BookRespon
 
           {/* ── Book grid / list ── */}
           <div className='flex-1 min-w-0'>
-            {initialBooks.length === 0 ? (
+            {filteredBooks.length === 0 ? (
               <EmptyState onReset={handleReset} />
             ) : (
               <div
@@ -311,12 +290,13 @@ export default function BooksClient({ initialBooks }: { initialBooks: BookRespon
                     : "flex flex-col gap-3"
                 }
               >
-                {initialBooks.map((book, index) => (
+                {filteredBooks.map((book, index) => (
                   <BookCard
                     key={book.id}
                     book={book}
                     index={index}
                     viewMode={viewMode}
+                    cartItems={cartItems}
                   />
                 ))}
               </div>

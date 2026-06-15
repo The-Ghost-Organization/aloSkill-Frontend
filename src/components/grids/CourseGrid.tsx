@@ -15,6 +15,7 @@ interface CourseGridProps {
   cartItems?: {courseId: string; quantity: number}[];
   wishlistItems?: Set<string | number>;
   isEnrolled?: boolean;
+  user?: any;
 }
 
 const CourseGrid = memo(function CourseGrid({
@@ -25,7 +26,8 @@ const CourseGrid = memo(function CourseGrid({
   onAddToWishlist,
   cartItems = [],
   wishlistItems = new Set(),
-  isEnrolled
+  isEnrolled,
+  user
 }: CourseGridProps) {
   if (isLoading) {
     return (
@@ -80,6 +82,7 @@ const CourseGrid = memo(function CourseGrid({
           // isInCart={cartItems.has(course.id)}
           isEnrolled={isEnrolled}
           isInWishlist={wishlistItems.has(course.id)}
+          user={user}
         />
       ))}
     </div>
