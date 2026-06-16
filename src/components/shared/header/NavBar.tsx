@@ -21,7 +21,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { useSessionContext } from "../../../app/contexts/SessionContext.tsx";
-import { courseDraftStorage } from "../../../lib/storage/courseDraftStorage.ts";
+import { bookDraftStorage, courseDraftStorage } from "../../../lib/storage/courseDraftStorage.ts";
 import Logo from "./Logo.tsx";
 
 interface HeaderProps {
@@ -63,7 +63,8 @@ export default function NavBar({ onMenuToggle }: HeaderProps) {
       }
     }
     const getLocalData = courseDraftStorage.get<{ courseId: string; quantity: number }[]>();
-    setCartCount(getLocalData?.length || 0);
+    const getBookData = bookDraftStorage.get<{ bookId: string; quantity: number }[]>();
+    setCartCount((getLocalData?.length || 0) + (getBookData?.length || 0));
   }, [user, isCartUpdate]);
 
   const handleSignIn = () => {
