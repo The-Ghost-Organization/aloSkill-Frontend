@@ -36,7 +36,7 @@ export const GENRES = [
 
 export type Genre = (typeof GENRES)[number];
 
-export const MAX_PRICE = 60;
+export const MAX_PRICE = 5000;
 
 export const books: Book[] = [
   {

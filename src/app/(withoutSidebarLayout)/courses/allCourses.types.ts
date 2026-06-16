@@ -30,7 +30,9 @@ export type CourseType = {
   id: string;
   title: string;
   thumbnailUrl: string | null;
-
+  level: string;
+  language: string;
+  ratingAverage: number;
   originalPrice: number;
   discountPrice: number | null;
 
@@ -92,6 +94,7 @@ export type CourseCardProps = {
   wishlistItems?: Set<string | number>;
   isEnrolled?: boolean;
   isOwner?: boolean;
+  user?: any;
   dashboardActions?: {
     onView?: (courseId: string | number) => void;
     onEdit?: (courseId: string) => void;

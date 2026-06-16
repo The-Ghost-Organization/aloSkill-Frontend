@@ -127,7 +127,7 @@ export default function FilterPanel({
         <Divider />
 
         {/* Sort */}
-        <SectionLabel>Sort By</SectionLabel>
+        {/* <SectionLabel>Sort By</SectionLabel>
         <div className="relative">
           <select
             value={filters.sort}
@@ -143,7 +143,7 @@ export default function FilterPanel({
           <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
         </div>
 
-        <Divider />
+        <Divider /> */}
 
         {/* Genre */}
         <SectionLabel>Genre</SectionLabel>
@@ -180,7 +180,7 @@ export default function FilterPanel({
               <input
                 type="number"
                 min={0}
-                max={filters.priceRange[1] - 1}
+                // max={filters.priceRange[1] - 1}
                 value={filters.priceRange[0]}
                 onChange={(e) =>
                   update({
@@ -203,8 +203,9 @@ export default function FilterPanel({
               </span>
               <input
                 type="number"
-                min={filters.priceRange[0] + 1}
-                max={MAX_PRICE}
+                // min={filters.priceRange[0] + 1}
+                min={0}
+                // max={MAX_PRICE}
                 value={filters.priceRange[1]}
                 onChange={(e) =>
                   update({

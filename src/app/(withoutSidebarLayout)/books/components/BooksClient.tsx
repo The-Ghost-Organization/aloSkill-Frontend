@@ -1,8 +1,11 @@
 "use client";
 
 import { LayoutGrid, LayoutList, SlidersHorizontal, X } from "lucide-react";
-import { useCallback, useMemo, useState } from "react";
-import { type Book, MAX_PRICE } from "../Books";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { bookDraftStorage } from "../../../../lib/storage/courseDraftStorage";
+import { useSessionContext } from "../../../contexts/SessionContext";
+import { type BookResponse } from "../bookAction";
+import { MAX_PRICE } from "../Books";
 import { type FilterState, initialFilters } from "../Filters";
 import BookCard from "./BookCard";
 import FilterPanel from "./Filterpanel";
@@ -144,45 +147,73 @@ function EmptyState({ onReset }: { onReset: () => void }) {
 
 // ─── BooksClient ──────────────────────────────────────────────────────────────
 
-export default function BooksClient({ initialBooks }: { initialBooks: Book[] }) {
+export default function BooksClient({ initialBooks }: { initialBooks: BookResponse }) {
   const [filters, setFilters] = useState<FilterState>(initialFilters);
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
+  const [cartItems, setCartItems] = useState<{ bookId: string; quantity: number }[]>([]);
+  const [updateCart, setUpdateCart] = useState<boolean>(false);
+  const { setCartUpdate } = useSessionContext();
+
+  useEffect(() => {
+    const storedCartItems = bookDraftStorage.get<{ bookId: string; quantity: number }[]>() || [];
+    setCartItems(storedCartItems);
+  }, [updateCart]);
 
   const filteredBooks = useMemo(() => {
-    return initialBooks
-      .filter(book => {
-        if (filters.search) {
-          const q = filters.search.toLowerCase();
-          if (!book.title.toLowerCase().includes(q) && !book.author.toLowerCase().includes(q))
-            return false;
-        }
-        if (filters.genres.length > 0 && !filters.genres.includes(book.genre)) return false;
-        if (book.price < filters.priceRange[0] || book.price > filters.priceRange[1]) return false;
-        if (book.rating < filters.minRating) return false;
-        return true;
-      })
-      .sort((a, b) => {
-        switch (filters.sort) {
-          case "newest":
-            return b.publishedYear - a.publishedYear;
-          case "oldest":
-            return a.publishedYear - b.publishedYear;
-          case "price-asc":
-            return a.price - b.price;
-          case "price-desc":
-            return b.price - a.price;
-          case "rating":
-            return b.rating - a.rating;
-          default:
-            return b.reviewCount - a.reviewCount;
-        }
-      });
+    return initialBooks.filter(book => {
+      if (filters.search) {
+        const q = filters.search.toLowerCase();
+        if (!book.title.toLowerCase().includes(q) && !book.author.toLowerCase().includes(q))
+          return false;
+      }
+      if (filters.genres.length > 0 && !filters.genres.includes(book.category?.name as string))
+        return false;
+      const currentPrice = book.salePrice ? book.salePrice : book.regularPrice;
+      if (currentPrice <= filters.priceRange[0] || currentPrice >= filters.priceRange[1]) {
+        return false;
+      }
+      // if (book.rating < filters.minRating) return false;
+      return true;
+    });
+    // .sort((a, b) => {
+    //   switch (filters.sort) {
+    //     case "newest":
+    //       return b.createdAt.localeCompare(a.createdAt);
+    //     case "oldest":
+    //       return a.createdAt.localeCompare(b.createdAt);
+    //     case "price-asc":
+    //       return (a.salePrice ?? a.regularPrice) - (b.salePrice ?? b.regularPrice);
+    //     case "price-desc":
+    //       return (b.salePrice ?? b.regularPrice) - (a.salePrice ?? a.regularPrice);
+    //     // case "rating":
+    //     //   return b.rating - a.rating;
+    //     default:
+    //       return 0;
+    //   }
+    // });
   }, [initialBooks, filters]);
 
   const handleReset = useCallback(
     () => setFilters({ ...initialFilters, sort: filters.sort }),
     [filters.sort]
+  );
+
+  const bookAddToCartHandler = (bookId: string) => {
+    const getStorageData = bookDraftStorage.get<{ bookId: string; quantity: number }[]>() || [];
+    if (getStorageData?.find(item => item.bookId === bookId)) return getStorageData;
+    getStorageData?.push({ bookId, quantity: 1 });
+    bookDraftStorage.save(getStorageData);
+    return getStorageData;
+  };
+
+  const handleAddToCart = useCallback(
+    (bookId: string) => {
+      bookAddToCartHandler(bookId);
+      setUpdateCart(prev => !prev);
+      setCartUpdate?.(prev => !prev);
+    },
+    [setCartUpdate]
   );
 
   return (
@@ -248,35 +279,7 @@ export default function BooksClient({ initialBooks }: { initialBooks: Book[] }) 
 
       {/* ── Main layout ── */}
       <div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8'>
-        {/*
-          ─── WHY `items-start` IS MANDATORY ────────────────────────────────
-          By default, flex children stretch to fill the container's cross-axis
-          height. When the sidebar stretches to match the book grid's height,
-          `position: sticky` has no room to scroll within its parent — so it
-          never activates. `items-start` makes each flex child only as tall as
-          its own content, giving the sidebar the scrollable space it needs.
-          ────────────────────────────────────────────────────────────────────
-        */}
         <div className='flex flex-col lg:flex-row gap-8 items-start'>
-          {/*
-            ─── STICKY SIDEBAR ─────────────────────────────────────────────
-            `sticky` MUST be on the direct flex child — not on a nested
-            element inside it. If it's nested, the sticky offset is
-            calculated relative to the nearest scrollable ancestor of the
-            nested element, which is the non-scrolling flex child, so it
-            appears stuck immediately and never moves.
-
-            top-[var] controls where the sidebar "parks" when sticking.
-            Adjust the value to sit just below your app's navbar height.
-
-            `self-start` is redundant when `items-start` is on the parent
-            but is included here as a clear, explicit reminder of the intent.
-
-            max-h + overflow-y-auto lets the sidebar scroll independently
-            when filter options are taller than the viewport — the sidebar
-            won't overflow off-screen on short viewports.
-            ────────────────────────────────────────────────────────────────
-          */}
           <div
             className={`
               w-full shrink-0
@@ -311,6 +314,8 @@ export default function BooksClient({ initialBooks }: { initialBooks: Book[] }) 
                     book={book}
                     index={index}
                     viewMode={viewMode}
+                    cartItems={cartItems}
+                    onAddToCart={handleAddToCart}
                   />
                 ))}
               </div>

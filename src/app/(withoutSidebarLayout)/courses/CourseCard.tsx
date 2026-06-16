@@ -25,6 +25,7 @@ const CourseCard = memo(function CourseCard({
   dashboardActions,
   isEnrolled,
   isOwner,
+  user
 }: CourseCardProps) {
   const {
     id,
@@ -71,7 +72,7 @@ const CourseCard = memo(function CourseCard({
   const students = _count.enrollments;
 
   const [imgSrc, setImgSrc] = useState(thumbnailUrl || "/images/course-placeholder.png");
-  
+
   const [isWishlistLoading, setIsWishlistLoading] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
 
@@ -345,7 +346,7 @@ const CourseCard = memo(function CourseCard({
                 </Link>
               ) : dashboardActions ? (
                 <></>
-              ) : !course?.enrollments[0]?.userId ? (
+              ) : !course?.enrollments?.some(enrollment => enrollment.userId === user?.id) ? (
                 <>
                   {onAddToCart && (
                     <button

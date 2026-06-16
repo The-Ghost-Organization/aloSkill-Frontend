@@ -15,6 +15,7 @@ import Image from "next/image";
 import Link from "next/link";
 import type { Book } from "../Books";
 import BookCardActions from "./BookCardActions";
+import { type BookResponse } from '../bookAction';
 
 // ─── Sub-components (also server-only) ───────────────────────────────────────
 
@@ -58,16 +59,18 @@ function AvailabilityPill({ status }: { status: Book["availability"] }) {
 // ─── Props ────────────────────────────────────────────────────────────────────
 
 interface BookCardProps {
-  book: Book;
+  book: BookResponse[0];
   index?: number;
   viewMode?: "grid" | "list";
+  cartItems?: {bookId: string; quantity: number}[];
+  onAddToCart?: (bookId: string) => void;
 }
 
 // ─── Grid Card ────────────────────────────────────────────────────────────────
 
-function GridCard({ book }: BookCardProps) {
-  const discount = book.originalPrice
-    ? Math.round(((book.originalPrice - book.price) / book.originalPrice) * 100)
+function GridCard({ book, cartItems, onAddToCart }: BookCardProps) {
+  const discount = book.regularPrice
+    ? Math.round(((book.regularPrice - book.salePrice) / book.regularPrice) * 100)
     : null;
 
   return (
@@ -79,7 +82,7 @@ function GridCard({ book }: BookCardProps) {
         {/* ── Cover Image ── */}
         <div className='relative w-full h-56 overflow-hidden bg-gray-100'>
           <Image
-            src={book.cover}
+            src={book.coverImage}
             alt={`Cover of ${book.title}`}
             fill
             className='object-cover transition-transform duration-500 ease-out group-hover:scale-105'
@@ -98,16 +101,18 @@ function GridCard({ book }: BookCardProps) {
             <BookCardActions
               bookId={book.id}
               bookTitle={book.title}
+              isInCart={cartItems?.some(item => item.bookId === book.id) ?? false}
+              onAddToCart={onAddToCart}
             />
           </div>
 
           {/* Badges */}
           <div className='absolute top-2.5 left-2.5 flex flex-col gap-1.5 pointer-events-none'>
-            {book.bestseller && (
+            {/* {book.bestseller && (
               <span className='text-[9px] font-black uppercase tracking-wide bg-amber-400 text-white px-2 py-0.5 rounded-full shadow-sm'>
                 Bestseller
               </span>
-            )}
+            )} */}
             {discount && (
               <span className='text-[9px] font-black bg-red-500 text-white px-2 py-0.5 rounded-full shadow-sm'>
                 -{discount}%
@@ -120,9 +125,9 @@ function GridCard({ book }: BookCardProps) {
         <div className='p-4'>
           <div className='flex items-center justify-between mb-1.5'>
             <span className='text-[10px] font-bold uppercase tracking-[0.14em] text-amber-500'>
-              {book.genre}
+              {book.author}
             </span>
-            <span className='text-[10px] text-gray-400'>{book.publishedYear}</span>
+            <span className='text-[10px] text-gray-400'>{book.createdAt}</span>
           </div>
 
           <h3 className='font-bold text-gray-900 text-sm leading-snug mb-0.5 line-clamp-2 transition-colors duration-200 group-hover:text-amber-600'>
@@ -131,23 +136,23 @@ function GridCard({ book }: BookCardProps) {
 
           <p className='text-[11px] text-gray-400 mb-2.5'>by {book.author}</p>
 
-          <div className='flex items-center gap-1.5 mb-3'>
+          {/* <div className='flex items-center gap-1.5 mb-3'>
             <StarRating rating={book.rating} />
             <span className='text-[10px] text-gray-400'>
               {book.rating} ({book.reviewCount.toLocaleString()})
             </span>
-          </div>
+          </div> */}
 
           <div className='flex items-center justify-between pt-3 border-t border-gray-100'>
             <div className='flex items-baseline gap-1.5'>
-              <span className='font-bold text-gray-900 text-sm'>${book.price.toFixed(2)}</span>
-              {book.originalPrice && (
+              <span className='font-bold text-gray-900 text-sm'>${book.salePrice}</span>
+              {book.regularPrice && (
                 <span className='text-[11px] text-gray-400 line-through'>
-                  ${book.originalPrice.toFixed(2)}
+                  ${book.regularPrice}
                 </span>
               )}
             </div>
-            <AvailabilityPill status={book.availability} />
+            <AvailabilityPill status={book.stock as Book["availability"]} />
           </div>
         </div>
       </article>
@@ -157,9 +162,9 @@ function GridCard({ book }: BookCardProps) {
 
 // ─── List Card ────────────────────────────────────────────────────────────────
 
-function ListCard({ book }: BookCardProps) {
-  const discount = book.originalPrice
-    ? Math.round(((book.originalPrice - book.price) / book.originalPrice) * 100)
+function ListCard({ book, cartItems, onAddToCart }: BookCardProps) {
+  const discount = book.regularPrice
+    ? Math.round(((book.regularPrice - book.salePrice) / book.regularPrice) * 100)
     : null;
 
   return (
@@ -171,17 +176,17 @@ function ListCard({ book }: BookCardProps) {
         {/* Cover */}
         <div className='relative w-20 h-28 shrink-0 rounded-xl overflow-hidden bg-gray-100'>
           <Image
-            src={book.cover}
+            src={book.coverImage}
             alt={`Cover of ${book.title}`}
             fill
             className='object-cover transition-transform duration-500 group-hover:scale-105'
             sizes='80px'
           />
-          {book.bestseller && (
+          {/* {book.bestseller && (
             <span className='absolute top-1 left-1 text-[8px] font-black bg-amber-400 text-white px-1.5 py-0.5 rounded-full leading-none'>
               BS
             </span>
-          )}
+          )} */}
         </div>
 
         {/* Info */}
@@ -189,32 +194,32 @@ function ListCard({ book }: BookCardProps) {
           <div>
             <div className='flex items-start justify-between gap-2 mb-0.5'>
               <span className='text-[10px] font-bold uppercase tracking-[0.14em] text-amber-500'>
-                {book.genre}
+                {book.author}
               </span>
-              <span className='text-[10px] text-gray-400 shrink-0'>{book.publishedYear}</span>
+              <span className='text-[10px] text-gray-400 shrink-0'>{book.createdAt}</span>
             </div>
             <h3 className='font-bold text-gray-900 text-base leading-tight mb-0.5 line-clamp-1 transition-colors duration-200 group-hover:text-amber-600'>
               {book.title}
             </h3>
             <p className='text-xs text-gray-400 mb-1.5'>by {book.author}</p>
-            <p className='text-xs text-gray-500 line-clamp-2'>{book.description}</p>
+            <p className='text-xs text-gray-500 line-clamp-2'>{book.title}</p>
           </div>
 
           <div className='flex items-center justify-between mt-2'>
-            <div className='flex items-center gap-1.5'>
+            {/* <div className='flex items-center gap-1.5'>
               <StarRating rating={book.rating} />
               <span className='text-[10px] text-gray-400'>
                 ({book.reviewCount.toLocaleString()})
               </span>
-            </div>
+            </div> */}
             <div className='flex items-center gap-2'>
               <div className='flex items-baseline gap-1'>
-                <span className='font-bold text-gray-900 text-sm'>${book.price.toFixed(2)}</span>
+                <span className='font-bold text-gray-900 text-sm'>${book.salePrice}</span>
                 {discount && (
                   <span className='text-[10px] font-bold text-red-500'>-{discount}%</span>
                 )}
               </div>
-              <AvailabilityPill status={book.availability} />
+              <AvailabilityPill status={book.stock as Book["availability"]} />
             </div>
           </div>
         </div>
@@ -234,9 +239,8 @@ function ListCard({ book }: BookCardProps) {
 
 // ─── Export ───────────────────────────────────────────────────────────────────
 
-export default function BookCard({ book, index = 0, viewMode = "grid" }: BookCardProps) {
-  // index is accepted for API compatibility; used for potential future CSS delay
+export default function BookCard({ book, index = 0, viewMode = "grid" ,cartItems = [], onAddToCart }: BookCardProps) {
   void index;
-  if (viewMode === "list") return <ListCard book={book} />;
-  return <GridCard book={book} />;
+  if (viewMode === "list") return <ListCard book={book} cartItems={cartItems} onAddToCart={onAddToCart} />;
+  return <GridCard book={book} cartItems={cartItems} onAddToCart={onAddToCart} />;
 }
