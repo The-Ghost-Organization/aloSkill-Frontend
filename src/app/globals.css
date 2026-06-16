@@ -63,7 +63,7 @@
 @layer utilities {
 
   /* === Fluid Font Size Overrides === */
-  .text-xs {
+  /* .text-xs {
     font-size: var(--font-size-xs);
   }
 
@@ -85,7 +85,7 @@
 
   .text-2xl {
     font-size: var(--font-size-2xl);
-  }
+  } */
 
   @keyframes pageEnter {
     from {
