@@ -13,9 +13,9 @@
 import { Star } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
+import { type BookResponse } from "../bookAction";
 import type { Book } from "../Books";
 import BookCardActions from "./BookCardActions";
-import { type BookResponse } from '../bookAction';
 
 // ─── Sub-components (also server-only) ───────────────────────────────────────
 
@@ -62,7 +62,7 @@ interface BookCardProps {
   book: BookResponse[0];
   index?: number;
   viewMode?: "grid" | "list";
-  cartItems?: {bookId: string; quantity: number}[];
+  cartItems?: { bookId: string; quantity: number }[];
   onAddToCart?: (bookId: string) => void;
 }
 
@@ -78,7 +78,7 @@ function GridCard({ book, cartItems, onAddToCart }: BookCardProps) {
       href={`/books/${book.id}`}
       className='group block'
     >
-      <article className='bg-white rounded-lg border border-gray-100 shadow-sm overflow-hidden transition-all duration-300 ease-out hover:-translate-y-1.5 hover:shadow-xl hover:shadow-gray-200/70 hover:border-gray-200'>
+      <article className=' h-full flex flex-col bg-white rounded-lg border border-gray-100 shadow-sm overflow-hidden transition-all duration-300 ease-out hover:-translate-y-1.5 hover:shadow-xl hover:shadow-gray-200/70 hover:border-gray-200'>
         {/* ── Cover Image ── */}
         <div className='relative w-full h-56 overflow-hidden bg-gray-100'>
           <Image
@@ -98,12 +98,12 @@ function GridCard({ book, cartItems, onAddToCart }: BookCardProps) {
             and handles click events independently.
           */}
           <div className='absolute inset-0 bg-black/35 opacity-0 transition-opacity duration-300 group-hover:opacity-100 flex items-center justify-center'>
-            <BookCardActions
+            {/* <BookCardActions
               bookId={book.id}
               bookTitle={book.title}
               isInCart={cartItems?.some(item => item.bookId === book.id) ?? false}
               onAddToCart={onAddToCart}
-            />
+            /> */}
           </div>
 
           {/* Badges */}
@@ -122,15 +122,17 @@ function GridCard({ book, cartItems, onAddToCart }: BookCardProps) {
         </div>
 
         {/* ── Card Body ── */}
-        <div className='p-4'>
+        <div className='flex flex-col flex-1 p-4'>
           <div className='flex items-center justify-between mb-1.5'>
-            <span className='text-[10px] font-bold uppercase tracking-[0.14em] text-amber-500'>
+            <AvailabilityPill status={book.stock as Book["availability"]} />
+
+            {/* <span className='text-[10px] font-bold uppercase tracking-[0.14em] text-amber-500'>
               {book.author}
-            </span>
+            </span> */}
             <span className='text-[10px] text-gray-400'>{book.createdAt}</span>
           </div>
 
-          <h3 className='font-bold text-gray-900 text-sm leading-snug mb-0.5 line-clamp-2 transition-colors duration-200 group-hover:text-amber-600'>
+          <h3 className='min-h-[3rem] font-bold text-gray-900 text-sm leading-snug mb-0.5 line-clamp-2 transition-colors duration-200 group-hover:text-amber-600'>
             {book.title}
           </h3>
 
@@ -147,12 +149,15 @@ function GridCard({ book, cartItems, onAddToCart }: BookCardProps) {
             <div className='flex items-baseline gap-1.5'>
               <span className='font-bold text-gray-900 text-sm'>${book.salePrice}</span>
               {book.regularPrice && (
-                <span className='text-[11px] text-gray-400 line-through'>
-                  ${book.regularPrice}
-                </span>
+                <span className='text-[11px] text-gray-400 line-through'>${book.regularPrice}</span>
               )}
             </div>
-            <AvailabilityPill status={book.stock as Book["availability"]} />
+            <BookCardActions
+              bookId={book.id}
+              bookTitle={book.title}
+              isInCart={cartItems?.some(item => item.bookId === book.id) ?? false}
+              onAddToCart={onAddToCart}
+            />
           </div>
         </div>
       </article>
@@ -230,6 +235,8 @@ function ListCard({ book, cartItems, onAddToCart }: BookCardProps) {
           <BookCardActions
             bookId={book.id}
             bookTitle={book.title}
+            isInCart={cartItems?.some(item => item.bookId === book.id) ?? false}
+            onAddToCart={onAddToCart}
           />
         </div>
       </article>
@@ -239,8 +246,27 @@ function ListCard({ book, cartItems, onAddToCart }: BookCardProps) {
 
 // ─── Export ───────────────────────────────────────────────────────────────────
 
-export default function BookCard({ book, index = 0, viewMode = "grid" ,cartItems = [], onAddToCart }: BookCardProps) {
+export default function BookCard({
+  book,
+  index = 0,
+  viewMode = "grid",
+  cartItems = [],
+  onAddToCart,
+}: BookCardProps) {
   void index;
-  if (viewMode === "list") return <ListCard book={book} cartItems={cartItems} onAddToCart={onAddToCart} />;
-  return <GridCard book={book} cartItems={cartItems} onAddToCart={onAddToCart} />;
+  if (viewMode === "list")
+    return (
+      <ListCard
+        book={book}
+        cartItems={cartItems}
+        onAddToCart={onAddToCart}
+      />
+    );
+  return (
+    <GridCard
+      book={book}
+      cartItems={cartItems}
+      onAddToCart={onAddToCart}
+    />
+  );
 }
