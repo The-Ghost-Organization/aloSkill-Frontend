@@ -1,103 +1,100 @@
 "use client";
 import { FadeIn } from "@/lib/course/utils.tsx";
-import { ArrowRight, BaggageClaim, ChevronRight, X } from "lucide-react";
+import { ArrowRight, BaggageClaim, ChevronRight, Truck } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { apiClient } from "../../../../lib/api/client";
-import { courseDraftStorage } from "../../../../lib/storage/courseDraftStorage";
 import { useSessionContext } from "../../../contexts/SessionContext";
 
-type Courses = {
-  id: string;
-  category: string | undefined;
-  discountPrice: number;
-  title: string;
-  originalPrice: number;
-  thumbnailUrl: string | null;
-}[];
+type OrderSummary = {
+  items: {
+    books: {
+      id: string;
+      title: string;
+      category?: string;
+      discountPrice?: number;
+      originalPrice: number;
+      thumbnailUrl?: string;
+      isEbook?: boolean;
+    }[];
+    courses: {
+      id: string;
+      title: string;
+      category?: string;
+      discountPrice?: number;
+      originalPrice: number;
+      thumbnailUrl?: string;
+    }[];
+  };
+  quantities: {
+    courses: { courseId: string; quantity: number }[];
+    books: { bookId: string; quantity: number, format: string }[];
+  };
+  subtotal: number;
+};
 
 export default function CheckoutPage() {
   const [paymentMethod, setPaymentMethod] = useState<string>("bkash");
-
-  const [cartItems, setCartItems] = useState<Courses>([]);
-  const [storedCartItems, setStoredCartItems] = useState<{ courseId: string; quantity: number }[]>(
-    []
-  );
   const router = useRouter();
   const { user } = useSessionContext();
 
-  const params = useParams();
-  const courseId = params["slug"]?.[0];
+  const searchParams = useSearchParams();
+  const sessionId = searchParams.get("session");
 
-  const fetchCourseData = async (storedCart: { courseId: string; quantity: number }[]) => {
-    const response = await apiClient.post<Courses>(
-      "/course/get-cart-courses",
-      storedCart.map(course => course.courseId)
-    );
-    if (!response.success) {
-      setCartItems([]);
-      return;
-    }
-    setCartItems(response.data || []);
-  };
+  const [orderSummary, setOrderSummary] = useState<OrderSummary>({
+    items: { books: [], courses: [] },
+    quantities: { courses: [], books: [] },
+    subtotal: 0,
+  });
+
+  // Delivery Form State
+  const [shippingDetails, setShippingDetails] = useState({
+    fullName: "",
+    phoneNumber: "",
+    addressLine: "",
+    city: "",
+    postalCode: "",
+  });
 
   useEffect(() => {
-    if (courseId) {
-      setStoredCartItems([{ courseId, quantity: 1 }]);
-      fetchCourseData([{ courseId, quantity: 1 }]);
-      return;
-    }
-    const storedCart = courseDraftStorage.get<{ courseId: string; quantity: number }[]>();
-    if (!storedCart || storedCart.length === 0) {
-      setCartItems([]);
-      return;
-    }
-    setStoredCartItems(storedCart);
-
-    fetchCourseData(storedCart);
-  }, [courseId]);
-
-  const createOrder = async () => {
-    if (!user) return;
-    const orderResponse = await apiClient.post<{ gatewayPageURL: string; orderId: string }>(
-      "/order/create-payment",
-      {
-        courseIds: courseId ? [courseId] : storedCartItems.map(item => item.courseId),
-        paymentMethod,
-        user: user.id,
+    async function fetchOrderSummary() {
+      if (!sessionId) {
+        console.error("No session ID found in URL.");
+        return;
       }
-    );
-    if (!orderResponse.success) {
-      alert("Failed to create order. Please try again.");
-      return;
+      try {
+        const response = await apiClient.get<OrderSummary>(
+          `/cart/get-checkout-summary/${sessionId}`
+        );
+        if (!response.success) {
+          console.error("Failed to fetch order summary.");
+          return;
+        }
+        setOrderSummary(response.data as OrderSummary);
+      } catch (error) {
+        console.error("Error fetching order summary:", error);
+      }
     }
-    // console.log(orderResponse.data);
-    if (orderResponse.data) {
-      router.push(orderResponse.data.gatewayPageURL);
-    }
-    alert("Order created successfully! Proceeding to payment...");
-  };
+    fetchOrderSummary();
+  }, [router, sessionId]);
 
-  const subtotal = cartItems.reduce(
-    (sum, item) =>
-      sum +
-      (item.discountPrice ? item.discountPrice : item.originalPrice) *
-        (storedCartItems.find(ci => ci.courseId === item.id)?.quantity || 1),
-    0
-  );
+  const targetBooks = orderSummary?.quantities?.books || [];
+  const hasPhysicalBook = targetBooks.some((book: any) => book.format === "PHYSICAL");
 
-  const tax = subtotal * 0.05;
-  const total = subtotal + tax;
+  // Validate form requirements
+  const isFormValid =
+    !hasPhysicalBook ||
+    (shippingDetails.fullName.trim() !== "" &&
+      shippingDetails.phoneNumber.trim() !== "" &&
+      shippingDetails.addressLine.trim() !== "" &&
+      shippingDetails.city.trim() !== "" &&
+      shippingDetails.postalCode.trim() !== "");
 
-  const removeItem = (id: string) => {
-    setStoredCartItems(items => {
-      const updatedItems = items.filter(item => item.courseId !== id);
-      courseDraftStorage.save(updatedItems);
-      return updatedItems;
-    });
-    setCartItems(items => items.filter(item => item.id !== id));
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setShippingDetails(prev => ({ ...prev, [name]: value }));
   };
 
   const paymentMethods = [
@@ -108,9 +105,12 @@ export default function CheckoutPage() {
     { id: "others", icon: "O", label: "Others" },
   ];
 
+  if (!orderSummary) {
+    return <p className='text-center py-12'>Loading checkout information...</p>;
+  }
+
   return (
     <div className='min-h-screen bg-linear-to-br from-orange-50 via-purple-50 to-blue-50'>
-      {/* Breadcrumb */}
       <header className='bg-white shadow-sm animate-slide-down'>
         <div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6'>
           <div className='flex gap-3'>
@@ -119,7 +119,7 @@ export default function CheckoutPage() {
               <nav className='flex items-center gap-2 text-sm text-gray-600 overflow-x-auto'>
                 <Link
                   href='/'
-                  className='hover:text-[#da7c36] transition-colors whitespace-nowrap'
+                  className='hover:text-orange transition-colors whitespace-nowrap'
                 >
                   Home
                 </Link>
@@ -137,13 +137,236 @@ export default function CheckoutPage() {
         <div className='grid grid-cols-1 lg:grid-cols-3 gap-8'>
           {/* Left Section - Billing & Payment */}
           <div className='lg:col-span-2 space-y-6'>
-            {/* Payment Option */}
             <div
               className='bg-white rounded-lg shadow-md p-6 sm:p-8 animate-fade-in'
-              style={{ animationDelay: "100ms" }}
+              style={{ animationDelay: "50ms" }}
+            >
+              <h2 className='text-lg font-bold text-[#074079] mb-4'>Review Your Order</h2>
+              <div className='divide-y divide-gray-100 max-h-100 overflow-y-auto pr-2'>
+                {/* Loop Through Courses */}
+                {orderSummary?.items.courses?.map((item: any) => (
+                  <div
+                    key={item.id}
+                    className='flex gap-4 py-4 items-center justify-between group'
+                  >
+                    <div className='flex gap-4 items-center flex-1 min-w-0'>
+                      <div className='relative w-16 h-16 shrink-0 bg-gray-100 rounded-lg overflow-hidden'>
+                        <Image
+                          fill
+                          sizes='64px'
+                          src={
+                            item.thumbnailUrl
+                              ? encodeURI(item.thumbnailUrl)
+                              : "/placeholder-course.png"
+                          }
+                          alt={item.title}
+                          className='object-cover'
+                        />
+                      </div>
+                      <div className='flex-1 min-w-0'>
+                        <div className='flex gap-2 items-center mb-1'>
+                          <span className='inline-block text-[10px] bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full font-medium uppercase tracking-wider'>
+                            Course
+                          </span>
+                        </div>
+                        <h3 className='text-sm font-medium text-gray-900 line-clamp-1'>
+                          {item.title}
+                        </h3>
+                        <p className='text-xs text-gray-500 mt-0.5'>{item.category || "General"}</p>
+                      </div>
+                    </div>
+
+                    <div className='text-center px-4 w-16 shrink-0'>
+                      <span className='text-[10px] text-gray-400 block uppercase font-medium'>
+                        Qty
+                      </span>
+                      <span className='text-sm font-semibold text-gray-700'>1</span>
+                    </div>
+
+                    <div className='text-right shrink-0 w-24'>
+                      <p className='text-sm font-semibold text-[#DA7C36]'>
+                        ${item.discountPrice ?? item.originalPrice}
+                      </p>
+                      {item.discountPrice && (
+                        <p className='text-xs text-gray-400 line-through'>${item.originalPrice}</p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+
+                {/* Loop Through Books */}
+                {orderSummary?.items.books?.map((item: any) => {
+                  const currentQty =
+                    orderSummary?.quantities.books.find(b => b.bookId === item.id)?.quantity || 1;
+                  const bookFormat = orderSummary?.quantities.books.find(b => b.bookId === item.id)?.format;
+                  return (
+                    <div
+                      key={item.id}
+                      className='flex gap-4 py-4 items-center justify-between group'
+                    >
+                      <div className='flex gap-4 items-center flex-1 min-w-0'>
+                        <div className='relative w-16 h-16 shrink-0 bg-gray-100 rounded-lg overflow-hidden'>
+                          <Image
+                            fill
+                            sizes='64px'
+                            src={
+                              item.thumbnailUrl || item.coverImage
+                                ? encodeURI(item.thumbnailUrl || item.coverImage)
+                                : "/placeholder-book.png"
+                            }
+                            alt={item.title}
+                            className='object-cover'
+                          />
+                        </div>
+                        <div className='flex-1 min-w-0'>
+                          <div className='flex gap-1.5 items-center mb-1 flex-wrap'>
+                            <span className='inline-block text-[10px] bg-orange-50 text-[#DA7C36] px-2 py-0.5 rounded-full font-medium uppercase tracking-wider'>
+                              Book
+                            </span>
+                            {bookFormat !== "PHYSICAL" ? (
+                              <span className='inline-block text-[10px] bg-teal-50 text-teal-600 px-2 py-0.5 rounded-full font-medium uppercase tracking-wider border border-teal-100'>
+                                E-Book
+                              </span>
+                            ) : (
+                              <span className='inline-block text-[10px] bg-purple-50 text-purple-600 px-2 py-0.5 rounded-full font-medium uppercase tracking-wider border border-purple-100'>
+                                Physical Book
+                              </span>
+                            )}
+                          </div>
+                          <h3 className='text-sm font-medium text-gray-900 line-clamp-1'>
+                            {item.title}
+                          </h3>
+                          <p className='text-xs text-gray-500 mt-0.5'>
+                            {item.category || "Reading"}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className='text-center px-4 w-16 shrink-0'>
+                        <span className='text-[10px] text-gray-400 block uppercase font-medium'>
+                          Qty
+                        </span>
+                        <span className='text-sm font-bold text-[#074079]'>{currentQty}</span>
+                      </div>
+
+                      <div className='text-right shrink-0 w-24'>
+                        <p className='text-sm font-semibold text-[#DA7C36]'>
+                          ${item.discountPrice ?? item.salePrice ?? item.originalPrice}
+                        </p>
+                        {(item.discountPrice || item.salePrice) && (
+                          <p className='text-xs text-gray-400 line-through'>
+                            ${item.originalPrice ?? item.regularPrice}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {/* Empty State Fallback */}
+                {!orderSummary?.items.courses?.length &&
+                  !orderSummary?.items.books?.length && (
+                    <p className='text-sm text-gray-500 text-center py-6'>
+                      No items found in your checkout selection.
+                    </p>
+                  )}
+              </div>
+            </div>
+
+            {/* DYNAMIC SHIPPNG FORM: Visible only when a physical book is in checkout */}
+            {hasPhysicalBook && (
+              <div
+                className='bg-white rounded-lg shadow-md p-6 sm:p-8 border border-orange-100 animate-fade-in'
+                style={{ animationDelay: "100ms" }}
+              >
+                <div className='flex items-center gap-2 mb-4 text-[#074079]'>
+                  <Truck className='w-5 h-5 text-[#DA7C36]' />
+                  <h2 className='text-lg font-bold'>Delivery Address</h2>
+                </div>
+                <p className='text-xs text-gray-500 mb-4 -mt-2'>
+                  You have physical items in your order. Please complete your shipping destination
+                  details.
+                </p>
+
+                <div className='grid grid-cols-1 sm:grid-cols-2 gap-4'>
+                  <div className='sm:col-span-2'>
+                    <label className='block text-xs font-semibold text-gray-700 mb-1'>
+                      Full Name *
+                    </label>
+                    <input
+                      type='text'
+                      name='fullName'
+                      required
+                      value={shippingDetails.fullName}
+                      onChange={handleInputChange}
+                      placeholder='John Doe'
+                      className='w-full px-3 py-2 text-sm border border-gray-200 rounded-md focus:outline-hidden focus:border-[#DA7C36] transition-colors'
+                    />
+                  </div>
+                  <div>
+                    <label className='block text-xs font-semibold text-gray-700 mb-1'>
+                      Phone Number *
+                    </label>
+                    <input
+                      type='tel'
+                      name='phoneNumber'
+                      required
+                      value={shippingDetails.phoneNumber}
+                      onChange={handleInputChange}
+                      placeholder='+880 1234...'
+                      className='w-full px-3 py-2 text-sm border border-gray-200 rounded-md focus:outline-hidden focus:border-[#DA7C36] transition-colors'
+                    />
+                  </div>
+                  <div>
+                    <label className='block text-xs font-semibold text-gray-700 mb-1'>City *</label>
+                    <input
+                      type='text'
+                      name='city'
+                      required
+                      value={shippingDetails.city}
+                      onChange={handleInputChange}
+                      placeholder='Dhaka'
+                      className='w-full px-3 py-2 text-sm border border-gray-200 rounded-md focus:outline-hidden focus:border-[#DA7C36] transition-colors'
+                    />
+                  </div>
+                  <div className='sm:col-span-2'>
+                    <label className='block text-xs font-semibold text-gray-700 mb-1'>
+                      Street Address *
+                    </label>
+                    <input
+                      type='text'
+                      name='addressLine'
+                      required
+                      value={shippingDetails.addressLine}
+                      onChange={handleInputChange}
+                      placeholder='House 12, Road 4, Sector 3'
+                      className='w-full px-3 py-2 text-sm border border-gray-200 rounded-md focus:outline-hidden focus:border-[#DA7C36] transition-colors'
+                    />
+                  </div>
+                  <div>
+                    <label className='block text-xs font-semibold text-gray-700 mb-1'>
+                      Postal Code *
+                    </label>
+                    <input
+                      type='text'
+                      name='postalCode'
+                      required
+                      value={shippingDetails.postalCode}
+                      onChange={handleInputChange}
+                      placeholder='1230'
+                      className='w-full px-3 py-2 text-sm border border-gray-200 rounded-md focus:outline-hidden focus:border-[#DA7C36] transition-colors'
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Payment Options Wrapper */}
+            <div
+              className='bg-white rounded-lg shadow-md p-6 sm:p-8 animate-fade-in'
+              style={{ animationDelay: "150ms" }}
             >
               <h2 className='text-lg font-bold text-[#074079] mb-6'>Payment Option</h2>
-              {/* Payment Methods */}
               <div className='grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-4'>
                 {paymentMethods.map(method => (
                   <button
@@ -167,91 +390,10 @@ export default function CheckoutPage() {
                   </button>
                 ))}
               </div>
-
-              {/* Card Details */}
-              {/* {formData.paymentMethod === "card" && (
-                <div className='space-y-4 animate-fade-in-up'>
-                  <div>
-                    <label className='block text-sm font-medium text-gray-700 mb-2'>
-                      Name on Card
-                    </label>
-                    <input
-                      type='text'
-                      name='cardName'
-                      value={formData.cardName}
-                      onChange={handleInputChange}
-                      className='w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#DA7C36] focus:border-transparent transition-all duration-200'
-                    />
-                  </div>
-                  <div>
-                    <label className='block text-sm font-medium text-gray-700 mb-2'>
-                      Card Number
-                    </label>
-                    <input
-                      type='text'
-                      name='cardNumber'
-                      placeholder='xxxx xxxx xxxx xxxx'
-                      value={formData.cardNumber}
-                      onChange={handleInputChange}
-                      maxLength={19}
-                      className='w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#DA7C36] focus:border-transparent transition-all duration-200'
-                    />
-                  </div>
-                  <div className='grid grid-cols-2 gap-4'>
-                    <div>
-                      <label className='block text-sm font-medium text-gray-700 mb-2'>
-                        Expire Date
-                      </label>
-                      <input
-                        type='text'
-                        name='expiryDate'
-                        placeholder='DD/YY'
-                        value={formData.expiryDate}
-                        onChange={handleInputChange}
-                        maxLength={5}
-                        className='w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#DA7C36] focus:border-transparent transition-all duration-200'
-                      />
-                    </div>
-                    <div>
-                      <label className='block text-sm font-medium text-gray-700 mb-2'>CVC</label>
-                      <input
-                        type='text'
-                        name='cvc'
-                        placeholder='xxx'
-                        value={formData.cvc}
-                        onChange={handleInputChange}
-                        maxLength={3}
-                        className='w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#DA7C36] focus:border-transparent transition-all duration-200'
-                      />
-                    </div>
-                  </div>
-                </div>
-              )} */}
             </div>
-
-            {/* Additional Information */}
-            {/* <div
-              className='bg-white rounded-xl shadow-md p-6 sm:p-8 animate-fade-in'
-              style={{ animationDelay: "200ms" }}
-            >
-              <h2 className='text-xl font-bold text-[#074079] mb-6'>Additional Information</h2>
-              <div>
-                <label className='block text-sm font-medium text-gray-700 mb-2'>
-                  Order Notes <span className='text-gray-400'>(Optional)</span>
-                </label>
-                <textarea
-                  name='orderNotes'
-                  rows={5}
-                  placeholder='Notes about your order, e.g. special notes for delivery'
-                  value={formData.orderNotes}
-                  onChange={handleInputChange}
-                  className='w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#DA7C36] focus:border-transparent transition-all duration-200 resize-none'
-                />
-              </div>
-            </div> */}
           </div>
 
-          {/* Right Section - Order Summary */}
+          {/* Right Section - Order Summary Breakdown */}
           <div className='lg:col-span-1'>
             <div
               className='bg-white rounded-lg shadow-lg p-6 sticky top-8 animate-fade-in'
@@ -259,75 +401,35 @@ export default function CheckoutPage() {
             >
               <h2 className='text-xl font-bold text-[#074079] mb-6'>Order Summary</h2>
 
-              {/* Order Items */}
-              <div className='space-y-4 mb-6'>
-                {cartItems.map(item => (
-                  <div
-                    key={item.id}
-                    className='flex gap-3 items-center hover:bg-gray-50 p-2 rounded-lg transition-colors duration-200'
-                  >
-                    <Image
-                      width={80}
-                      height={80}
-                      src={item.thumbnailUrl ? encodeURI(item.thumbnailUrl) : ""}
-                      alt='Course Thumbnail'
-                      className='w-16 h-16 object-cover rounded-lg'
-                    />
-                    <div className='flex-1 min-w-0'>
-                      <p className='text-sm text-gray-800 line-clamp-2 mb-1'>{item.title}</p>
-                      <p className='text-sm text-gray-600'>
-                        {storedCartItems.find(ci => ci.courseId === item.id)?.quantity || 1} x
-                        <span className='text-[#DA7C36] font-semibold'>
-                          ${item.discountPrice ? item.discountPrice : item.originalPrice}
-                        </span>
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => removeItem(item.id)}
-                      className='text-gray-400 hover:text-orange transition-colors duration-200 cursor-pointer'
-                      aria-label='Remove item'
-                    >
-                      <X className='w-5 h-5' />
-                    </button>
-                  </div>
-                ))}
-              </div>
-
-              {/* Price Breakdown */}
               <div className='space-y-3 border-t border-gray-200 pt-4'>
                 <div className='flex justify-between text-gray-700'>
                   <span>Sub-total</span>
-                  <span className='font-semibold'>${subtotal}</span>
+                  <span className='font-semibold'>${orderSummary.subtotal || 0}</span>
                 </div>
                 <div className='flex justify-between text-gray-700'>
                   <span>Shipping</span>
                   <span className='font-semibold text-green-600'>Free</span>
                 </div>
-                {/* <div className='flex justify-between text-gray-700'>
-                  <span>Discount</span>
-                  <span className='font-semibold'>$5</span>
-                </div> */}
-                <div className='flex justify-between text-gray-700'>
-                  <span>Tax</span>
-                  <span className='font-semibold'>${tax.toFixed(2)}</span>
-                </div>
                 <div className='flex justify-between text-lg font-bold text-[#074079] pt-3 border-t border-gray-200'>
                   <span>Total</span>
-                  <span className='text-[#DA7C36]'>${total.toFixed(2)} USD</span>
+                  <span className='text-[#DA7C36]'>${orderSummary.subtotal || 0} USD</span>
                 </div>
               </div>
 
-              {/* Payment Options */}
-
-              {/* Place Order Button */}
+              {/* The checkout button is conditionally disabled if a physical book exists but inputs are missing */}
               <button
-                onClick={createOrder}
-                disabled={cartItems.length === 0}
-                className='w-full mt-6 py-3 bg-linear-to-r from-[#DA7C36] to-[#d15100] text-white rounded-lg font-bold text-base hover:shadow-lg hover:scale-105 transition-all duration-300 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed'
+                disabled={!isFormValid}
+                className='w-full mt-6 py-3 bg-linear-to-r from-[#DA7C36] to-orange-dark text-white rounded-lg font-bold text-base hover:shadow-lg hover:scale-105 transition-all duration-300 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100'
               >
-                PAY WITH {paymentMethod.toUpperCase()}
+                {!isFormValid ? "FILL SHIPPING DETAILS" : `PAY WITH ${paymentMethod.toUpperCase()}`}
                 <ArrowRight className='w-5 h-5' />
               </button>
+
+              {!isFormValid && (
+                <p className='text-[11px] text-red-500 text-center mt-2 font-medium'>
+                  Delivery address details are required to buy physical books.
+                </p>
+              )}
             </div>
           </div>
         </div>
@@ -344,7 +446,6 @@ export default function CheckoutPage() {
             transform: translateY(0);
           }
         }
-
         @keyframes slide-down {
           from {
             opacity: 0;
@@ -355,29 +456,11 @@ export default function CheckoutPage() {
             transform: translateY(0);
           }
         }
-
-        @keyframes fade-in-up {
-          from {
-            opacity: 0;
-            transform: translateY(20px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-
         .animate-fade-in {
-          animation: fade-in 0.6s ease-out;
-          animation-fill-mode: both;
+          animation: fade-in 0.6s ease-out both;
         }
-
         .animate-slide-down {
           animation: slide-down 0.5s ease-out;
-        }
-
-        .animate-fade-in-up {
-          animation: fade-in-up 0.4s ease-out;
         }
       `}</style>
     </div>

@@ -9,7 +9,7 @@ export const metadata = {
 
 export default async function BooksPage() {
   const books = (await getAllBooks()) as BookResponse;
-  console.log("Books", books);
+
   return (
     <main className='min-h-screen bg-white'>
       {/* ── Static header — server-rendered, zero JS, perfect for SEO ── */}

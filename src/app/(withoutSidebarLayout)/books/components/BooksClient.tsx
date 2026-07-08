@@ -10,6 +10,11 @@ import { type FilterState, initialFilters } from "../Filters";
 import BookCard from "./BookCard";
 import FilterPanel from "./Filterpanel";
 
+// export type AddToCartProps = {
+//   bookId: string;
+//   format?: "PHYSICAL" | "DIGITAL";
+// };
+
 // ─── Active Filter Chips ──────────────────────────────────────────────────────
 
 function Chip({
@@ -169,7 +174,12 @@ export default function BooksClient({ initialBooks }: { initialBooks: BookRespon
       }
       if (filters.genres.length > 0 && !filters.genres.includes(book.category?.name as string))
         return false;
-      const currentPrice = book.salePrice ? book.salePrice : book.regularPrice;
+      const currentPrice =
+        book.physicalSalePrice ??
+        book.physicalRegularPrice ??
+        book.digitalSalePrice ??
+        book.digitalRegularPrice ??
+        0;
       if (currentPrice <= filters.priceRange[0] || currentPrice >= filters.priceRange[1]) {
         return false;
       }
@@ -199,17 +209,28 @@ export default function BooksClient({ initialBooks }: { initialBooks: BookRespon
     [filters.sort]
   );
 
-  const bookAddToCartHandler = (bookId: string) => {
-    const getStorageData = bookDraftStorage.get<{ bookId: string; quantity: number }[]>() || [];
-    if (getStorageData?.find(item => item.bookId === bookId)) return getStorageData;
-    getStorageData?.push({ bookId, quantity: 1 });
+  const bookAddToCartHandler = (bookId: string, format: "PHYSICAL" | "EBOOK") => {
+    const getStorageData =
+      bookDraftStorage.get<
+        { bookId: string; format: "PHYSICAL" | "EBOOK"; quantity: number }[]
+      >() || [];
+    const existingBook = getStorageData?.find(item => item.bookId === bookId);
+    if (existingBook?.format === format) return;
+    if (existingBook?.format === "PHYSICAL" || existingBook?.format === "EBOOK") {
+      getStorageData.splice(getStorageData.indexOf(existingBook), 1);
+      getStorageData?.push({ bookId, format, quantity: 1 });
+      bookDraftStorage.save(getStorageData);
+      return;
+    }
+    getStorageData?.push({ bookId, format, quantity: 1 });
     bookDraftStorage.save(getStorageData);
-    return getStorageData;
+    return;
   };
 
   const handleAddToCart = useCallback(
-    (bookId: string) => {
-      bookAddToCartHandler(bookId);
+    (bookId: string, format?: "PHYSICAL" | "EBOOK") => {
+      if (!format) return;
+      bookAddToCartHandler(bookId, format);
       setUpdateCart(prev => !prev);
       setCartUpdate?.(prev => !prev);
     },
