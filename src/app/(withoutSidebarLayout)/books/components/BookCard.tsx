@@ -1,15 +1,3 @@
-/**
- * components/books/BookCard.tsx  ←  SERVER COMPONENT (no "use client")
- *
- * Pure display component — zero JavaScript shipped for this file.
- * All hover effects (image zoom, overlay fade, card lift) are Tailwind
- * CSS-only and work without hydration.
- *
- * The only client-side behaviour (cart / wishlist button clicks) lives
- * in <BookCardActions>, a tiny island that is imported here but rendered
- * inside the CSS hover overlay so it is only hydrated once visible.
- */
-
 import { Star } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -63,15 +51,22 @@ interface BookCardProps {
   index?: number;
   viewMode?: "grid" | "list";
   cartItems?: { bookId: string; quantity: number }[];
-  onAddToCart?: (bookId: string) => void;
+  onAddToCart?: (bookId: string, format?: "PHYSICAL" | "EBOOK") => void;
 }
 
 // ─── Grid Card ────────────────────────────────────────────────────────────────
 
 function GridCard({ book, cartItems, onAddToCart }: BookCardProps) {
-  const discount = book.regularPrice
-    ? Math.round(((book.regularPrice - book.salePrice) / book.regularPrice) * 100)
-    : null;
+  const activeSalePrice = book.physicalSalePrice ?? book.digitalSalePrice;
+  const activeRegularPrice = book.physicalRegularPrice ?? book.digitalRegularPrice;
+
+  const discount =
+    activeRegularPrice && activeSalePrice && activeRegularPrice > activeSalePrice
+      ? Math.round(
+          ((Number(activeRegularPrice) - Number(activeSalePrice)) / Number(activeRegularPrice)) *
+            100
+        )
+      : null;
 
   return (
     <Link
@@ -92,18 +87,14 @@ function GridCard({ book, cartItems, onAddToCart }: BookCardProps) {
           {/* Permanent bottom gradient */}
           <div className='absolute inset-0 bg-linear-to-t from-black/20 via-transparent to-transparent' />
 
-          {/*
-            CSS-only hover overlay — opacity driven purely by Tailwind group-hover.
-            No JavaScript involved. BookCardActions (client island) sits inside
-            and handles click events independently.
-          */}
           <div className='absolute inset-0 bg-black/35 opacity-0 transition-opacity duration-300 group-hover:opacity-100 flex items-center justify-center'>
             {/* <BookCardActions
               bookId={book.id}
               bookTitle={book.title}
               isInCart={cartItems?.some(item => item.bookId === book.id) ?? false}
               onAddToCart={onAddToCart}
-            /> */}
+              format={book.formats}
+            />
           </div>
 
           {/* Badges */}
@@ -137,6 +128,14 @@ function GridCard({ book, cartItems, onAddToCart }: BookCardProps) {
           </h3>
 
           <p className='text-[11px] text-gray-400 mb-2.5'>by {book.author}</p>
+          {book.formats.map((format, index) => (
+            <span
+              key={index}
+              className='text-[10px] text-gray-500 mr-2 last:mr-0 rounded-lg border border-gray-200 px-2 py-0.5'
+            >
+              {format}
+            </span>
+          ))}
 
           {/* <div className='flex items-center gap-1.5 mb-3'>
             <StarRating rating={book.rating} />
@@ -147,9 +146,11 @@ function GridCard({ book, cartItems, onAddToCart }: BookCardProps) {
 
           <div className='flex items-center justify-between pt-3 border-t border-gray-100'>
             <div className='flex items-baseline gap-1.5'>
-              <span className='font-bold text-gray-900 text-sm'>${book.salePrice}</span>
-              {book.regularPrice && (
-                <span className='text-[11px] text-gray-400 line-through'>${book.regularPrice}</span>
+              <span className='font-bold text-gray-900 text-sm'>${activeSalePrice}</span>
+              {activeRegularPrice && (
+                <span className='text-[11px] text-gray-400 line-through'>
+                  ${activeRegularPrice}
+                </span>
               )}
             </div>
             <BookCardActions
@@ -168,9 +169,16 @@ function GridCard({ book, cartItems, onAddToCart }: BookCardProps) {
 // ─── List Card ────────────────────────────────────────────────────────────────
 
 function ListCard({ book, cartItems, onAddToCart }: BookCardProps) {
-  const discount = book.regularPrice
-    ? Math.round(((book.regularPrice - book.salePrice) / book.regularPrice) * 100)
-    : null;
+  const activeSalePrice = book.physicalSalePrice ?? book.digitalSalePrice;
+  const activeRegularPrice = book.physicalRegularPrice ?? book.digitalRegularPrice;
+
+  const discount =
+    activeRegularPrice && activeSalePrice && activeRegularPrice > activeSalePrice
+      ? Math.round(
+          ((Number(activeRegularPrice) - Number(activeSalePrice)) / Number(activeRegularPrice)) *
+            100
+        )
+      : null;
 
   return (
     <Link
@@ -199,7 +207,15 @@ function ListCard({ book, cartItems, onAddToCart }: BookCardProps) {
           <div>
             <div className='flex items-start justify-between gap-2 mb-0.5'>
               <span className='text-[10px] font-bold uppercase tracking-[0.14em] text-amber-500'>
-                {book.author}
+                <span className='mr-2'>{book.author}</span>
+                {book.formats.map((format, index) => (
+                  <span
+                    key={index}
+                    className='text-[10px] text-gray-500 mr-2 last:mr-0 rounded-lg border border-gray-200 px-2 py-0.5'
+                  >
+                    {format}
+                  </span>
+                ))}
               </span>
               <span className='text-[10px] text-gray-400 shrink-0'>{book.createdAt}</span>
             </div>
@@ -219,7 +235,7 @@ function ListCard({ book, cartItems, onAddToCart }: BookCardProps) {
             </div> */}
             <div className='flex items-center gap-2'>
               <div className='flex items-baseline gap-1'>
-                <span className='font-bold text-gray-900 text-sm'>${book.salePrice}</span>
+                <span className='font-bold text-gray-900 text-sm'>${activeSalePrice}</span>
                 {discount && (
                   <span className='text-[10px] font-bold text-red-500'>-{discount}%</span>
                 )}
@@ -237,6 +253,7 @@ function ListCard({ book, cartItems, onAddToCart }: BookCardProps) {
             bookTitle={book.title}
             isInCart={cartItems?.some(item => item.bookId === book.id) ?? false}
             onAddToCart={onAddToCart}
+            format={book.formats}
           />
         </div>
       </article>

@@ -9,8 +9,10 @@ export type BookResponse = {
     id: string;
     title: string;
     author: string;
-    regularPrice: number;
-    salePrice: number;
+    physicalRegularPrice: number | null;
+    physicalSalePrice: number | null;
+    digitalRegularPrice: number | null;
+    digitalSalePrice: number | null;
     publisher: string;
     createdAt: string;
     category: {
