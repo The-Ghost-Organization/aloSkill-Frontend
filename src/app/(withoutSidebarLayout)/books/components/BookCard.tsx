@@ -94,6 +94,16 @@ function GridCard({ book, cartItems, onAddToCart }: BookCardProps) {
               isInCart={cartItems?.some(item => item.bookId === book.id) ?? false}
               onAddToCart={onAddToCart}
               format={book.formats}
+              prices={{
+                physical: {
+                  salePrice: book.physicalSalePrice,
+                  regularPrice: book.physicalRegularPrice,
+                },
+                digital: {
+                  salePrice: book.digitalSalePrice,
+                  regularPrice: book.digitalRegularPrice,
+                },
+              }}
             />
           </div>
 
@@ -126,7 +136,7 @@ function GridCard({ book, cartItems, onAddToCart }: BookCardProps) {
           </h3>
 
           <p className='text-[11px] text-gray-400 mb-2.5'>by {book.author}</p>
-          {book.formats.map((format, index) => (
+          {book.formats?.map((format, index) => (
             <span
               key={index}
               className='text-[10px] text-gray-500 mr-2 last:mr-0 rounded-lg border border-gray-200 px-2 py-0.5'
@@ -247,6 +257,16 @@ function ListCard({ book, cartItems, onAddToCart }: BookCardProps) {
             isInCart={cartItems?.some(item => item.bookId === book.id) ?? false}
             onAddToCart={onAddToCart}
             format={book.formats}
+            prices={{
+              physical: {
+                salePrice: book.physicalSalePrice,
+                regularPrice: book.physicalRegularPrice,
+              },
+              digital: {
+                salePrice: book.digitalSalePrice,
+                regularPrice: book.digitalRegularPrice,
+              },
+            }}
           />
         </div>
       </article>

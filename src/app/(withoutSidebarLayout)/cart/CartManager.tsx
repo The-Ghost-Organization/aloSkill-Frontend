@@ -65,7 +65,7 @@ export default function CartManager() {
 
     const fetchFreshPrices = async () => {
       try {
-        const payload: { courses?: string[]; books?: {bookId: string, format: string}[] } = {};
+        const payload: { courses?: string[]; books?: { bookId: string; format: string }[] } = {};
 
         if (storedCart && storedCart.length > 0) {
           payload.courses = storedCart.map(item => item.courseId);
@@ -177,12 +177,20 @@ export default function CartManager() {
     return (
       <div className='text-center py-16 bg-white rounded shadow-sm'>
         <h2 className='text-xl font-semibold text-gray-700 mb-4'>Your cart is empty</h2>
-        <Link
-          href='/courses'
-          className='px-6 py-2 bg-[#DA7C36] text-white rounded font-medium inline-flex items-center gap-2'
-        >
-          <ArrowLeft className='w-4 h-4' /> Discover Courses
-        </Link>
+        <div className='flex flex-col sm:flex-row justify-center items-center gap-4'>
+          <Link
+            href='/courses'
+            className='px-6 py-2 bg-[#DA7C36] text-white rounded font-medium inline-flex items-center gap-2'
+          >
+            <ArrowLeft className='w-4 h-4' /> Discover Courses
+          </Link>
+          <Link
+            href='/books'
+            className='px-6 py-2 bg-[#DA7C36] text-white rounded font-medium inline-flex items-center gap-2'
+          >
+            <ArrowLeft className='w-4 h-4' /> Discover Books
+          </Link>
+        </div>
       </div>
     );
   }
