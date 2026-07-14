@@ -30,7 +30,7 @@ type OrderSummary = {
   };
   quantities: {
     courses: { courseId: string; quantity: number }[];
-    books: { bookId: string; quantity: number, format: string }[];
+    books: { bookId: string; quantity: number; format: string }[];
   };
   subtotal: number;
 };
@@ -43,6 +43,7 @@ export default function CheckoutPage() {
   const searchParams = useSearchParams();
   const sessionId = searchParams.get("session");
 
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [orderSummary, setOrderSummary] = useState<OrderSummary>({
     items: { books: [], courses: [] },
     quantities: { courses: [], books: [] },
@@ -79,6 +80,42 @@ export default function CheckoutPage() {
     }
     fetchOrderSummary();
   }, [router, sessionId]);
+
+  const handleCheckout = async () => {
+    if (!user) {
+      router.push("/login");
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      const checkoutPayload = {
+        sessionId: sessionId,
+        paymentMethod: paymentMethod,
+        shippingDetails: hasPhysicalBook ? shippingDetails : null,
+        amount: orderSummary.subtotal,
+      };
+
+      console.log("Submitting Checkout Data:", checkoutPayload);
+
+      const response = await apiClient.post("/order/create-order-with-EPS", checkoutPayload);
+
+      if (response.success) {
+        if (response.data?.gatewayUrl) {
+          window.location.href = response.data.gatewayUrl;
+        } else {
+          router.push("/checkout/success");
+        }
+      } else {
+        console.error("Checkout failed:", response.error);
+        // Handle showing a toast message or error notice to the user here
+      }
+    } catch (error) {
+      console.error("Error during checkout process:", error);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   const targetBooks = orderSummary?.quantities?.books || [];
   const hasPhysicalBook = targetBooks.some((book: any) => book.format === "PHYSICAL");
@@ -198,7 +235,9 @@ export default function CheckoutPage() {
                 {orderSummary?.items.books?.map((item: any) => {
                   const currentQty =
                     orderSummary?.quantities.books.find(b => b.bookId === item.id)?.quantity || 1;
-                  const bookFormat = orderSummary?.quantities.books.find(b => b.bookId === item.id)?.format;
+                  const bookFormat = orderSummary?.quantities.books.find(
+                    b => b.bookId === item.id
+                  )?.format;
                   return (
                     <div
                       key={item.id}
@@ -264,12 +303,11 @@ export default function CheckoutPage() {
                 })}
 
                 {/* Empty State Fallback */}
-                {!orderSummary?.items.courses?.length &&
-                  !orderSummary?.items.books?.length && (
-                    <p className='text-sm text-gray-500 text-center py-6'>
-                      No items found in your checkout selection.
-                    </p>
-                  )}
+                {!orderSummary?.items.courses?.length && !orderSummary?.items.books?.length && (
+                  <p className='text-sm text-gray-500 text-center py-6'>
+                    No items found in your checkout selection.
+                  </p>
+                )}
               </div>
             </div>
 
@@ -396,7 +434,7 @@ export default function CheckoutPage() {
           {/* Right Section - Order Summary Breakdown */}
           <div className='lg:col-span-1'>
             <div
-              className='bg-white rounded-lg shadow-lg p-6 sticky top-8 animate-fade-in'
+              className='bg-white rounded-lg shadow-lg p-6 sticky top-36 animate-fade-in'
               style={{ animationDelay: "300ms" }}
             >
               <h2 className='text-xl font-bold text-[#074079] mb-6'>Order Summary</h2>
@@ -418,11 +456,18 @@ export default function CheckoutPage() {
 
               {/* The checkout button is conditionally disabled if a physical book exists but inputs are missing */}
               <button
-                disabled={!isFormValid}
+                disabled={!isFormValid || isSubmitting}
+                onClick={handleCheckout}
                 className='w-full mt-6 py-3 bg-linear-to-r from-[#DA7C36] to-orange-dark text-white rounded-lg font-bold text-base hover:shadow-lg hover:scale-105 transition-all duration-300 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100'
               >
-                {!isFormValid ? "FILL SHIPPING DETAILS" : `PAY WITH ${paymentMethod.toUpperCase()}`}
-                <ArrowRight className='w-5 h-5' />
+                {isSubmitting ? (
+                  <span className='animate-pulse'>PROCESSING...</span>
+                ) : !isFormValid ? (
+                  "FILL SHIPPING DETAILS"
+                ) : (
+                  `PAY WITH ${paymentMethod.toUpperCase()}`
+                )}
+                {!isSubmitting && <ArrowRight className='w-5 h-5' />}
               </button>
 
               {!isFormValid && (

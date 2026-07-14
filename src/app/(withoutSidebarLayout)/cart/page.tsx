@@ -16,7 +16,7 @@ export default function ShoppingCartPage() {
           <div className='flex items-center gap-3'>
             <ShoppingCart className='w-5 h-5 text-[#DA7C36]' />
             <nav className='flex items-center gap-2 text-sm text-gray-600 overflow-x-auto'>
-              <Link href='/' className='hover:text-[#da7c36] transition-colors whitespace-nowrap'>
+              <Link href='/' className='hover:text-orange transition-colors whitespace-nowrap'>
                 Home
               </Link>
               <span className='text-gray-400'>/</span>

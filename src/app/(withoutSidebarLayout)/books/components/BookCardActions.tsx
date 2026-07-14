@@ -1,6 +1,6 @@
 "use client";
 
-import { BookOpen, Heart, ShoppingBag, ShoppingCart, Truck, X } from "lucide-react";
+import { ShoppingBag, ShoppingCart, Truck, X } from "lucide-react";
 import { useState } from "react";
 
 interface Props {
@@ -9,6 +9,16 @@ interface Props {
   isInCart?: boolean;
   onAddToCart?: (bookId: string, format?: "PHYSICAL" | "EBOOK") => void;
   format: string[];
+  prices: {
+    physical: {
+      salePrice: number | null;
+      regularPrice: number | null;
+    };
+    digital: {
+      salePrice: number | null;
+      regularPrice: number | null;
+    };
+  };
 }
 
 export default function BookCardActions({
@@ -17,6 +27,7 @@ export default function BookCardActions({
   isInCart,
   onAddToCart,
   format,
+  prices,
 }: Props) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedFormat, setSelectedFormat] = useState<"PHYSICAL" | "EBOOK">("PHYSICAL");
@@ -93,7 +104,7 @@ export default function BookCardActions({
                 const formatName = item === "HARDCOVER" ? "PHYSICAL" : "EBOOK";
                 return (
                   <div
-                  key={index}
+                    key={index}
                     className={`flex items-center justify-between p-2 rounded border cursor-pointer transition-all ${
                       selectedFormat === formatName
                         ? "border-amber-500 bg-amber-50/20"
@@ -106,12 +117,19 @@ export default function BookCardActions({
                         <Truck className='w-4 h-4 text-gray-400 shrink-0' />
                         <div>
                           <span className='block font-semibold text-xs text-gray-800'>
-                            {formatName === "PHYSICAL" ? "Physical Book" : "E-Book"}
+                            {formatName === "PHYSICAL" ? "Hard Cover" : "E-Book"}
                           </span>
-                          <span className='block text-xs text-orange'>200 tk</span>
-                          <span className='block text-[9px] text-emerald-600 font-medium'>
-                            Includes FREE eBook!
+                          <span className='block text-xs text-orange'>
+                            {formatName === "PHYSICAL"
+                              ? prices.physical.salePrice || prices.physical.regularPrice
+                              : prices.digital.salePrice || prices.digital.regularPrice}
+                            &nbsp;tk
                           </span>
+                          {formatName === "PHYSICAL" && (
+                            <span className='block text-[9px] text-emerald-600 font-medium'>
+                              Includes FREE eBook!
+                            </span>
+                          )}
                         </div>
                       </div>
                     </div>
