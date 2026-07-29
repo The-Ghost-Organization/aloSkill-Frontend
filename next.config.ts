@@ -45,7 +45,7 @@ const nextConfig: NextConfig = {
       },
       {
         protocol: "https",
-        hostname: "aloskill-pull-zone-6.b-cdn.net",
+        hostname: "aloskill-pull-zone-7.b-cdn.net",
         pathname: "/**",
       },
       {
@@ -294,7 +294,7 @@ const securityHeaders = [
     style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
     img-src 'self' data: https: blob:;
     font-src 'self' https://fonts.gstatic.com;
-    connect-src 'self' http://localhost:5000 ${config.NEXT_PUBLIC_BACKEND_BASE_URL} https://vitals.vercel-insights.com https://video.bunnycdn.com https://fortunate-kindness-production.up.railway.app http://assets.mediadelivery.net https://sg.storage.bunnycdn.com https://aloskill-pull-zone-6.b-cdn.net;
+    connect-src 'self' http://localhost:5000 ${config.NEXT_PUBLIC_BACKEND_BASE_URL} https://vitals.vercel-insights.com https://video.bunnycdn.com https://fortunate-kindness-production.up.railway.app http://assets.mediadelivery.net https://sg.storage.bunnycdn.com https://aloskill-pull-zone-7.b-cdn.net;
     frame-ancestors 'none';
     frame-src https://iframe.mediadelivery.net;
     object-src 'none';

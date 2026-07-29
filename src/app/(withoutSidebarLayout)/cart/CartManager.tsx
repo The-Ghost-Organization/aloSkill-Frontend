@@ -1,9 +1,8 @@
-// components/cart/CartManager.tsx
 "use client";
 
 import { useSessionContext } from "@/app/contexts/SessionContext.tsx";
 import { apiClient } from "@/lib/api/client";
-import { bookDraftStorage, courseDraftStorage } from "@/lib/storage/courseDraftStorage";
+import { bookDraftStorage, checkoutDataStorage, courseDraftStorage } from "@/lib/storage/courseDraftStorage";
 import { ArrowLeft, Minus, Plus, Tag, X } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -126,19 +125,15 @@ export default function CartManager() {
   const handleProceedToCheckout = async () => {
     setIsProcessing(true);
     try {
-      const response = await apiClient.post<string>("/cart/initiate-checkout/", {
+      checkoutDataStorage.save({
         items: cartItems,
         quantities: storedCartItems,
         subtotal,
       });
 
-      if (response.success && response.data) {
-        router.push(`/checkout?session=${response.data}`);
-      } else {
-        alert("Failed to initialize secure checkout session.");
-      }
-    } catch (err) {
-      console.error(err);
+      router.push(`/checkout?isCart=true`);
+    } catch (error) {
+      console.error("Failed to save checkout data:", error);
     } finally {
       setIsProcessing(false);
     }
