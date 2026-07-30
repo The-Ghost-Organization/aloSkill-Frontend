@@ -7,6 +7,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { apiClient } from "../../../../lib/api/client";
 import { useSessionContext } from "../../../contexts/SessionContext";
+import { checkoutDataStorage } from '../../../../lib/storage/courseDraftStorage';
 
 type OrderSummary = {
   items: {
@@ -17,7 +18,6 @@ type OrderSummary = {
       discountPrice?: number;
       originalPrice: number;
       thumbnailUrl?: string;
-      isEbook?: boolean;
     }[];
     courses: {
       id: string;
@@ -41,7 +41,10 @@ export default function CheckoutPage() {
   const { user } = useSessionContext();
 
   const searchParams = useSearchParams();
-  const sessionId = searchParams.get("session");
+  const isCart = searchParams.get("isCart");
+  const bookId = searchParams.get("bookId");
+  const bookFormat = searchParams.get("format");
+  const courseId = searchParams.get("courseId");
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [orderSummary, setOrderSummary] = useState<OrderSummary>({
@@ -61,25 +64,19 @@ export default function CheckoutPage() {
 
   useEffect(() => {
     async function fetchOrderSummary() {
-      if (!sessionId) {
-        console.error("No session ID found in URL.");
-        return;
-      }
-      try {
-        const response = await apiClient.get<OrderSummary>(
-          `/cart/get-checkout-summary/${sessionId}`
-        );
-        if (!response.success) {
-          console.error("Failed to fetch order summary.");
-          return;
+      if(isCart) {
+        try {
+          const storedCheckoutData = checkoutDataStorage.get<OrderSummary>();
+          if (storedCheckoutData) {
+            setOrderSummary(storedCheckoutData);
+          }
+        } catch (error) {
+          console.error("Failed to retrieve checkout data from storage:", error);
         }
-        setOrderSummary(response.data as OrderSummary);
-      } catch (error) {
-        console.error("Error fetching order summary:", error);
       }
     }
     fetchOrderSummary();
-  }, [router, sessionId]);
+  }, [isCart]);
 
   const handleCheckout = async () => {
     if (!user) {
@@ -90,25 +87,21 @@ export default function CheckoutPage() {
     try {
       setIsSubmitting(true);
       const checkoutPayload = {
-        sessionId: sessionId,
         paymentMethod: paymentMethod,
         shippingDetails: hasPhysicalBook ? shippingDetails : null,
-        amount: orderSummary.subtotal,
+        orderSummary: orderSummary,
       };
 
-      console.log("Submitting Checkout Data:", checkoutPayload);
-
-      const response = await apiClient.post("/order/create-order-with-EPS", checkoutPayload);
+      const response = await apiClient.post<{gatewayUrl:string}>("/order/create-order-with-UDDOKTAPAY", checkoutPayload);
 
       if (response.success) {
         if (response.data?.gatewayUrl) {
           window.location.href = response.data.gatewayUrl;
         } else {
-          router.push("/checkout/success");
+          router.push("/checkout");
         }
       } else {
-        console.error("Checkout failed:", response.error);
-        // Handle showing a toast message or error notice to the user here
+        console.error("Checkout failed:", response.errors);
       }
     } catch (error) {
       console.error("Error during checkout process:", error);

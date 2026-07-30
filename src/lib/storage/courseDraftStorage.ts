@@ -6,6 +6,7 @@ const storageKeys = {
   courseDraft: `lms:course`,
   bookDraft: `lms:book`,
   editorLayout: `lms:editor:layout`,
+  checkoutData: `lms:checkout:data`,
 };
 
 export const courseDraftStorage = {
@@ -33,5 +34,19 @@ export const bookDraftStorage = {
 
   clear() {
     removeItem(storageKeys.bookDraft);
+  },
+};
+
+export const checkoutDataStorage = {
+  get<T>() {
+    return getItem<T>(storageKeys.checkoutData);
+  },
+
+  save(data: unknown): void {
+    setItem(storageKeys.checkoutData, data);
+  },
+
+  clear() {
+    removeItem(storageKeys.checkoutData);
   },
 };
