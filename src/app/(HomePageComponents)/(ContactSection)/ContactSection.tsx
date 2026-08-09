@@ -87,8 +87,8 @@ export default function ContactSection() {
           <PageHeading
             badge='Lets Connect'
             badgeIcon={Sparkles}
-            title='Get Your Free '
-            titleHighlight='Consultation Today'
+            title='Get Your Free Consultation'
+            titleHighlight='Today'
             subtitle='Transform your HR processes with our innovative solutions. Lets discuss how we can help your team thrive.'
           />
         </div>

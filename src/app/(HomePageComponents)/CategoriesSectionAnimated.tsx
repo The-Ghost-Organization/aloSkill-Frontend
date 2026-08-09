@@ -98,7 +98,8 @@ export function CategoriesSectionAnimated() {
       <div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'>
         {/* Header */}
         <SectionMiddleHeader
-          title='Most demanding categories'
+          title='Most demanding'
+          color_title='categories'
           subtitle='Learn from expert instructors in Bangla. Upgrade your skills with the most popular and effective online courses.'
         />
 
@@ -114,8 +115,7 @@ export function CategoriesSectionAnimated() {
                   group shadow-sm relative ${category.bgColor} rounded-lg px-6 py-4
                   transition-all duration-300 scale-100 hover:shadow-xl hover:-translate-y-2 cursor-pointer border border-transparent hover:border-gray-200 hover:scale-105
                 `}
-
-                  // ${isHovered ? "scale-105" : "scale-100"}
+                // ${isHovered ? "scale-105" : "scale-100"}
                 // onMouseEnter={() => setHoveredId(category.id)}
                 // onMouseLeave={() => setHoveredId(null)}
                 style={{
@@ -129,7 +129,7 @@ export function CategoriesSectionAnimated() {
                     w-14 h-14 ${category.bgColor} rounded-xl
                     flex items-center justify-center scale-100 rotate-0 transition-all duration-300 shadow-sm hover:scale-110 hover:rotate-6
                   `}
-                  // ${isHovered ? "scale-110 rotate-6" : "scale-100 rotate-0"}
+                    // ${isHovered ? "scale-110 rotate-6" : "scale-100 rotate-0"}
                   >
                     <Icon className={`w-7 h-7 ${category.iconColor}`} />
                   </div>
@@ -142,7 +142,7 @@ export function CategoriesSectionAnimated() {
                     text-lg text-gray-900 font-bold transition-colors hover:text-orange-600
 
                   `}
-                  // ${isHovered ? "text-orange-600" : "text-gray-900"}
+                    // ${isHovered ? "text-orange-600" : "text-gray-900"}
                   >
                     {category.title}
                   </h4>
@@ -168,7 +168,7 @@ export function CategoriesSectionAnimated() {
                   absolute top-6 right-6 opacity-0 scale-50 transition-all duration-300 hover:opacity-100 hover:scale-100
 
                 `}
-                // ${isHovered ? "opacity-100 scale-100" : "opacity-0 scale-50"}
+                  // ${isHovered ? "opacity-100 scale-100" : "opacity-0 scale-50"}
                 >
                   <div className='w-8 h-8 bg-white/50 rounded-full flex items-center justify-center'>
                     <ArrowRight className='w-4 h-4 text-gray-600' />
@@ -182,10 +182,10 @@ export function CategoriesSectionAnimated() {
         {/* View All Button */}
         <div className='text-center'>
           <BorderGradientButton
-            // onClick={() => console.log("View all button clicked")}
-            // icon={ArrowRight}
+          // onClick={() => console.log("View all button clicked")}
+          // icon={ArrowRight}
           >
-            Browse All Categories <ArrowRight/>
+            Browse All Categories <ArrowRight />
           </BorderGradientButton>
         </div>
       </div>

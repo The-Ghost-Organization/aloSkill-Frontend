@@ -5,7 +5,6 @@ import HeroSection from "@/app/(HomePageComponents)/(HeroSection)/HeroSection";
 import StatsSection from "@/app/(HomePageComponents)/(StatsSection)/StatsSection.tsx";
 import { CategoriesSectionAnimated } from "@/app/(HomePageComponents)/CategoriesSectionAnimated";
 import { CertificateSectionSimple } from "@/app/(HomePageComponents)/CertificateSectionSimple";
-import { DiscoverBooksSectionCarousel } from "@/app/(HomePageComponents)/DiscoverBooksSectionCarousel";
 import { InstructorsSectionAdvanced } from "@/app/(HomePageComponents)/InstructorsSectionAdvanced";
 import { WhyLearnSectionAnimated } from "@/app/(HomePageComponents)/WhyLearnSectionAnimated";
 import BackToTop from "@/components/shared/BackToTop";
@@ -30,7 +29,7 @@ export default function HomePage() {
       <CategoriesSectionAnimated />
       <WhyLearnSectionAnimated />
       <PopularCoursesSection />
-      <DiscoverBooksSectionCarousel />
+      {/* <DiscoverBooksSectionCarousel /> */}
       <InstructorsSectionAdvanced />
       <StdTestimonials />
       <ProcessPerfect />

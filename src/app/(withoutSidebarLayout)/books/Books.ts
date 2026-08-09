@@ -1,26 +1,63 @@
+// export interface Book {
+//   id: string;
+//   title: string;
+//   author: string;
+//   authorBio: string;
+//   genre: string;
+//   price: number;
+//   originalPrice?: number;
+//   rating: number;
+//   reviewCount: number;
+//   cover: string;
+//   description: string;
+//   longDescription: string;
+//   publishedYear: number;
+//   pages: number;
+//   language: string;
+//   isbn: string;
+//   tags: string[];
+//   availability: "in-stock" | "limited" | "out-of-stock";
+//   bestseller?: boolean;
+//   newRelease?: boolean;
+// }
 export interface Book {
   id: string;
   title: string;
   author: string;
   authorBio: string;
   genre: string;
-  price: number;
-  originalPrice?: number;
+
+  stock: string;
+
+  physicalRegularPrice: number | null;
+  physicalSalePrice: number | null;
+
+  digitalRegularPrice: number | null;
+  digitalSalePrice: number | null;
+
+  ebookPdf?: string | null;
+  ebookEpub?: string | null;
+
+  coverImage: string;
+
   rating: number;
   reviewCount: number;
-  cover: string;
+
   description: string;
   longDescription: string;
+
   publishedYear: number;
   pages: number;
   language: string;
   isbn: string;
+
   tags: string[];
+
   availability: "in-stock" | "limited" | "out-of-stock";
+
   bestseller?: boolean;
   newRelease?: boolean;
 }
-
 export const GENRES = [
   "Fiction",
   "Non-Fiction",

@@ -23,7 +23,8 @@ export default async function PopularCoursesSection() {
       <div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10'>
         <Link href={"/courses"}>
           <SectionHeader
-            title='Aloskill Course Student Can Join With Us.'
+            title='Aloskill Course Student'
+            color_title='Can Join With Us.'
             showButton
             buttonText='View All Courses'
           />

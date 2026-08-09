@@ -1,8 +1,8 @@
-
 // "use client";
 
+import SectionMiddleHeader from "@/components/sections/SectionMiddleHeader.tsx";
 import { Code2, PenTool, Rocket, Search } from "lucide-react";
-import styles from './process.module.css';
+import styles from "./process.module.css";
 
 const steps = [
   {
@@ -41,12 +41,11 @@ export default function ProcessPerfect() {
       <div className='mx-auto max-w-5xl px-6'>
         {/* Header */}
         <div className='mb-20 text-center'>
-          <h2 className='text-3xl font-bold tracking-tight text-slate-900 md:text-5xl '>
-            The Execution{" "}
-            <span className='text-transparent bg-clip-text bg-linear-to-r from-blue-600 to-fuchsia-600'>
-              Flow
-            </span>
-          </h2>
+          <SectionMiddleHeader
+            title='The Execution'
+            color_title='Flow'
+            subtitle='AloSkill-এ আপনার প্রজেক্টের জন্য আমরা যেভাবে কাজ করি।'
+          />
         </div>
 
         {/* ZIG-ZAG GRID LAYOUT
@@ -61,7 +60,7 @@ export default function ProcessPerfect() {
             <div className='absolute -right-32 top-1/2 hidden h-40 w-32 md:block'>
               <BezierCurve
                 direction='right'
-                color='text-blue-800'
+                color='text-orange-700'
               />
             </div>
             {/* Mobile Connector */}
@@ -81,7 +80,7 @@ export default function ProcessPerfect() {
             <div className='absolute -left-32 top-1/2 hidden h-40 w-32 md:block'>
               <BezierCurve
                 direction='left'
-                color='text-violet-500'
+                color='text-pink-500'
               />
             </div>
             {/* Mobile Connector */}
@@ -134,7 +133,7 @@ function ProcessCard({ step }: { step: any }) {
         >
           <step.icon className='h-6 w-6' />
         </div>
-        <span className='text-6xl font-black text-slate-100 '>{step.id}</span>
+        <span className='text-6xl font-black text-orange-50 '>{step.id}</span>
       </div>
 
       <div className='mt-6'>
@@ -206,7 +205,7 @@ function BezierCurve({ direction, color }: { direction: "left" | "right"; color:
         strokeWidth='2'
         strokeDasharray='8 8'
         fill='none'
-        className={styles['animateFlowMarch']}
+        className={styles["animateFlowMarch"]}
       />
     </svg>
   );

@@ -113,7 +113,8 @@ const GCommunitySection = () => {
       <section className='bg-[#FFFBF5] py-20 sm:py-32'>
         <div className='container mx-auto px-4'>
           <SectionMiddleHeader
-            title='Learn Together, Grow Together'
+            title='Learn Together, '
+            color_title='Grow Together.'
             subtitle='AloSkill Community-তে যুক্ত হয়ে শিখুন, প্রশ্ন করুন, আইডিয়া শেয়ার করুন এবং গড়ে তুলুন আপনার নিজের Growth network.'
             className='mt-12'
           />

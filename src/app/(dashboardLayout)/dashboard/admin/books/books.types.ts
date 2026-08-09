@@ -8,8 +8,10 @@ export type BookState = {
     status: string;
     title: string;
     author: string;
-    regularPrice: number;
-    salePrice: number;
+    physicalRegularPrice: number | null;
+    physicalSalePrice: number | null;
+    digitalRegularPrice: number | null;
+    digitalSalePrice: number | null;
     stock: number;
     formats: string[];
     orderItem: {

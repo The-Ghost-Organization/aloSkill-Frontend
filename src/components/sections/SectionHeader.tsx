@@ -6,7 +6,8 @@ import GradientButton from "../buttons/GradientButton";
 
 interface SectionHeaderProps {
   badge?: string;
-  title: string | React.ReactNode;
+  title: string;
+  color_title?: string;
   subtitle?: string;
   showButton?: boolean;
   buttonText?: string;
@@ -22,6 +23,7 @@ interface SectionHeaderProps {
 const SectionHeader = memo(function SectionHeader({
   badge,
   title,
+  color_title,
   subtitle,
   showButton = false,
   buttonText = "Load More",
@@ -43,7 +45,12 @@ const SectionHeader = memo(function SectionHeader({
             </span>
           </div>
         )}
-        <h2 className='text-2xl font-black '>{title}</h2>
+        <h2 className='text-4xl font-black '>
+          {title}{" "}
+          <span className='text-transparent bg-clip-text bg-linear-to-r from-orange-700 to-orange-300'>
+            {color_title}
+          </span>
+        </h2>
         {subtitle && <p className='mt-6 text-gray-600 text-md'>{subtitle}</p>}
       </div>
 
