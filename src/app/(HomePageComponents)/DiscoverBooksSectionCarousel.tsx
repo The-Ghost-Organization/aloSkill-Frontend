@@ -3,9 +3,11 @@
 import SectionHeader from "@/components/sections/SectionHeader";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { books } from "../(withoutSidebarLayout)/books/Books.ts";
-import BookCard from "../(withoutSidebarLayout)/books/components/BookCard.tsx";
+// import { books } from "../(withoutSidebarLayout)/books/Books.ts";
 
+import { type BookResponse, getAllBooks } from "../(withoutSidebarLayout)/books/bookAction.ts";
+import BookCard from "../(withoutSidebarLayout)/books/components/BookCard.tsx";
+const books = (await getAllBooks()) as BookResponse;
 export function DiscoverBooksSectionCarousel() {
   const [isPaused, setIsPaused] = useState(false);
 

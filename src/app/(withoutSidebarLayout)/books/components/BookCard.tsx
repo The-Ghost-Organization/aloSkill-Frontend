@@ -1,11 +1,15 @@
 import { Star } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { type BookResponse } from "../bookAction";
-import type { Book } from "../Books";
+
+import { getAllBooks, type Book, type BookResponse } from "../bookAction";
 import BookCardActions from "./BookCardActions";
 
-// ─── Sub-components (also server-only) ───────────────────────────────────────
+// ─── Data ─────────────────────────────────────────────────────────────────────
+
+const books = (await getAllBooks()) as BookResponse;
+
+// ─── Sub-components ───────────────────────────────────────────────────────────
 
 function StarRating({ rating }: { rating: number }) {
   return (
@@ -26,17 +30,21 @@ function StarRating({ rating }: { rating: number }) {
   );
 }
 
-function AvailabilityPill({ status }: { status: Book["availability"] }) {
+function AvailabilityPill({ status }: { status: Book["stock"] }) {
   const styles = {
     "in-stock": "bg-emerald-50 text-emerald-600 ring-1 ring-emerald-100",
-    limited: "bg-amber-50  text-amber-600  ring-1 ring-amber-100",
-    "out-of-stock": "bg-red-50    text-red-500    ring-1 ring-red-100",
+
+    limited: "bg-amber-50 text-amber-600 ring-1 ring-amber-100",
+
+    "out-of-stock": "bg-red-50 text-red-500 ring-1 ring-red-100",
   } as const;
+
   const labels = {
     "in-stock": "In Stock",
     limited: "Limited",
     "out-of-stock": "Out of Stock",
   } as const;
+
   return (
     <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${styles[status]}`}>
       {labels[status]}
@@ -47,10 +55,13 @@ function AvailabilityPill({ status }: { status: Book["availability"] }) {
 // ─── Props ────────────────────────────────────────────────────────────────────
 
 interface BookCardProps {
-  book: BookResponse[0];
+  book: Book;
   index?: number;
   viewMode?: "grid" | "list";
-  cartItems?: { bookId: string; quantity: number }[];
+  cartItems?: {
+    bookId: string;
+    quantity: number;
+  }[];
   onAddToCart?: (bookId: string, format?: "PHYSICAL" | "EBOOK") => void;
 }
 
@@ -58,14 +69,12 @@ interface BookCardProps {
 
 function GridCard({ book, cartItems, onAddToCart }: BookCardProps) {
   const activeSalePrice = book.physicalSalePrice ?? book.digitalSalePrice;
+
   const activeRegularPrice = book.physicalRegularPrice ?? book.digitalRegularPrice;
 
   const discount =
     activeRegularPrice && activeSalePrice && activeRegularPrice > activeSalePrice
-      ? Math.round(
-          ((Number(activeRegularPrice) - Number(activeSalePrice)) / Number(activeRegularPrice)) *
-            100
-        )
+      ? Math.round(((activeRegularPrice - activeSalePrice) / activeRegularPrice) * 100)
       : null;
 
   return (
@@ -87,6 +96,7 @@ function GridCard({ book, cartItems, onAddToCart }: BookCardProps) {
           {/* Permanent bottom gradient */}
           <div className='absolute inset-0 bg-linear-to-t from-black/20 via-transparent to-transparent' />
 
+          {/* Hover actions */}
           <div className='absolute inset-0 bg-black/35 opacity-0 transition-opacity duration-300 group-hover:opacity-100 flex items-center justify-center'>
             <BookCardActions
               bookId={book.id}
@@ -109,12 +119,7 @@ function GridCard({ book, cartItems, onAddToCart }: BookCardProps) {
 
           {/* Badges */}
           <div className='absolute top-2.5 left-2.5 flex flex-col gap-1.5 pointer-events-none'>
-            {/* {book.bestseller && (
-              <span className='text-[9px] font-black uppercase tracking-wide bg-amber-400 text-white px-2 py-0.5 rounded-full shadow-sm'>
-                Bestseller
-              </span>
-            )} */}
-            {discount && (
+            {discount !== null && (
               <span className='text-[9px] font-black bg-red-500 text-white px-2 py-0.5 rounded-full shadow-sm'>
                 -{discount}%
               </span>
@@ -128,6 +133,7 @@ function GridCard({ book, cartItems, onAddToCart }: BookCardProps) {
             <span className='text-[10px] font-bold uppercase tracking-[0.14em] text-amber-500'>
               {book.author}
             </span>
+
             <span className='text-[10px] text-gray-400'>{book.createdAt}</span>
           </div>
 
@@ -136,32 +142,29 @@ function GridCard({ book, cartItems, onAddToCart }: BookCardProps) {
           </h3>
 
           <p className='text-[11px] text-gray-400 mb-2.5'>by {book.author}</p>
+
           {book.formats?.map((format, index) => (
             <span
-              key={index}
+              key={`${format}-${index}`}
               className='text-[10px] text-gray-500 mr-2 last:mr-0 rounded-lg border border-gray-200 px-2 py-0.5'
             >
               {format}
             </span>
           ))}
 
-          {/* <div className='flex items-center gap-1.5 mb-3'>
-            <StarRating rating={book.rating} />
-            <span className='text-[10px] text-gray-400'>
-              {book.rating} ({book.reviewCount.toLocaleString()})
-            </span>
-          </div> */}
-
+          {/* Price & Availability */}
           <div className='flex items-center justify-between pt-3 border-t border-gray-100'>
             <div className='flex items-baseline gap-1.5'>
               <span className='font-bold text-gray-900 text-sm'>${activeSalePrice}</span>
-              {activeRegularPrice && (
+
+              {activeRegularPrice !== null && (
                 <span className='text-[11px] text-gray-400 line-through'>
                   ${activeRegularPrice}
                 </span>
               )}
             </div>
-            <AvailabilityPill status={book.stock as Book["availability"]} />
+
+            <AvailabilityPill status={book.stock} />
           </div>
         </div>
       </article>
@@ -173,14 +176,12 @@ function GridCard({ book, cartItems, onAddToCart }: BookCardProps) {
 
 function ListCard({ book, cartItems, onAddToCart }: BookCardProps) {
   const activeSalePrice = book.physicalSalePrice ?? book.digitalSalePrice;
+
   const activeRegularPrice = book.physicalRegularPrice ?? book.digitalRegularPrice;
 
   const discount =
     activeRegularPrice && activeSalePrice && activeRegularPrice > activeSalePrice
-      ? Math.round(
-          ((Number(activeRegularPrice) - Number(activeSalePrice)) / Number(activeRegularPrice)) *
-            100
-        )
+      ? Math.round(((activeRegularPrice - activeSalePrice) / activeRegularPrice) * 100)
       : null;
 
   return (
@@ -198,59 +199,63 @@ function ListCard({ book, cartItems, onAddToCart }: BookCardProps) {
             className='object-cover transition-transform duration-500 group-hover:scale-105'
             sizes='80px'
           />
-          {/* {book.bestseller && (
-            <span className='absolute top-1 left-1 text-[8px] font-black bg-amber-400 text-white px-1.5 py-0.5 rounded-full leading-none'>
-              BS
-            </span>
-          )} */}
         </div>
 
         {/* Info */}
         <div className='flex-1 min-w-0 flex flex-col justify-between'>
           <div>
             <div className='flex items-start justify-between gap-2 mb-0.5'>
-              <span className='text-[10px] font-bold uppercase tracking-[0.14em] text-amber-500'>
-                <span className='mr-2'>{book.author}</span>
+              <div className='flex items-center gap-2 flex-wrap'>
+                <span className='text-[10px] font-bold uppercase tracking-[0.14em] text-amber-500'>
+                  {book.author}
+                </span>
+
                 {book.formats.map((format, index) => (
                   <span
-                    key={index}
-                    className='text-[10px] text-gray-500 mr-2 last:mr-0 rounded-lg border border-gray-200 px-2 py-0.5'
+                    key={`${format}-${index}`}
+                    className='text-[10px] text-gray-500 rounded-lg border border-gray-200 px-2 py-0.5'
                   >
                     {format}
                   </span>
                 ))}
-              </span>
+              </div>
+
               <span className='text-[10px] text-gray-400 shrink-0'>{book.createdAt}</span>
             </div>
+
             <h3 className='font-bold text-gray-900 text-base leading-tight mb-0.5 line-clamp-1 transition-colors duration-200 group-hover:text-amber-600'>
               {book.title}
             </h3>
+
             <p className='text-xs text-gray-400 mb-1.5'>by {book.author}</p>
+
             <p className='text-xs text-gray-500 line-clamp-2'>{book.title}</p>
           </div>
 
+          {/* Price */}
           <div className='flex items-center justify-between mt-2'>
-            {/* <div className='flex items-center gap-1.5'>
-              <StarRating rating={book.rating} />
-              <span className='text-[10px] text-gray-400'>
-                ({book.reviewCount.toLocaleString()})
-              </span>
-            </div> */}
             <div className='flex items-center gap-2'>
               <div className='flex items-baseline gap-1'>
                 <span className='font-bold text-gray-900 text-sm'>${activeSalePrice}</span>
-                {discount && (
+
+                {discount !== null && (
                   <span className='text-[10px] font-bold text-red-500'>-{discount}%</span>
                 )}
+
+                {activeRegularPrice !== null && (
+                  <span className='text-[10px] text-gray-400 line-through'>
+                    ${activeRegularPrice}
+                  </span>
+                )}
               </div>
-              <AvailabilityPill status={book.stock as Book["availability"]} />
+
+              <AvailabilityPill status={book.stock} />
             </div>
           </div>
         </div>
 
         {/* Hover action strip */}
         <div className='flex flex-col justify-center gap-1.5 shrink-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100'>
-          {/* Client island for list actions */}
           <BookCardActions
             bookId={book.id}
             bookTitle={book.title}
@@ -284,7 +289,8 @@ export default function BookCard({
   onAddToCart,
 }: BookCardProps) {
   void index;
-  if (viewMode === "list")
+
+  if (viewMode === "list") {
     return (
       <ListCard
         book={book}
@@ -292,6 +298,8 @@ export default function BookCard({
         onAddToCart={onAddToCart}
       />
     );
+  }
+
   return (
     <GridCard
       book={book}

@@ -1,26 +1,33 @@
 "use server";
 
-import { getServerSession } from 'next-auth';
-import { authOptions } from '../../api/auth/[...nextauth]/route';
-import { apiClient } from '../../../lib/api/client';
+import { getServerSession } from "next-auth";
+import { apiClient } from "../../../lib/api/client";
+import { authOptions } from "../../api/auth/[...nextauth]/route";
 
-export type BookResponse = {
-    stock: string;
-    id: string;
-    title: string;
-    author: string;
-    physicalRegularPrice: number | null;
-    physicalSalePrice: number | null;
-    digitalRegularPrice: number | null;
-    digitalSalePrice: number | null;
-    publisher: string;
-    createdAt: string;
-    category: {
-        name: string;
-    } | null;
-    formats: string[];
-    coverImage: string;
-}[];
+export type Book = {
+  id: string;
+  title: string;
+  author: string;
+
+  physicalRegularPrice: number | null;
+  physicalSalePrice: number | null;
+  digitalRegularPrice: number | null;
+  digitalSalePrice: number | null;
+
+  stock: "in-stock" | "limited" | "out-of-stock";
+
+  publisher: string;
+  createdAt: string;
+
+  category: {
+    name: string;
+  } | null;
+
+  formats: string[];
+  coverImage: string;
+};
+
+export type BookResponse = Book[];
 
 export const getAllBooks = async () => {
   const session = await getServerSession(authOptions);
@@ -32,4 +39,3 @@ export const getAllBooks = async () => {
   }
   return fetchData.data;
 };
-
