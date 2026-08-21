@@ -1,12 +1,6 @@
-import { MAX_PRICE } from './Books';
+import { MAX_PRICE } from "./Books.type";
 
-export type SortOption =
-  | "popular"
-  | "rating"
-  | "newest"
-  | "oldest"
-  | "price-asc"
-  | "price-desc";
+export type SortOption = "popular" | "rating" | "newest" | "oldest" | "price-asc" | "price-desc";
 
 export interface FilterState {
   search: string;

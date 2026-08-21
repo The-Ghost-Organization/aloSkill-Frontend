@@ -1,7 +1,7 @@
 "use client";
 
 import { Search, SlidersHorizontal, Star, X } from "lucide-react";
-import { GENRES, MAX_PRICE } from "../Books";
+import { GENRES, MAX_PRICE } from "../Books.type";
 import { type FilterState, RATING_OPTIONS } from "../Filters";
 
 // ─── Small helpers ────────────────────────────────────────────────────────────

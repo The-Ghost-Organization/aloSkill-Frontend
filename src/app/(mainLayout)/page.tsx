@@ -12,9 +12,9 @@ import TabletDrawer from "@/components/shared/menu/TabletDrawer";
 import GCommunitySection from "../(HomePageComponents)/(CommunitySection)/GCommunitySection.tsx";
 import ProcessPerfect from "../(HomePageComponents)/(Process)/Process.tsx";
 import TestimonialSlider from "../(HomePageComponents)/(TestimonialSection)/TestimonialSlider";
-import { DiscoverBooksSectionCarousel } from "../(HomePageComponents)/DiscoverBooksSectionCarousel.tsx";
 import FAQStickyStack from "../(HomePageComponents)/FAQStickyStack.tsx";
 import StdTestimonials from "../(HomePageComponents)/StdTestimonials.tsx";
+import { DiscoverBooksSectionCarousel } from "../(HomePageComponents)/DiscoverBooksSectionCarousel.tsx";
 
 const MobileMenuWrapper = dynamic(() => import("../(HomePageComponents)/MobileMenuWrapper.tsx"));
 

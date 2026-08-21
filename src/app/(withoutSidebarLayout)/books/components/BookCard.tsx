@@ -1,34 +1,19 @@
-import { Star } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 
-import { getAllBooks, type Book, type BookResponse } from "../bookAction";
+import type { BookResponse } from "../Books.type.ts";
 import BookCardActions from "./BookCardActions";
 
-// ─── Data ─────────────────────────────────────────────────────────────────────
+// ─── Types ────────────────────────────────────────────────────────────────────
 
-const books = (await getAllBooks()) as BookResponse;
+/*
+ * `BookResponse` is the array type returned by the API
+ * (`{...}[]`). A single book is one element of that array —
+ * there's no standalone `Book` type to import.
+ */
+type Book = BookResponse[number];
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
-
-function StarRating({ rating }: { rating: number }) {
-  return (
-    <div className='flex items-center gap-0.5'>
-      {[1, 2, 3, 4, 5].map(s => (
-        <Star
-          key={s}
-          className={`w-3 h-3 ${
-            rating >= s
-              ? "text-amber-400 fill-amber-400"
-              : rating >= s - 0.5
-                ? "text-amber-400 fill-amber-200"
-                : "text-gray-200 fill-gray-200"
-          }`}
-        />
-      ))}
-    </div>
-  );
-}
 
 function AvailabilityPill({ status }: { status: Book["stock"] }) {
   const styles = {
@@ -143,7 +128,7 @@ function GridCard({ book, cartItems, onAddToCart }: BookCardProps) {
 
           <p className='text-[11px] text-gray-400 mb-2.5'>by {book.author}</p>
 
-          {book.formats?.map((format, index) => (
+          {book.formats.map((format, index) => (
             <span
               key={`${format}-${index}`}
               className='text-[10px] text-gray-500 mr-2 last:mr-0 rounded-lg border border-gray-200 px-2 py-0.5'
@@ -228,8 +213,6 @@ function ListCard({ book, cartItems, onAddToCart }: BookCardProps) {
             </h3>
 
             <p className='text-xs text-gray-400 mb-1.5'>by {book.author}</p>
-
-            <p className='text-xs text-gray-500 line-clamp-2'>{book.title}</p>
           </div>
 
           {/* Price */}

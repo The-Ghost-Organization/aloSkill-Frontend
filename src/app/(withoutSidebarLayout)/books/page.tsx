@@ -1,5 +1,5 @@
-import { type BookResponse, getAllBooks } from "./bookAction";
-// import { books } from "./Books";
+import { getAllBooks } from "./bookAction";
+import type { BookResponse } from "./Books.type.ts";
 import BooksClient from "./components/BooksClient";
 
 export const metadata = {
@@ -9,7 +9,7 @@ export const metadata = {
 
 export default async function BooksPage() {
   const books = (await getAllBooks()) as BookResponse;
-
+  console.log("books data:", books);
   return (
     <main className='min-h-screen bg-white'>
       {/* ── Static header — server-rendered, zero JS, perfect for SEO ── */}
@@ -22,7 +22,7 @@ export default async function BooksPage() {
             All Books
           </h1>
           <p className='text-gray-400 mt-2 text-sm'>
-            {books.length} titles curated for the discerning reader
+            {books?.length} titles curated for the discerning reader
           </p>
         </div>
       </div>
