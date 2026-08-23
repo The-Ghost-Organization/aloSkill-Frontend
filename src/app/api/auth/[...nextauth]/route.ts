@@ -349,13 +349,16 @@ export const authOptions: NextAuthOptions = {
       credentials: {
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
+        role: { label: "Role", type: "text" },
       },
       async authorize(credentials): Promise<User | null> {
+        console.log("Credetials : ", credentials);
         if (!credentials?.email || !credentials?.password) {
           throw new Error("Email and password required");
         }
+        const loginFn = credentials.role === "admin" ? authService.loginAdmin : authService.login;
 
-        const apiRes = await authService.login({
+        const apiRes = await loginFn({
           email: credentials.email,
           password: credentials.password,
         });
@@ -399,9 +402,10 @@ export const authOptions: NextAuthOptions = {
 
   cookies: {
     sessionToken: {
-      name: process.env.NODE_ENV === "production"
-        ? "__Secure-next-auth.session-token"
-        : "next-auth.session-token",
+      name:
+        process.env.NODE_ENV === "production"
+          ? "__Secure-next-auth.session-token"
+          : "next-auth.session-token",
       options: {
         httpOnly: true,
         sameSite: "lax",
@@ -429,6 +433,9 @@ export const authOptions: NextAuthOptions = {
 
         let result;
         if (!userFromDB.success) {
+          if (!userFromDB?.message?.includes("User does not exist")) {
+            return `/auth/signin?error=${userFromDB.message}`;
+          }
           const registerResponse = await authService.register({
             displayName: profile?.name || "",
             email: user.email,
@@ -479,7 +486,9 @@ export const authOptions: NextAuthOptions = {
         if (user.accessToken) {
           try {
             const decodedToken: { exp?: number } = jwtDecode(user.accessToken);
-            token["accessTokenExpires"] = decodedToken.exp ? decodedToken.exp * 1000 : now + 15 * 60 * 1000;
+            token["accessTokenExpires"] = decodedToken.exp
+              ? decodedToken.exp * 1000
+              : now + 15 * 60 * 1000;
           } catch {
             token["accessTokenExpires"] = now + 15 * 60 * 1000;
           }
@@ -499,8 +508,7 @@ export const authOptions: NextAuthOptions = {
       }
 
       const shouldRefresh =
-        token["accessTokenExpires"] &&
-        now > Number(token["accessTokenExpires"]) - 60 * 1000;
+        token["accessTokenExpires"] && now > Number(token["accessTokenExpires"]) - 60 * 1000;
 
       if (shouldRefresh) {
         try {
@@ -512,7 +520,9 @@ export const authOptions: NextAuthOptions = {
             token["refreshToken"] = refreshResponse.data.refreshToken || token["refreshToken"];
 
             const decodedNewToken: { exp?: number } = jwtDecode(refreshResponse.data.accessToken);
-            token["accessTokenExpires"] = decodedNewToken.exp ? decodedNewToken.exp * 1000 : now + 15 * 60 * 1000;
+            token["accessTokenExpires"] = decodedNewToken.exp
+              ? decodedNewToken.exp * 1000
+              : now + 15 * 60 * 1000;
             delete token["error"];
           } else {
             return { ...token, error: "RefreshAccessTokenError", accessToken: null };
@@ -531,7 +541,8 @@ export const authOptions: NextAuthOptions = {
           ...session.user,
           id: token["id"] as string,
           role: token["role"] as UserRole[],
-          profilePicture: typeof token["profilePicture"] === "string" ? token["profilePicture"] : null,
+          profilePicture:
+            typeof token["profilePicture"] === "string" ? token["profilePicture"] : null,
         };
 
         session.accessToken = token["accessToken"] as string;
