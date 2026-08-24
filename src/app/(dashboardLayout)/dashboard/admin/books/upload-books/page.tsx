@@ -65,7 +65,12 @@ const bookSchema = z
     publishYear: z
       .string()
       .min(1, "Publish year is required")
-      .regex(/^[^<>]*$/, "Publish year must not contain any opening or closing HTML tags"),
+      .regex(/^\d{4}$/, "Must be a valid 4-digit year (e.g., 2024)")
+      .refine(val => {
+        const year = parseInt(val, 10);
+        const currentYear = new Date().getFullYear();
+        return year >= 1000 && year <= currentYear + 1;
+      }, "Year must be between 1000 and next year"),
     ratings: z
       .string()
       .min(1, "Ratings is required")
@@ -76,9 +81,17 @@ const bookSchema = z
       .min(10, "Description must be at least 10 characters")
       .regex(/^[^<>]*$/, "Description must not contain any opening or closing HTML tags"),
 
-    regularPrice: z.coerce.number().min(0, "Price cannot be negative"),
-    salePrice: z.coerce.number().min(0, "Price cannot be negative"),
-    stock: z.coerce.number().int().min(0, "Stock cannot be negative"),
+    physicalRegularPrice: z.coerce.number().min(0, "Physical Regular Price cannot be negative"),
+    physicalSalePrice: z.coerce
+      .number()
+      .min(0, "Physical Sale Price cannot be negative")
+      .optional(),
+    digitalRegularPrice: z.coerce
+      .number()
+      .min(0, "Digital Regular Price cannot be negative")
+      .optional(),
+    digitalSalePrice: z.coerce.number().min(0, "Digital Sale Price cannot be negative").optional(),
+    stock: z.coerce.number().int().min(0, "Stock cannot be negative").optional(),
 
     isbn: z
       .string()
@@ -92,8 +105,8 @@ const bookSchema = z
       .number()
       .int()
       .positive("Pages must not contain any negative numbers")
-      .optional(),
-    weight: z.coerce.number().positive("Weight must not contain any negative numbers"),
+      .min(1, "Pages is required"),
+    weight: z.coerce.number().positive("Weight must not contain any negative numbers").optional(),
     language: z.string().min(1, "Language is required"),
 
     category: z.string().min(1, "Category is required"),
@@ -140,20 +153,52 @@ const bookSchema = z
       return true;
     },
     {
-      message: "E-Book PDF file is required when E-Book format is selected",
+      message: "EbookPdf is required when E-Book format is selected",
       path: ["ebookPdf"],
     }
   )
   .refine(
     data => {
-      if (data.regularPrice < data.salePrice) {
+      if (data.formats.includes("E-Book") && !data.digitalRegularPrice) {
         return false;
       }
       return true;
     },
     {
-      message: "Selling price cannot be higher than regular price",
-      path: ["salePrice"],
+      message: "Digital Prices are required when E-Book format is selected",
+      path: ["digitalRegularPrice"],
+    }
+  )
+  .refine(
+    data => {
+      if (data.physicalSalePrice) {
+        if (data.physicalRegularPrice < data.physicalSalePrice) {
+          return false;
+        }
+        return true;
+      }
+      return true;
+    },
+    {
+      message: "HardCover Selling price cannot be higher than regular price",
+      path: ["physicalSalePrice"],
+    }
+  )
+  .refine(
+    data => {
+      if (data.formats.includes("E-Book")) {
+        if (data.digitalSalePrice && data.digitalRegularPrice) {
+          if (data.digitalRegularPrice < data.digitalSalePrice) {
+            return false;
+          }
+          return true;
+        }
+      }
+      return true;
+    },
+    {
+      message: "Ebook Selling price cannot be higher than regular price",
+      path: ["digitalSalePrice"],
     }
   );
 
@@ -170,6 +215,8 @@ export default function AddBookPage() {
   const [fileLoading, setFileLoading] = useState<boolean>(false);
   const [loadEditDataError, setLoadEditDataError] = useState<string>("");
   const [imageUploadLoading, setImageUploadLoading] = useState<boolean>(false);
+  const [uploadError, setUploadError] = useState<string>("");
+  const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
 
   const { user } = useSessionContext();
   const router = useRouter();
@@ -188,11 +235,23 @@ export default function AddBookPage() {
     resolver: zodResolver(bookSchema),
     defaultValues: {
       formats: ["Hardcover"],
-      regularPrice: 0,
-      salePrice: 0,
+      physicalRegularPrice: 0,
+      physicalSalePrice: 0,
+      // digitalRegularPrice: 0,
+      // digitalSalePrice: 0,
       stock: 0,
     },
   });
+
+  useEffect(() => {
+    const getCategories = async () => {
+      const response = await apiClient.get<{ id: string; name: string }[]>("/book/categories");
+      if (response.success && response.data) {
+        setCategories(response.data);
+      }
+    };
+    getCategories();
+  }, []);
 
   useEffect(() => {
     if (!editBookId) return;
@@ -201,7 +260,7 @@ export default function AddBookPage() {
         const response = await apiClient.get<BookEditData>(
           `/book/admin/books/edit?bookId=${editBookId}`
         );
-        console.log("response in bookEdit : ", response.data);
+        console.log("edit book data : ", response.data);
         if (response.success && response.data) {
           const book = response.data;
           setValue("title", book.title);
@@ -209,13 +268,18 @@ export default function AddBookPage() {
           setValue("translator", book.translator || "");
           setValue("editor", book.editor || "");
           setValue("publisher", book.publisher);
+          setValue("publishYear", String(book.publishYear));
+          setValue("ratings", String(book.ratings));
           setValue("description", book.description);
-          setValue("regularPrice", book.regularPrice);
-          setValue("salePrice", book.salePrice);
+          setValue("physicalRegularPrice", book.physicalRegularPrice);
+          setValue("physicalSalePrice", book.physicalSalePrice);
+          setValue("digitalRegularPrice", book.digitalRegularPrice);
+          setValue("digitalSalePrice", book.digitalSalePrice);
           setValue("stock", book.stock);
           setValue("isbn", book.isbn || "");
           setValue("edition", book.edition || "");
           setValue("pages", book.pages || undefined);
+          setValue("weight", book.weight || undefined);
           setValue("language", book.language);
           setValue("category", book.category?.name || "");
           setValue(
@@ -508,12 +572,16 @@ export default function AddBookPage() {
       if (updateResult.success) {
         alert(`Book successfully updated!`);
         router.push("/dashboard/admin/books");
+      } else {
+        setUploadError(updateResult.message || "Failed to update book. Please try again.");
       }
     } else {
       const uploadBookResult = await apiClient.post<{ id: string }>("/book/upload-book", rest);
       if (uploadBookResult.success) {
         alert(`Book successfully uploaded! for id ${uploadBookResult.data?.id}`);
         router.push("/dashboard/admin/books");
+      } else {
+        setUploadError(uploadBookResult.message || "Failed to upload book. Please try again.");
       }
     }
   };
@@ -536,6 +604,13 @@ export default function AddBookPage() {
               <span className='text-white font-medium'>Add New</span>
             </div>
           </div>
+
+          {(uploadError || loadEditDataError) && (
+            <div className='flex items-center gap-2 text-sm text-red-500 bg-red-500/10 border border-red-500/20 rounded px-3 py-1'>
+              <AlertCircle size={15} />
+              <span>{uploadError || loadEditDataError}</span>
+            </div>
+          )}
 
           <div className='flex items-center gap-3'>
             {!editBookId ? (
@@ -613,7 +688,7 @@ export default function AddBookPage() {
             >
               <div className='space-y-4'>
                 <Field
-                  label='Book Title'
+                  label='Book Title *'
                   error={errors.title?.message}
                 >
                   <input
@@ -626,7 +701,7 @@ export default function AddBookPage() {
 
                 <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
                   <Field
-                    label='Main Author'
+                    label='Main Author *'
                     error={errors.author?.message}
                   >
                     <div className='relative'>
@@ -643,7 +718,7 @@ export default function AddBookPage() {
                     </div>
                   </Field>
                   <Field
-                    label='Publisher'
+                    label='Publisher *'
                     error={errors.publisher?.message}
                   >
                     <div className='relative'>
@@ -697,15 +772,16 @@ export default function AddBookPage() {
                     </div>
                   </Field>
                   <Field
-                    label='Published Year'
+                    label='Published Year *'
                     error={errors.publishYear?.message}
                   >
                     <div className='relative'>
                       <input
                         {...register("publishYear")}
-                        type='text'
+                        type='number'
+                        max={new Date().getFullYear() + 1}
+                        placeholder='YYYY (e.g. 2024)'
                         className={`${getInputClass(!!errors.publishYear)} pl-10`}
-                        placeholder='Published Year'
                       />
                       <Calendar
                         size={16}
@@ -714,7 +790,7 @@ export default function AddBookPage() {
                     </div>
                   </Field>
                   <Field
-                    label='Ratings (1-5)'
+                    label='Ratings (1-5) *'
                     error={errors.ratings?.message}
                   >
                     <div className='relative'>
@@ -733,7 +809,7 @@ export default function AddBookPage() {
                 </div>
 
                 <Field
-                  label='Description'
+                  label='Description *'
                   error={errors.description?.message}
                 >
                   <textarea
@@ -757,41 +833,67 @@ export default function AddBookPage() {
               iconBg='bg-emerald-500/10'
               title='Pricing & Stock'
             >
-              <div className='grid grid-cols-1 md:grid-cols-3 gap-4'>
+              <div className='grid grid-cols-1 md:grid-cols-2 gap-4 mb-4'>
                 <Field
-                  label='Regular Price (TK)'
-                  error={errors.regularPrice?.message}
+                  label='HardCover Regular Price (TK) *'
+                  error={errors.physicalRegularPrice?.message}
                 >
                   <input
-                    {...register("regularPrice")}
+                    {...register("physicalRegularPrice")}
                     type='number'
                     min={0}
-                    className={`${getInputClass(!!errors.regularPrice)}`}
+                    className={`${getInputClass(!!errors.physicalRegularPrice)}`}
                   />
                 </Field>
                 <Field
-                  label='Sale Price (TK)'
-                  error={errors.salePrice?.message}
+                  label='HardCover Sale Price (TK) *'
+                  error={errors.physicalSalePrice?.message}
                 >
                   <input
-                    {...register("salePrice")}
+                    {...register("physicalSalePrice")}
                     type='number'
                     min={0}
-                    className={getInputClass(!!errors.salePrice)}
+                    className={getInputClass(!!errors.physicalSalePrice)}
                   />
                 </Field>
-                <Field
-                  label='Stock Quantity'
-                  error={errors.stock?.message}
-                >
-                  <input
-                    {...register("stock")}
-                    type='number'
-                    min={0}
-                    className={getInputClass(!!errors.stock)}
-                  />
-                </Field>
+                {isEbookSelected && (
+                  <>
+                    <Field
+                      label='Ebook Regular Price (TK) *'
+                      error={errors.digitalRegularPrice?.message}
+                    >
+                      <input
+                        {...register("digitalRegularPrice")}
+                        type='number'
+                        min={0}
+                        className={`${getInputClass(!!errors.digitalRegularPrice)}`}
+                      />
+                    </Field>
+                    <Field
+                      label='Ebook Sale Price (TK) *'
+                      error={errors.digitalSalePrice?.message}
+                    >
+                      <input
+                        {...register("digitalSalePrice")}
+                        type='number'
+                        min={0}
+                        className={getInputClass(!!errors.digitalSalePrice)}
+                      />
+                    </Field>
+                  </>
+                )}
               </div>
+              <Field
+                label='Stock Quantity'
+                error={errors.stock?.message}
+              >
+                <input
+                  {...register("stock")}
+                  type='number'
+                  min={0}
+                  className={getInputClass(!!errors.stock)}
+                />
+              </Field>
             </Card>
 
             {/* Specifications */}
@@ -829,7 +931,7 @@ export default function AddBookPage() {
                   />
                 </Field>
                 <Field
-                  label='Pages'
+                  label='Pages *'
                   error={errors.pages?.message}
                 >
                   <input
@@ -840,7 +942,7 @@ export default function AddBookPage() {
                   />
                 </Field>
                 <Field
-                  label='Language'
+                  label='Language *'
                   error={errors.language?.message}
                 >
                   <select
@@ -939,7 +1041,7 @@ export default function AddBookPage() {
                           width={130}
                           height={186}
                           src={coverPreview as string}
-                          alt='Cover'
+                          alt='Cover Image Preview'
                           className='w-full h-auto object-cover'
                         />
                         <button
@@ -979,8 +1081,6 @@ export default function AddBookPage() {
                     )}
                   </>
                 )}
-0
-
               </Field>
             </Card>
 
@@ -1046,7 +1146,7 @@ export default function AddBookPage() {
             >
               <div className='space-y-5'>
                 <Field
-                  label='Category'
+                  label='Category *'
                   error={errors.category?.message}
                 >
                   <select
@@ -1054,14 +1154,20 @@ export default function AddBookPage() {
                     className={getInputClass(!!errors.category)}
                   >
                     <option value=''>Select Category</option>
-                    <option value='islamic'>Islamic: Self Development</option>
-                    <option value='history'>History</option>
-                    <option value='novel'>Novel</option>
+                    {categories &&
+                      categories.map((cat: any) => (
+                        <option
+                          key={cat.id}
+                          value={cat.name}
+                        >
+                          {cat.name}
+                        </option>
+                      ))}
                   </select>
                 </Field>
 
                 <Field
-                  label='Format'
+                  label='Format *'
                   error={errors.formats?.message}
                 >
                   <div className='grid grid-cols-2 gap-3 mt-1'>
