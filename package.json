@@ -16,7 +16,6 @@
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
-    "@prisma/client": "^7.3.0",
     "clsx": "^2.1.1",
     "dotenv": "^17.2.3",
     "framer-motion": "^12.23.26",
@@ -51,7 +50,6 @@
     "eslint-plugin-prettier": "^5.5.4",
     "lint-staged": "^16.2.3",
     "prettier": "^3.7.4",
-    "prisma": "^7.3.0",
     "tailwindcss": "^4",
     "typescript": "^5"
   },

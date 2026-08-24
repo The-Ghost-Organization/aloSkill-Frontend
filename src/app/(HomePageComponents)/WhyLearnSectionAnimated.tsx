@@ -36,7 +36,8 @@ export function WhyLearnSectionAnimated() {
       <div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'>
         {/* Section Header */}
         <SectionMiddleHeader
-          title='Why learn with our courses?'
+          title='Why learn with'
+          color_title='our courses?'
           subtitle='Learn skills that matter. Graduate with confidence. Work with impact.'
         />
 

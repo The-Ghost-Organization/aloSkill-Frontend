@@ -1,6 +1,7 @@
 // "use client";
 
 import SectionHeader from "@/components/sections/SectionHeader.tsx";
+import SectionMiddleHeader from "@/components/sections/SectionMiddleHeader.tsx";
 import { ArrowUpRight, Quote, TrendingUp } from "lucide-react";
 import Image from "next/image";
 
@@ -58,10 +59,17 @@ export default function StdTestimonials() {
 
       <div className='mx-auto max-w-7xl px-6'>
         {/* Header */}
-        <div className='mb-20 max-w-3xl'>
-          <SectionHeader
+        <div className='mb-20 '>
+          {/* <SectionHeader
             title='Real stories from learners who upgraded their skills and careers with AloSkill.'
             badge='What Our Learners Say'
+          /> */}
+          <SectionMiddleHeader
+           badge='What Our Learners Say'
+            title='Real stories from '
+            color_title="learners"
+            subtitle=''
+
           />
           {/* <div className='mb-4 inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-bold uppercase tracking-widest text-indigo-600 shadow-sm '>
             <Star className='h-3 w-3 fill-current' />

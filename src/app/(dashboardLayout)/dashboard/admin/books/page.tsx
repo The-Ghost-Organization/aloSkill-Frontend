@@ -94,70 +94,76 @@ export default async function BooksPage() {
               </tr>
             </thead>
             <tbody className='divide-y divide-slate-800'>
-              {bookData?.bookBreakdown.map((b, i) => (
-                <tr
-                  key={i + b.title.slice(0, 5)}
-                  className='transition-colors hover:bg-slate-800/60'
-                >
-                  <td className='p-4 px-4.5 text-[13.5px] text-slate-100 font-semibold'>
-                    {i + 1 + "."}
-                  </td>
-                  <td className='p-4 px-4.5 text-[13.5px] text-slate-100 font-semibold'>
-                    {b.title.length > 20 ? b.title.slice(0, 20) + "..." : b.title}
-                  </td>
-                  <td className='p-4 px-4.5 text-[13.5px] text-slate-400'>{b.author}</td>
-                  <td className='p-4 px-4.5 flex flex-col items-center gap-1'>
-                    <Badge
-                      fontSize='9'
-                      variant={b.formats.includes("Hardcover") ? "blue" : "orange"}
-                    >
-                      {b.formats[0]}
-                    </Badge>
-                    {b.formats.length > 1 && (
+              {bookData?.bookBreakdown.map((b, i) => {
+                const salePrice = b.physicalSalePrice ?? b.physicalRegularPrice ?? 0;
+                const regularPrice = b.physicalRegularPrice ?? b.digitalRegularPrice ?? 0;
+                return (
+                  <tr
+                    key={i + b.title.slice(0, 5)}
+                    className='transition-colors hover:bg-slate-800/60'
+                  >
+                    <td className='p-4 px-4.5 text-[13.5px] text-slate-100 font-semibold'>
+                      {i + 1 + "."}
+                    </td>
+                    <td className='p-4 px-4.5 text-[13.5px] text-slate-100 font-semibold'>
+                      {b.title.length > 20 ? b.title.slice(0, 20) + "..." : b.title}
+                    </td>
+                    <td className='p-4 px-4.5 text-[13.5px] text-slate-400'>{b.author}</td>
+                    <td className='p-4 px-4.5 flex flex-col items-center gap-1'>
                       <Badge
                         fontSize='9'
                         variant={b.formats.includes("Hardcover") ? "blue" : "orange"}
                       >
-                        {b.formats[1]}
+                        {b.formats[0]}
                       </Badge>
-                    )}
-                  </td>
-                  <td className='p-4 px-4.5 text-[13.5px] text-slate-100 font-mono font-semibold'>
-                    ${b.salePrice}
-                  </td>
-                  <td className='p-4 px-4.5 text-gray-200 font-mono text-xs!'>
-                    {b.orderItem.length}
-                  </td>
-                  <td className='p-4 px-4.5 text-[13.5px] text-emerald-400 font-mono font-semibold'>
-                    ${b.totalEarning}
-                  </td>
-                  <td
-                    className={`p-4 px-4.5 text-[13.5px] font-mono ${
-                      b.stock === null
-                        ? "text-slate-600"
-                        : b.stock < 20
-                          ? "text-red-500"
-                          : "text-slate-400"
-                    }`}
-                  >
-                    {b.stock === null ? "∞" : b.stock}
-                  </td>
-                  <td className='p-4 px-4.5'>
-                    <Badge variant={b.status === "APPROVED" ? "green" : "orange"}>{b.status}</Badge>
-                  </td>
-                  <td className='p-4 px-4.5'>
-                    <div className='flex gap-2'>
-                      <BookActionButtonEditandView bookId={b.id} />
-                      {b.status === "PENDING" && (
-                        <BookActionButtonApprove
-                          bookId={b.id}
-                          bookData={bookData}
-                        />
+                      {b.formats.length > 1 && (
+                        <Badge
+                          fontSize='9'
+                          variant={b.formats.includes("Hardcover") ? "blue" : "orange"}
+                        >
+                          {b.formats[1]}
+                        </Badge>
                       )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                    <td className='p-4 px-4.5 text-[13.5px] text-slate-100 font-mono font-semibold'>
+                      ${salePrice}
+                    </td>
+                    <td className='p-4 px-4.5 text-gray-200 font-mono text-xs!'>
+                      {b.orderItem.length}
+                    </td>
+                    <td className='p-4 px-4.5 text-[13.5px] text-emerald-400 font-mono font-semibold'>
+                      ${b.totalEarning}
+                    </td>
+                    <td
+                      className={`p-4 px-4.5 text-[13.5px] font-mono ${
+                        b.stock === null
+                          ? "text-slate-600"
+                          : b.stock < 20
+                            ? "text-red-500"
+                            : "text-slate-400"
+                      }`}
+                    >
+                      {b.stock === null ? "∞" : b.stock}
+                    </td>
+                    <td className='p-4 px-4.5'>
+                      <Badge variant={b.status === "APPROVED" ? "green" : "orange"}>
+                        {b.status}
+                      </Badge>
+                    </td>
+                    <td className='p-4 px-4.5'>
+                      <div className='flex gap-2'>
+                        <BookActionButtonEditandView bookId={b.id} />
+                        {b.status === "PENDING" && (
+                          <BookActionButtonApprove
+                            bookId={b.id}
+                            bookData={bookData}
+                          />
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

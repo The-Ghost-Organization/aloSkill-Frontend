@@ -204,7 +204,7 @@ const nextConfig: NextConfig = {
   //   ];
   // },
   async rewrites() {
-    const backendBaseUrl = config.NEXT_PUBLIC_BACKEND_BASE_URL || "http://localhost:5000";
+    const backendBaseUrl = config.NEXT_PUBLIC_BACKEND_BASE_URL || "https://alobackendskill.aloskill.com";
     return [
       {
         source: "/api/v1/:path*",
@@ -216,7 +216,7 @@ const nextConfig: NextConfig = {
   env: {
     APP_VERSION: process.env["npm_package_version"],
     BUILD_TIME: new Date().toISOString(),
-    BACKEND_URL: config.NEXT_PUBLIC_BACKEND_API_URL || "http://localhost:5000/api/v1",
+    BACKEND_URL: config.NEXT_PUBLIC_BACKEND_API_URL || "https://alobackendskill.aloskill.com/api/v1",
   },
 
   // === Webpack Optimizations ===
@@ -294,7 +294,7 @@ const securityHeaders = [
     style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
     img-src 'self' data: https: blob:;
     font-src 'self' https://fonts.gstatic.com;
-    connect-src 'self' http://localhost:5000 ${config.NEXT_PUBLIC_BACKEND_BASE_URL} https://vitals.vercel-insights.com https://video.bunnycdn.com https://fortunate-kindness-production.up.railway.app http://assets.mediadelivery.net https://sg.storage.bunnycdn.com https://aloskill-pull-zone-7.b-cdn.net;
+    connect-src 'self' https://alobackendskill.aloskill.com ${config.NEXT_PUBLIC_BACKEND_BASE_URL} https://vitals.vercel-insights.com https://video.bunnycdn.com https://fortunate-kindness-production.up.railway.app http://assets.mediadelivery.net https://sg.storage.bunnycdn.com https://aloskill-pull-zone-7.b-cdn.net;
     frame-ancestors 'none';
     frame-src https://iframe.mediadelivery.net;
     object-src 'none';
@@ -341,7 +341,7 @@ if (config.NODE_ENV === "production") {
 const apiSecurityHeaders = [
   {
     key: "Content-Security-Policy",
-    value: `default-src 'self'; connect-src 'self' ${config.NEXT_PUBLIC_BACKEND_BASE_URL} http://localhost:5000 https://fortunate-kindness-production.up.railway.app https://vitals.vercel-insights.com https://video.bunnycdn.com;`,
+    value: `default-src 'self'; connect-src 'self' ${config.NEXT_PUBLIC_BACKEND_BASE_URL} https://alobackendskill.aloskill.com https://fortunate-kindness-production.up.railway.app https://vitals.vercel-insights.com https://video.bunnycdn.com;`,
   },
   {
     key: "X-Content-Type-Options",

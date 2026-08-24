@@ -126,7 +126,8 @@ function addSecurityHeaders(response: NextResponse) {
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "img-src 'self' data: https: blob:",
     "font-src 'self' https://fonts.gstatic.com",
-    `connect-src 'self' http://localhost:5000 ${envConfig.NEXT_PUBLIC_BACKEND_BASE_URL} https://vitals.vercel-insights.com https://video.bunnycdn.com https://accounts.google.com https://assets.mediadelivery.net https://sg.storage.bunnycdn.com https://aloskill-pull-zone-7.b-cdn.net blob: unpkg.com`,
+    // Added Google and Railway backend
+    `connect-src 'self' https://alobackendskill.aloskill.com ${envConfig.NEXT_PUBLIC_BACKEND_BASE_URL} https://vitals.vercel-insights.com https://video.bunnycdn.com https://fortunate-kindness-production.up.railway.app https://accounts.google.com https://assets.mediadelivery.net https://sg.storage.bunnycdn.com https://aloskill-pull-zone-7.b-cdn.net blob: unpkg.com`,
     "media-src 'self' blob: https:",
     "object-src 'none'",
     "base-uri 'self'",
@@ -148,7 +149,7 @@ function addSecurityHeaders(response: NextResponse) {
       "max-age=31536000; includeSubDomains; preload"
     );
   }
-};
+}
 
 // function getClientIP(request: NextRequest): string {
 //   const forwarded = request.headers.get("x-forwarded-for");

@@ -6,6 +6,7 @@ import {
   ArrowLeft,
   BookOpen,
   Building,
+  Calendar,
   DollarSign,
   Eye,
   FileText,
@@ -16,7 +17,7 @@ import {
   Loader,
   PenTool,
   Save,
-  Search,
+  Star,
   Tag,
   Upload,
   User,
@@ -61,6 +62,15 @@ const bookSchema = z
       .string()
       .min(1, "Publisher is required")
       .regex(/^[^<>]*$/, "Publisher name must not contain any opening or closing HTML tags"),
+    publishYear: z
+      .string()
+      .min(1, "Publish year is required")
+      .regex(/^[^<>]*$/, "Publish year must not contain any opening or closing HTML tags"),
+    ratings: z
+      .string()
+      .min(1, "Ratings is required")
+      .max(5, "Ratings cannot exceed 5")
+      .regex(/^[^<>]*$/, "Ratings must not contain any opening or closing HTML tags"),
     description: z
       .string()
       .min(10, "Description must be at least 10 characters")
@@ -83,6 +93,7 @@ const bookSchema = z
       .int()
       .positive("Pages must not contain any negative numbers")
       .optional(),
+    weight: z.coerce.number().positive("Weight must not contain any negative numbers"),
     language: z.string().min(1, "Language is required"),
 
     category: z.string().min(1, "Category is required"),
@@ -323,6 +334,40 @@ export default function AddBookPage() {
     }
   };
 
+  // const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  //   const file = e.target.files?.[0];
+  //   setImageError(null);
+
+  //   if (file) {
+  //     if (!ACCEPTED_IMAGE_TYPES.includes(file.type)) {
+  //       setImageError("Only .jpg, .jpeg, .png and .webp formats are supported.");
+  //       return;
+  //     }
+
+  //     const img = document.createElement("img");
+  //     const objectUrl = URL.createObjectURL(file);
+
+  //     img.onload = async () => {
+  //       if (img.width === 800 && img.height === 1200) {
+  //         const uploadedImage = await uploadImageToBunny(file);
+  //         if (uploadedImage.url !== "") {
+  //           setValue("coverImageUrl", uploadedImage.url);
+  //           setCoverPreview(objectUrl);
+  //           setValue("coverImage", file);
+  //           trigger("coverImage");
+  //         }
+  //       } else {
+  //         setImageError(
+  //           `Invalid dimensions. Got ${img.width}x${img.height}px. Required: 800x1200px.`
+  //         );
+  //         URL.revokeObjectURL(objectUrl);
+  //       }
+  //     };
+
+  //     img.src = objectUrl;
+  //   }
+  // };
+
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     setImageError(null);
@@ -337,7 +382,8 @@ export default function AddBookPage() {
       const objectUrl = URL.createObjectURL(file);
 
       img.onload = async () => {
-        if (img.width === 800 && img.height === 1200) {
+        // Enforce 130 x 186 px dimensions
+        if (img.width === 130 && img.height === 186) {
           const uploadedImage = await uploadImageToBunny(file);
           if (uploadedImage.url !== "") {
             setValue("coverImageUrl", uploadedImage.url);
@@ -347,7 +393,7 @@ export default function AddBookPage() {
           }
         } else {
           setImageError(
-            `Invalid dimensions. Got ${img.width}x${img.height}px. Required: 800x1200px.`
+            `Invalid dimensions. Got ${img.width}x${img.height}px. Required: 130x186px.`
           );
           URL.revokeObjectURL(objectUrl);
         }
@@ -625,7 +671,7 @@ export default function AddBookPage() {
                         {...register("translator")}
                         type='text'
                         className={`${getInputClass(!!errors.translator)} pl-10`}
-                        placeholder='Optional'
+                        placeholder='Translator Name (Optional)'
                       />
                       <Languages
                         size={16}
@@ -642,9 +688,43 @@ export default function AddBookPage() {
                         {...register("editor")}
                         type='text'
                         className={`${getInputClass(!!errors.editor)} pl-10`}
-                        placeholder='Optional'
+                        placeholder='Editor Name (Optional)'
                       />
                       <PenTool
+                        size={16}
+                        className='absolute left-3.5 top-3.5 text-gray-500'
+                      />
+                    </div>
+                  </Field>
+                  <Field
+                    label='Published Year'
+                    error={errors.publishYear?.message}
+                  >
+                    <div className='relative'>
+                      <input
+                        {...register("publishYear")}
+                        type='text'
+                        className={`${getInputClass(!!errors.publishYear)} pl-10`}
+                        placeholder='Published Year'
+                      />
+                      <Calendar
+                        size={16}
+                        className='absolute left-3.5 top-3.5 text-gray-500'
+                      />
+                    </div>
+                  </Field>
+                  <Field
+                    label='Ratings (1-5)'
+                    error={errors.ratings?.message}
+                  >
+                    <div className='relative'>
+                      <input
+                        {...register("ratings")}
+                        type='text'
+                        className={`${getInputClass(!!errors.ratings)} pl-10`}
+                        placeholder='Ratings (1-5)'
+                      />
+                      <Star
                         size={16}
                         className='absolute left-3.5 top-3.5 text-gray-500'
                       />
@@ -725,7 +805,7 @@ export default function AddBookPage() {
               iconBg='bg-amber-500/10'
               title='Specifications'
             >
-              <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
+              <div className='grid grid-cols-1 md:grid-cols-2 gap-4 mb-4'>
                 <Field
                   label='ISBN'
                   error={errors.isbn?.message}
@@ -756,6 +836,7 @@ export default function AddBookPage() {
                     {...register("pages")}
                     type='number'
                     className={getInputClass(!!errors.pages)}
+                    placeholder='Number of Pages'
                   />
                 </Field>
                 <Field
@@ -773,10 +854,21 @@ export default function AddBookPage() {
                   </select>
                 </Field>
               </div>
+              <Field
+                label='Book Weight (KG)'
+                error={errors.weight?.message}
+              >
+                <input
+                  {...register("weight")}
+                  type='number'
+                  className={getInputClass(!!errors.weight)}
+                  placeholder='Book Weight (KG)'
+                />
+              </Field>
             </Card>
 
             {/* SEO Meta */}
-            <Card
+            {/* <Card
               icon={
                 <Search
                   size={15}
@@ -810,7 +902,7 @@ export default function AddBookPage() {
                   />
                 </Field>
               </div>
-            </Card>
+            </Card> */}
           </div>
 
           {/* ── RIGHT COLUMN ── */}
@@ -844,8 +936,8 @@ export default function AddBookPage() {
                     {uploadedCover || coverPreview ? (
                       <div className='relative rounded overflow-hidden border border-white/10 group'>
                         <Image
-                          width={800}
-                          height={1200}
+                          width={130}
+                          height={186}
                           src={coverPreview as string}
                           alt='Cover'
                           className='w-full h-auto object-cover'
@@ -858,7 +950,7 @@ export default function AddBookPage() {
                           <X size={16} />
                         </button>
                         <div className='absolute bottom-2 left-2 px-2 py-1 bg-black/60 backdrop-blur rounded text-[10px] text-white'>
-                          800 × 1200px
+                          130 × 186px
                         </div>
                       </div>
                     ) : (
@@ -881,12 +973,14 @@ export default function AddBookPage() {
                           <p className='text-sm font-medium text-gray-400 text-center'>
                             Upload Cover
                           </p>
-                          <span className='text-xs text-gray-600 mt-1'>Required: 800 × 1200px</span>
+                          <span className='text-xs text-gray-600 mt-1'>Required: 130 × 186px</span>
                         </div>
                       </div>
                     )}
                   </>
                 )}
+0
+
               </Field>
             </Card>
 

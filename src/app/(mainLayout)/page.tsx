@@ -5,7 +5,6 @@ import HeroSection from "@/app/(HomePageComponents)/(HeroSection)/HeroSection";
 import StatsSection from "@/app/(HomePageComponents)/(StatsSection)/StatsSection.tsx";
 import { CategoriesSectionAnimated } from "@/app/(HomePageComponents)/CategoriesSectionAnimated";
 import { CertificateSectionSimple } from "@/app/(HomePageComponents)/CertificateSectionSimple";
-import { DiscoverBooksSectionCarousel } from "@/app/(HomePageComponents)/DiscoverBooksSectionCarousel";
 import { InstructorsSectionAdvanced } from "@/app/(HomePageComponents)/InstructorsSectionAdvanced";
 import { WhyLearnSectionAnimated } from "@/app/(HomePageComponents)/WhyLearnSectionAnimated";
 import BackToTop from "@/components/shared/BackToTop";
@@ -15,6 +14,7 @@ import ProcessPerfect from "../(HomePageComponents)/(Process)/Process.tsx";
 import TestimonialSlider from "../(HomePageComponents)/(TestimonialSection)/TestimonialSlider";
 import FAQStickyStack from "../(HomePageComponents)/FAQStickyStack.tsx";
 import StdTestimonials from "../(HomePageComponents)/StdTestimonials.tsx";
+import { DiscoverBooksSectionCarousel } from "../(HomePageComponents)/DiscoverBooksSectionCarousel.tsx";
 
 const MobileMenuWrapper = dynamic(() => import("../(HomePageComponents)/MobileMenuWrapper.tsx"));
 

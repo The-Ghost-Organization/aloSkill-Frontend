@@ -33,7 +33,6 @@ export function InstructorsSectionAdvanced() {
           setFeaturedInstructors(response.data);
         }
       } catch (error) {
-        
       } finally {
         setLoading(false);
       }
@@ -48,10 +47,11 @@ export function InstructorsSectionAdvanced() {
         <div className='grid grid-cols-1 lg:grid-cols-2  gap-4 xl:gap-4 items-center'>
           {/* Left Content */}
 
-          <div className='space-y-6 lg:pr-8 order-1 lg:order-1 animate-fade-in'>
+          <div className='px-4 sm:px-6 lg:px-8 animate-fade-in'>
             <SectionHeader
               badge='Our Instructor'
-              title='Meet our expert Instructor '
+              title='Meet our'
+              color_title='Expert Instructors'
               subtitle='Learn from industry experts and entrepreneurs who share real-world skills you can apply immediately.'
             />
 

@@ -36,8 +36,6 @@ const AloAdminPage = () => {
         redirect: false,
       });
 
-      console.log("result error : ", result?.error)
-
       if (result?.error) {
         setError(result.error);
       } else if (result?.ok) {
