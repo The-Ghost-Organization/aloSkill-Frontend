@@ -439,7 +439,7 @@ export default function CheckoutPage() {
                 </div>
                 <div className='flex justify-between text-gray-700'>
                   <span>Shipping</span>
-                  <span className='font-semibold text-green-600'>Free</span>
+                  <span className='font-semibold text-green-600'>Fr ee</span>
                 </div>
                 <div className='flex justify-between text-lg font-bold text-[#074079] pt-3 border-t border-gray-200'>
                   <span>Total</span>
