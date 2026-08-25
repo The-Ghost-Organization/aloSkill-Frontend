@@ -134,7 +134,7 @@ export function DiscoverBooksSectionCarousel() {
   );
 
   return (
-    <section className='overflow-hidden bg-linear-to-br from-orange-50 via-white to-blue-50 py-14 sm:py-20'>
+    <section className='overflow-hidden bg-white py-14 sm:py-20'>
       <div className='mx-auto max-w-7xl px-4 sm:px-6 lg:px-8'>
         <SectionHeader
           title='Discover New Books Every Day'
@@ -196,8 +196,8 @@ export function DiscoverBooksSectionCarousel() {
 
           {!isLoading && books.length > 1 && (
             <>
-              <div className='pointer-events-none absolute inset-y-0 left-0 w-12 bg-gradient-to-r from-orange-50 to-transparent sm:w-20' />
-              <div className='pointer-events-none absolute inset-y-0 right-0 w-12 bg-gradient-to-l from-blue-50 to-transparent sm:w-20' />
+              <div className='pointer-events-none absolute inset-y-0 left-0 w-12 bg-transparent sm:w-20' />
+              <div className='pointer-events-none absolute inset-y-0 right-0 w-12 bg-transparent sm:w-20' />
 
               <button
                 type='button'
