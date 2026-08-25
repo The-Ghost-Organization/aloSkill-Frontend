@@ -34,7 +34,7 @@ import { apiClient } from "../../../../../../lib/api/client";
 import { useSessionContext } from "../../../../../contexts/SessionContext";
 import { type BookEditData } from "../books.types";
 
-const PdfPreviewModal = dynamic(() => import("./PdfPreviewModal"), {
+const PdfPreviewModal = dynamic(() => import("./PdfPreviewModal.tsx"), {
   ssr: false,
 });
 
@@ -237,8 +237,6 @@ export default function AddBookPage() {
       formats: ["Hardcover"],
       physicalRegularPrice: 0,
       physicalSalePrice: 0,
-      // digitalRegularPrice: 0,
-      // digitalSalePrice: 0,
       stock: 0,
     },
   });
@@ -260,7 +258,7 @@ export default function AddBookPage() {
         const response = await apiClient.get<BookEditData>(
           `/book/admin/books/edit?bookId=${editBookId}`
         );
-        console.log("edit book data : ", response.data);
+
         if (response.success && response.data) {
           const book = response.data;
           setValue("title", book.title);
@@ -331,7 +329,7 @@ export default function AddBookPage() {
     setFileLoading(true);
     setFileUploadError("");
 
-    if (!user?.id) {
+    if (!user?.email) {
       setFileUploadError("User not authenticated.");
       setFileLoading(false);
       return { name: "", url: "" };
@@ -342,7 +340,7 @@ export default function AddBookPage() {
       formData.append("file", file);
 
       const response = await apiClient.postFormData<string>(
-        `/course/file-upload?folder=${user?.id}`,
+        `/course/file-upload?folder=${user?.email}`,
         formData
       );
 
@@ -366,7 +364,7 @@ export default function AddBookPage() {
   const uploadImageToBunny = async (file: File): Promise<{ url: string }> => {
     setImageUploadLoading(true);
     setImageUploadError("");
-    if (!user?.id) {
+    if (!user?.email) {
       setImageUploadError("User not authenticated.");
       setImageUploadLoading(false);
       return { url: "" };
@@ -378,7 +376,7 @@ export default function AddBookPage() {
       formData.append("file", file);
 
       const response = await apiClient.postFormData<string>(
-        `/course/file-upload?folder=${user.id}`,
+        `/course/file-upload?folder=${user.email}`,
         formData
       );
 
@@ -450,7 +448,7 @@ export default function AddBookPage() {
         if (img.width === 130 && img.height === 186) {
           const uploadedImage = await uploadImageToBunny(file);
           if (uploadedImage.url !== "") {
-            setValue("coverImageUrl", uploadedImage.url);
+            setValue("coverImageUrl", encodeURI(uploadedImage.url));
             setCoverPreview(objectUrl);
             setValue("coverImage", file);
             trigger("coverImage");
@@ -479,7 +477,7 @@ export default function AddBookPage() {
 
         const fileItem = {
           name: uploadedResult.name,
-          url: uploadedResult.url,
+          url: encodeURI(uploadedResult.url),
           fileType: currentFileType,
         } as const;
 
