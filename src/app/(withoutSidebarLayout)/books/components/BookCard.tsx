@@ -71,7 +71,7 @@ function GridCard({ book, cartItems, onAddToCart }: BookCardProps) {
         {/* ── Cover Image ── */}
         <div className='relative w-full h-56 overflow-hidden bg-gray-100'>
           <Image
-            src={book.coverImage}
+            src={encodeURI(book.coverImage)}
             alt={`Cover of ${book.title}`}
             fill
             className='object-cover transition-transform duration-500 ease-out group-hover:scale-105'
