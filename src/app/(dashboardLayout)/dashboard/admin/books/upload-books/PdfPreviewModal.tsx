@@ -1,73 +1,109 @@
 "use client";
 
-import { FileText, X } from "lucide-react";
-import { useState } from "react";
-import { Document, Page, pdfjs } from "react-pdf";
-import "react-pdf/dist/Page/AnnotationLayer.css";
-import "react-pdf/dist/Page/TextLayer.css";
-
-pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
+import { FileText, PanelLeft, X } from "lucide-react";
+import { useEffect, useState } from "react";
 
 interface PdfPreviewModalProps {
   url: string;
-  fileName: string;
+  fileName?: string;
   onClose: () => void;
+  onToggleSidebar?: () => void;
+  isSidebarOpen?: boolean;
 }
 
-export default function PdfPreviewModal({ url, fileName, onClose }: PdfPreviewModalProps) {
-  const [numPages, setNumPages] = useState<number>(0);
+export default function PdfPreviewModal({
+  url,
+  fileName = "Document.pdf",
+  onClose,
+  onToggleSidebar,
+  isSidebarOpen = false,
+}: PdfPreviewModalProps) {
+  const [displayUrl, setDisplayUrl] = useState<string>("");
 
-  function onDocumentLoadSuccess({ numPages }: { numPages: number }) {
-    setNumPages(numPages);
-  }
+  useEffect(() => {
+    // If it's a remote URL, route through the local proxy to bypass CORS/CSP blocks
+    // If it's a blob URL (URL.createObjectURL), use directly
+    if (url.startsWith("blob:") || url.startsWith("data:")) {
+      setDisplayUrl(url);
+    } else {
+      setDisplayUrl(`/api/pdf-proxy?url=${encodeURIComponent(url)}`);
+    }
+  }, [url]);
+
+  // Handle ESC key press to close modal
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
 
   return (
-    <div className='fixed inset-0 z-50 flex items-center justify-center p-4'>
+    <div className='fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 animate-in fade-in duration-200'>
+      {/* Backdrop */}
       <div
         className='absolute inset-0 bg-black/80 backdrop-blur-sm'
         onClick={onClose}
       />
-      <div className='relative z-10 w-full max-w-4xl h-[85vh] bg-[#1a1d24] border border-white/10 rounded shadow-xl flex flex-col overflow-hidden'>
-        <div className='flex items-center justify-between px-6 py-4 border-b border-white/5 bg-[#0e1117] shrink-0'>
-          <div className='flex items-center gap-3'>
-            <div className='p-2 bg-indigo-500/10 rounded-lg'>
+
+      {/* Modal Container */}
+      <div className='relative z-10 w-full max-w-5xl h-[90vh] bg-[#1a1d24] border border-white/10 rounded-xl shadow-2xl flex flex-col overflow-hidden'>
+        {/* Header Toolbar */}
+        <div className='flex items-center justify-between px-4 sm:px-6 py-3 border-b border-white/10 bg-[#0e1117] shrink-0'>
+          <div className='flex items-center gap-3 truncate'>
+            {/* Breadcrumb / Sidebar Toggle Button */}
+            {onToggleSidebar && (
+              <button
+                type='button'
+                onClick={onToggleSidebar}
+                className={`p-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-colors ${
+                  isSidebarOpen ? "bg-white/10 text-white" : ""
+                }`}
+                title={isSidebarOpen ? "Close sidebar" : "Open sidebar"}
+              >
+                <PanelLeft size={18} />
+              </button>
+            )}
+
+            <div className='p-2 bg-indigo-500/10 rounded-lg shrink-0'>
               <FileText
-                size={16}
+                size={18}
                 className='text-indigo-400'
               />
             </div>
-            <div>
-              <p className='text-sm font-semibold leading-tight text-white'>{fileName}</p>
-              <p className='text-xs text-gray-500'>Pages: {numPages || "Loading..."}</p>
+            <div className='truncate'>
+              <p className='text-sm font-semibold text-white truncate'>{fileName}</p>
+              <p className='text-xs text-gray-400'>PDF Document</p>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className='p-2 rounded text-gray-400 hover:text-white hover:bg-white/10'
-          >
-            <X size={20} />
-          </button>
+
+          {/* Action Buttons */}
+          <div className='flex items-center gap-2'>
+            {/* Close Button */}
+            <button
+              onClick={onClose}
+              className='p-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-colors ml-2'
+              title='Close modal'
+            >
+              <X size={20} />
+            </button>
+          </div>
         </div>
 
-        <div className='flex-1 overflow-y-auto bg-[#2b2f36] p-4 flex justify-center'>
-          <Document
-            file={url}
-            onLoadSuccess={onDocumentLoadSuccess}
-            loading={<div className='text-white text-sm'>Loading PDF...</div>}
-            error={<div className='text-red-400 text-sm'>Failed to load PDF.</div>}
-            className='flex flex-col gap-4'
-          >
-            {Array.from(new Array(numPages), (_, index) => (
-              <Page
-                key={`page_${index + 1}`}
-                pageNumber={index + 1}
-                width={600}
-                renderAnnotationLayer={false}
-                renderTextLayer={false}
-                className='shadow-lg'
-              />
-            ))}
-          </Document>
+        {/* PDF Viewer Content Area */}
+        <div className='flex-1 bg-[#2b2f36] relative'>
+          {displayUrl ? (
+            <iframe
+              src={`${displayUrl}#toolbar=0&navpanes=0`}
+              className='w-full h-full border-0'
+              title={fileName}
+            />
+          ) : (
+            <div className='absolute inset-0 flex items-center justify-center text-gray-400 text-sm'>
+              Loading preview...
+            </div>
+          )}
         </div>
       </div>
     </div>
