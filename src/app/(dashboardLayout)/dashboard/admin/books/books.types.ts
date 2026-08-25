@@ -32,6 +32,7 @@ export type BookEditData = {
   publishYear: number;
   ratings: number;
   description: string;
+  purchaseCost: number;
   physicalRegularPrice: number;
   physicalSalePrice: number;
   digitalRegularPrice: number;

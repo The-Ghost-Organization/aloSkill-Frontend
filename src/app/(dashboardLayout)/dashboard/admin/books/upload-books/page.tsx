@@ -81,7 +81,11 @@ const bookSchema = z
       .min(10, "Description must be at least 10 characters")
       .regex(/^[^<>]*$/, "Description must not contain any opening or closing HTML tags"),
 
-    physicalRegularPrice: z.coerce.number().min(0, "Physical Regular Price cannot be negative"),
+    purchaseCost: z.coerce.number().min(0, "Purchase Cost cannot be negative").optional(),
+    physicalRegularPrice: z.coerce
+      .number()
+      .min(0, "Physical Regular Price cannot be negative")
+      .optional(),
     physicalSalePrice: z.coerce
       .number()
       .min(0, "Physical Sale Price cannot be negative")
@@ -159,6 +163,18 @@ const bookSchema = z
   )
   .refine(
     data => {
+      if (data.formats.includes("Hardcover") && !data.physicalRegularPrice) {
+        return false;
+      }
+      return true;
+    },
+    {
+      message: "Physical Prices are required when Hardcover format is selected",
+      path: ["physicalRegularPrice"],
+    }
+  )
+  .refine(
+    data => {
       if (data.formats.includes("E-Book") && !data.digitalRegularPrice) {
         return false;
       }
@@ -171,7 +187,7 @@ const bookSchema = z
   )
   .refine(
     data => {
-      if (data.physicalSalePrice) {
+      if (data.physicalSalePrice && data.physicalRegularPrice) {
         if (data.physicalRegularPrice < data.physicalSalePrice) {
           return false;
         }
@@ -217,6 +233,8 @@ export default function AddBookPage() {
   const [imageUploadLoading, setImageUploadLoading] = useState<boolean>(false);
   const [uploadError, setUploadError] = useState<string>("");
   const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
+  const [uploadedPdfPreview, setUploadedPdfPreview] = useState<string | null>(null);
+  const [uploadedEbookPreview, setUploadedEbookPdf] = useState<string | null>(null);
 
   const { user } = useSessionContext();
   const router = useRouter();
@@ -235,8 +253,6 @@ export default function AddBookPage() {
     resolver: zodResolver(bookSchema),
     defaultValues: {
       formats: ["Hardcover"],
-      physicalRegularPrice: 0,
-      physicalSalePrice: 0,
       stock: 0,
     },
   });
@@ -269,6 +285,7 @@ export default function AddBookPage() {
           setValue("publishYear", String(book.publishYear));
           setValue("ratings", String(book.ratings));
           setValue("description", book.description);
+          setValue("purchaseCost", book.purchaseCost);
           setValue("physicalRegularPrice", book.physicalRegularPrice);
           setValue("physicalSalePrice", book.physicalSalePrice);
           setValue("digitalRegularPrice", book.digitalRegularPrice);
@@ -300,12 +317,14 @@ export default function AddBookPage() {
           );
           const previewFile = files.find((f: any) => f.fileType === "PREVIEW");
           if (previewFile) {
-            setValue("previewPdf", previewFile as unknown as File);
+            setValue("previewPdf", previewFile.url as unknown as File);
             setPdfPreviewUrl(encodeURI(previewFile.url));
+            setUploadedPdfPreview(previewFile.name);
           }
           const ebookFile = files.find((f: any) => f.fileType === "EBOOK");
           if (ebookFile) {
-            setValue("ebookPdf", ebookFile as unknown as File);
+            setValue("ebookPdf", ebookFile.url as unknown as File);
+            setUploadedEbookPdf(ebookFile.name);
           }
         } else {
           setLoadEditDataError("Failed to load book data. Please try again.");
@@ -319,6 +338,7 @@ export default function AddBookPage() {
 
   const selectedFormats = watch("formats");
   const isEbookSelected = selectedFormats.includes("E-Book");
+  const isHardCoverSelected = selectedFormats.includes("Hardcover");
   const uploadedCover = watch("coverImage");
   const uploadedPreviewPdf = watch("previewPdf");
   const uploadedEbookPdf = watch("ebookPdf");
@@ -831,29 +851,48 @@ export default function AddBookPage() {
               iconBg='bg-emerald-500/10'
               title='Pricing & Stock'
             >
+              {isHardCoverSelected && (
+                <div className='mb-4'>
+                  <Field
+                    label='Book Purchase Cost (TK)'
+                    error={errors.purchaseCost?.message}
+                  >
+                    <input
+                      {...register("purchaseCost")}
+                      type='number'
+                      min={0}
+                      className={`${getInputClass(!!errors.purchaseCost)}`}
+                    />
+                  </Field>
+                </div>
+              )}
               <div className='grid grid-cols-1 md:grid-cols-2 gap-4 mb-4'>
-                <Field
-                  label='HardCover Regular Price (TK) *'
-                  error={errors.physicalRegularPrice?.message}
-                >
-                  <input
-                    {...register("physicalRegularPrice")}
-                    type='number'
-                    min={0}
-                    className={`${getInputClass(!!errors.physicalRegularPrice)}`}
-                  />
-                </Field>
-                <Field
-                  label='HardCover Sale Price (TK) *'
-                  error={errors.physicalSalePrice?.message}
-                >
-                  <input
-                    {...register("physicalSalePrice")}
-                    type='number'
-                    min={0}
-                    className={getInputClass(!!errors.physicalSalePrice)}
-                  />
-                </Field>
+                {isHardCoverSelected && (
+                  <>
+                    <Field
+                      label='HardCover Regular Price (TK) *'
+                      error={errors.physicalRegularPrice?.message}
+                    >
+                      <input
+                        {...register("physicalRegularPrice")}
+                        type='number'
+                        min={0}
+                        className={`${getInputClass(!!errors.physicalRegularPrice)}`}
+                      />
+                    </Field>
+                    <Field
+                      label='HardCover Sale Price (TK) *'
+                      error={errors.physicalSalePrice?.message}
+                    >
+                      <input
+                        {...register("physicalSalePrice")}
+                        type='number'
+                        min={0}
+                        className={getInputClass(!!errors.physicalSalePrice)}
+                      />
+                    </Field>
+                  </>
+                )}
                 {isEbookSelected && (
                   <>
                     <Field
@@ -1038,6 +1077,7 @@ export default function AddBookPage() {
                         <Image
                           width={130}
                           height={186}
+                          priority
                           src={coverPreview as string}
                           alt='Cover Image Preview'
                           className='w-full h-auto object-cover'
@@ -1106,6 +1146,7 @@ export default function AddBookPage() {
                     {uploadedPreviewPdf ? (
                       <FilePreviewItem
                         file={uploadedPreviewPdf as File}
+                        fileName={uploadedPdfPreview as string}
                         onRemove={() => removeFile("previewPdf")}
                         onPreview={() => setIsPdfModalOpen(true)}
                       />
@@ -1230,6 +1271,7 @@ export default function AddBookPage() {
                         {uploadedEbookPdf ? (
                           <FilePreviewItem
                             file={uploadedEbookPdf as File}
+                            fileName={uploadedEbookPreview as string}
                             onRemove={() => removeFile("ebookPdf")}
                           />
                         ) : (
@@ -1276,10 +1318,12 @@ export default function AddBookPage() {
 // 2. File Item UI
 function FilePreviewItem({
   file,
+  fileName,
   onRemove,
   onPreview,
 }: {
   file: File;
+  fileName?: string;
   onRemove: () => void;
   onPreview?: () => void;
 }) {
@@ -1292,7 +1336,7 @@ function FilePreviewItem({
         />
       </div>
       <div className='flex-1 min-w-0'>
-        <p className='text-sm font-medium truncate text-gray-200'>{file.name}</p>
+        <p className='text-sm font-medium truncate text-gray-200'>{file.name || fileName}</p>
         <p className='text-[10px] text-gray-500'>{(file.size / 1024 / 1024).toFixed(2)} MB</p>
       </div>
       <div className='flex items-center gap-1'>

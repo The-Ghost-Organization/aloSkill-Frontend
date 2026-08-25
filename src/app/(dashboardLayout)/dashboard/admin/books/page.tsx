@@ -126,7 +126,7 @@ export default async function BooksPage() {
                       )}
                     </td>
                     <td className='p-4 px-4.5 text-[13.5px] text-slate-100 font-mono font-semibold'>
-                      ${salePrice}
+                      ৳ {salePrice}
                     </td>
                     <td className='p-4 px-4.5 text-gray-200 font-mono text-xs!'>
                       {b.orderItem.length}
