@@ -1,5 +1,9 @@
+"use client";
+
+import { BookOpen } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
+import { useState } from "react";
 
 import type { BookResponse } from "../Books.type.ts";
 import BookCardActions from "./BookCardActions";
@@ -37,6 +41,56 @@ function AvailabilityPill({ status }: { status: Book["stock"] }) {
   );
 }
 
+function BookCover({
+  src,
+  title,
+  priority = false,
+  compact = false,
+}: {
+  src: string;
+  title: string;
+  priority?: boolean;
+  compact?: boolean;
+}) {
+  const [hasError, setHasError] = useState(false);
+
+  return (
+    <div
+      className={`relative isolate flex h-full w-full items-center justify-center overflow-hidden bg-gradient-to-br from-stone-50 via-white to-amber-50/70 ${
+        compact ? "p-2" : "p-4 sm:p-5"
+      }`}
+    >
+      <div className='absolute inset-x-[12%] bottom-[5%] h-[10%] rounded-full bg-gray-900/15 blur-xl' />
+
+      {!hasError && src ? (
+        <div className='relative h-full max-h-full w-full max-w-full drop-shadow-[0_14px_16px_rgba(15,23,42,0.20)] transition duration-500 ease-out group-hover:-translate-y-1 group-hover:scale-[1.025]'>
+          <Image
+            src={src}
+            alt={`Cover of ${title}`}
+            fill
+            priority={priority}
+            onError={() => setHasError(true)}
+            className='object-contain [filter:saturate(1.02)_contrast(1.01)]'
+            sizes={compact ? "80px" : "(max-width: 640px) 76vw, (max-width: 1024px) 220px, 240px"}
+          />
+        </div>
+      ) : (
+        <div className='flex h-full w-full flex-col items-center justify-center rounded-lg border border-dashed border-amber-200 bg-white/70 px-3 text-center text-amber-700/70'>
+          <BookOpen
+            className={compact ? "h-6 w-6" : "h-10 w-10"}
+            aria-hidden='true'
+          />
+          {!compact && (
+            <span className='mt-2 line-clamp-2 text-xs font-semibold'>Cover unavailable</span>
+          )}
+        </div>
+      )}
+
+      <div className='pointer-events-none absolute inset-0 ring-1 ring-inset ring-black/[0.04]' />
+    </div>
+  );
+}
+
 // ─── Props ────────────────────────────────────────────────────────────────────
 
 interface BookCardProps {
@@ -52,7 +106,7 @@ interface BookCardProps {
 
 // ─── Grid Card ────────────────────────────────────────────────────────────────
 
-function GridCard({ book, cartItems, onAddToCart }: BookCardProps) {
+function GridCard({ book, index = 0, cartItems, onAddToCart }: BookCardProps) {
   const activeSalePrice = book.physicalSalePrice ?? book.digitalSalePrice;
 
   const activeRegularPrice = book.physicalRegularPrice ?? book.digitalRegularPrice;
@@ -69,20 +123,18 @@ function GridCard({ book, cartItems, onAddToCart }: BookCardProps) {
     >
       <article className='bg-white rounded-lg border border-gray-100 shadow-sm overflow-hidden transition-all duration-300 ease-out hover:-translate-y-1.5 hover:shadow-xl hover:shadow-gray-200/70 hover:border-gray-200'>
         {/* ── Cover Image ── */}
-        <div className='relative w-full h-56 overflow-hidden bg-gray-100'>
-          <Image
-            src={encodeURI(book.coverImage)}
-            alt={`Cover of ${book.title}`}
-            fill
-            className='object-cover transition-transform duration-500 ease-out group-hover:scale-105'
-            sizes='(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw'
+        <div className='relative aspect-[3/4] w-full overflow-hidden bg-stone-50'>
+          <BookCover
+            src={book.coverImage}
+            title={book.title}
+            priority={index < 5}
           />
 
           {/* Permanent bottom gradient */}
           <div className='absolute inset-0 bg-linear-to-t from-black/20 via-transparent to-transparent' />
 
           {/* Hover actions */}
-          <div className='absolute inset-0 bg-black/35 opacity-0 transition-opacity duration-300 group-hover:opacity-100 flex items-center justify-center'>
+          <div className='absolute inset-x-0 bottom-0 flex translate-y-2 items-end justify-center bg-gradient-to-t from-black/70 via-black/25 to-transparent px-3 pb-4 pt-14 opacity-0 transition-all duration-300 group-hover:translate-y-0 group-hover:opacity-100 group-focus-within:translate-y-0 group-focus-within:opacity-100'>
             <BookCardActions
               bookId={book.id}
               bookTitle={book.title}
@@ -176,13 +228,11 @@ function ListCard({ book, cartItems, onAddToCart }: BookCardProps) {
     >
       <article className='bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden flex gap-4 p-4 transition-all duration-300 ease-out hover:shadow-lg hover:shadow-gray-200/60 hover:border-gray-200'>
         {/* Cover */}
-        <div className='relative w-20 h-28 shrink-0 rounded-xl overflow-hidden bg-gray-100'>
-          <Image
+        <div className='relative aspect-[3/4] w-20 shrink-0 overflow-hidden rounded-xl border border-gray-100 bg-stone-50 shadow-sm'>
+          <BookCover
             src={book.coverImage}
-            alt={`Cover of ${book.title}`}
-            fill
-            className='object-cover transition-transform duration-500 group-hover:scale-105'
-            sizes='80px'
+            title={book.title}
+            compact
           />
         </div>
 
@@ -271,8 +321,6 @@ export default function BookCard({
   cartItems = [],
   onAddToCart,
 }: BookCardProps) {
-  void index;
-
   if (viewMode === "list") {
     return (
       <ListCard
@@ -286,6 +334,7 @@ export default function BookCard({
   return (
     <GridCard
       book={book}
+      index={index}
       cartItems={cartItems}
       onAddToCart={onAddToCart}
     />

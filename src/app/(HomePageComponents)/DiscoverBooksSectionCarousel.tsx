@@ -9,24 +9,21 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { BookResponse } from "../(withoutSidebarLayout)/books/Books.type";
 import BookCard from "../(withoutSidebarLayout)/books/components/BookCard";
 
-const AUTO_SCROLL_INTERVAL = 24;
-const AUTO_SCROLL_STEP = 1;
+const AUTO_PLAY_DELAY = 4500;
+const INTERACTION_PAUSE_DELAY = 5000;
+const CARD_GAP = 24;
 
 export function DiscoverBooksSectionCarousel() {
   const [books, setBooks] = useState<BookResponse>([]);
-  const [isPaused, setIsPaused] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const autoScrollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const resumeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const isPausedRef = useRef(false);
+  const [isPaused, setIsPaused] = useState(false);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
 
-  const stopAutoScroll = useCallback(() => {
-    if (autoScrollRef.current) {
-      clearInterval(autoScrollRef.current);
-      autoScrollRef.current = null;
-    }
-  }, []);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const resumeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const scrollFrameRef = useRef<number | null>(null);
+  const isPausedRef = useRef(false);
 
   const clearResumeTimeout = useCallback(() => {
     if (resumeTimeoutRef.current) {
@@ -35,28 +32,98 @@ export function DiscoverBooksSectionCarousel() {
     }
   }, []);
 
-  const startAutoScroll = useCallback(() => {
-    stopAutoScroll();
-
-    autoScrollRef.current = setInterval(() => {
-      const container = scrollContainerRef.current;
-      if (!container || isPausedRef.current) return;
-
-      const maxScrollLeft = container.scrollWidth - container.clientWidth;
-      if (maxScrollLeft <= 0) return;
-
-      if (container.scrollLeft >= maxScrollLeft - 1) {
-        container.scrollTo({ left: 0, behavior: "auto" });
-      } else {
-        container.scrollLeft += AUTO_SCROLL_STEP;
-      }
-    }, AUTO_SCROLL_INTERVAL);
-  }, [stopAutoScroll]);
-
-  const setPaused = useCallback((paused: boolean) => {
+  const setPausedState = useCallback((paused: boolean) => {
     isPausedRef.current = paused;
     setIsPaused(paused);
   }, []);
+
+  const pauseCarousel = useCallback(() => {
+    clearResumeTimeout();
+    setPausedState(true);
+  }, [clearResumeTimeout, setPausedState]);
+
+  const resumeCarousel = useCallback(
+    (delay = 0) => {
+      clearResumeTimeout();
+
+      if (delay === 0) {
+        setPausedState(false);
+        return;
+      }
+
+      resumeTimeoutRef.current = setTimeout(() => {
+        setPausedState(false);
+      }, delay);
+    },
+    [clearResumeTimeout, setPausedState]
+  );
+
+  const updateScrollControls = useCallback(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    const maxScrollLeft = container.scrollWidth - container.clientWidth;
+    const threshold = 4;
+
+    setCanScrollLeft(container.scrollLeft > threshold);
+    setCanScrollRight(
+      maxScrollLeft > threshold && container.scrollLeft < maxScrollLeft - threshold
+    );
+  }, []);
+
+  const handleScroll = useCallback(() => {
+    if (scrollFrameRef.current !== null) return;
+
+    scrollFrameRef.current = requestAnimationFrame(() => {
+      updateScrollControls();
+      scrollFrameRef.current = null;
+    });
+  }, [updateScrollControls]);
+
+  const getCardScrollDistance = useCallback(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return 0;
+
+    const firstCard = container.querySelector<HTMLElement>("[data-book-card]");
+
+    return firstCard
+      ? firstCard.getBoundingClientRect().width + CARD_GAP
+      : container.clientWidth * 0.8;
+  }, []);
+
+  const scrollToDirection = useCallback(
+    (direction: "left" | "right", triggeredByUser = true) => {
+      const container = scrollContainerRef.current;
+      if (!container) return;
+
+      if (triggeredByUser) {
+        pauseCarousel();
+      }
+
+      const maxScrollLeft = container.scrollWidth - container.clientWidth;
+      const distance = getCardScrollDistance();
+
+      let nextPosition = container.scrollLeft + (direction === "right" ? distance : -distance);
+
+      if (direction === "right" && nextPosition >= maxScrollLeft - 4) {
+        nextPosition = maxScrollLeft;
+      }
+
+      if (direction === "left" && nextPosition <= 4) {
+        nextPosition = 0;
+      }
+
+      container.scrollTo({
+        left: nextPosition,
+        behavior: "smooth",
+      });
+
+      if (triggeredByUser) {
+        resumeCarousel(INTERACTION_PAUSE_DELAY);
+      }
+    },
+    [getCardScrollDistance, pauseCarousel, resumeCarousel]
+  );
 
   useEffect(() => {
     let mounted = true;
@@ -71,6 +138,7 @@ export function DiscoverBooksSectionCarousel() {
         }
 
         const response = await apiClient.get<BookResponse>("/book/public/all-books", headers);
+
         if (!mounted) return;
 
         if (response.success) {
@@ -85,7 +153,9 @@ export function DiscoverBooksSectionCarousel() {
           setBooks([]);
         }
       } finally {
-        if (mounted) setIsLoading(false);
+        if (mounted) {
+          setIsLoading(false);
+        }
       }
     }
 
@@ -97,44 +167,79 @@ export function DiscoverBooksSectionCarousel() {
   }, []);
 
   useEffect(() => {
-    if (books.length > 0) startAutoScroll();
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    updateScrollControls();
+
+    const resizeObserver = new ResizeObserver(updateScrollControls);
+    resizeObserver.observe(container);
 
     return () => {
-      stopAutoScroll();
-      clearResumeTimeout();
+      resizeObserver.disconnect();
     };
-  }, [books.length, clearResumeTimeout, startAutoScroll, stopAutoScroll]);
+  }, [books.length, isLoading, updateScrollControls]);
 
-  const pauseInteraction = useCallback(() => {
-    clearResumeTimeout();
-    setPaused(true);
-  }, [clearResumeTimeout, setPaused]);
+  useEffect(() => {
+    if (books.length <= 1) return;
 
-  const resumeInteraction = useCallback(() => {
-    clearResumeTimeout();
-    resumeTimeoutRef.current = setTimeout(() => setPaused(false), 700);
-  }, [clearResumeTimeout, setPaused]);
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
 
-  const scroll = useCallback(
-    (direction: "left" | "right") => {
+    if (reducedMotion.matches) return;
+
+    const autoplayInterval = setInterval(() => {
       const container = scrollContainerRef.current;
-      if (!container) return;
 
-      pauseInteraction();
-      const firstCard = container.querySelector<HTMLElement>("[data-book-card]");
-      const distance = firstCard ? firstCard.offsetWidth + 24 : container.clientWidth * 0.8;
+      if (!container || isPausedRef.current || document.hidden) {
+        return;
+      }
 
-      container.scrollBy({
-        left: direction === "left" ? -distance : distance,
-        behavior: "smooth",
-      });
-      resumeInteraction();
-    },
-    [pauseInteraction, resumeInteraction]
-  );
+      const maxScrollLeft = container.scrollWidth - container.clientWidth;
+
+      if (maxScrollLeft <= 4) return;
+
+      if (container.scrollLeft >= maxScrollLeft - 4) {
+        container.scrollTo({
+          left: 0,
+          behavior: "smooth",
+        });
+      } else {
+        scrollToDirection("right", false);
+      }
+    }, AUTO_PLAY_DELAY);
+
+    return () => {
+      clearInterval(autoplayInterval);
+    };
+  }, [books.length, scrollToDirection]);
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        pauseCarousel();
+      } else {
+        resumeCarousel(1000);
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+
+      clearResumeTimeout();
+
+      if (scrollFrameRef.current !== null) {
+        cancelAnimationFrame(scrollFrameRef.current);
+      }
+    };
+  }, [clearResumeTimeout, pauseCarousel, resumeCarousel]);
 
   return (
-    <section className='overflow-hidden bg-white py-14 sm:py-20'>
+    <section
+      className='overflow-hidden bg-white py-14 sm:py-20'
+      aria-labelledby='discover-books-heading'
+    >
       <div className='mx-auto max-w-7xl px-4 sm:px-6 lg:px-8'>
         <SectionHeader
           title='Discover New Books Every Day'
@@ -145,28 +250,36 @@ export function DiscoverBooksSectionCarousel() {
 
         <div
           className='group/carousel relative mt-8'
-          onMouseEnter={() => setPaused(true)}
-          onMouseLeave={() => setPaused(false)}
+          role='region'
+          aria-roledescription='carousel'
+          aria-label='Discover new books'
+          onMouseEnter={pauseCarousel}
+          onMouseLeave={() => resumeCarousel()}
+          onFocusCapture={pauseCarousel}
+          onBlurCapture={event => {
+            if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+              resumeCarousel();
+            }
+          }}
         >
           <div
             ref={scrollContainerRef}
-            className='flex snap-x snap-mandatory gap-6 overflow-x-auto scroll-smooth pb-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
-            onPointerDown={pauseInteraction}
-            onPointerUp={resumeInteraction}
-            onPointerCancel={resumeInteraction}
-            aria-label='Discover books carousel'
+            className='
+              flex snap-x snap-mandatory gap-6 overflow-x-auto
+              scroll-smooth pb-5 overscroll-x-contain
+              [scrollbar-width:none]
+              [&::-webkit-scrollbar]:hidden
+            '
+            onScroll={handleScroll}
+            onPointerDown={pauseCarousel}
+            onPointerUp={() => resumeCarousel(INTERACTION_PAUSE_DELAY)}
+            onPointerCancel={() => resumeCarousel(INTERACTION_PAUSE_DELAY)}
+            aria-label='Book list'
+            role='list'
           >
             {isLoading &&
               Array.from({ length: 5 }, (_, index) => (
-                <div
-                  key={`book-skeleton-${index}`}
-                  className='w-[72vw] max-w-[240px] shrink-0 snap-start sm:w-[220px] lg:w-[calc((100%_-_6rem)/5)]'
-                  aria-hidden='true'
-                >
-                  <div className='h-56 animate-pulse rounded-lg bg-gray-200' />
-                  <div className='mt-3 h-4 animate-pulse rounded bg-gray-200' />
-                  <div className='mt-2 h-3 w-2/3 animate-pulse rounded bg-gray-200' />
-                </div>
+                <BookCardSkeleton key={`book-skeleton-${index}`} />
               ))}
 
             {!isLoading &&
@@ -174,7 +287,12 @@ export function DiscoverBooksSectionCarousel() {
                 <div
                   key={book.id}
                   data-book-card
-                  className='w-[72vw] max-w-[240px] shrink-0 snap-start sm:w-[220px] lg:w-[calc((100%_-_6rem)/5)]'
+                  role='listitem'
+                  className='
+                    w-[76vw] max-w-[260px] shrink-0 snap-start
+                    sm:w-[220px]
+                    lg:w-[calc((100%_-_6rem)/5)]
+                  '
                 >
                   <BookCard
                     book={book}
@@ -186,41 +304,46 @@ export function DiscoverBooksSectionCarousel() {
 
             {!isLoading && books.length === 0 && (
               <div
-                className='w-full py-16 text-center'
+                className='w-full rounded-xl border border-gray-100 bg-gray-50 py-16 text-center'
                 role='status'
               >
-                <p className='text-sm text-gray-500'>No books available at the moment.</p>
+                <p className='text-sm font-medium text-gray-600'>
+                  No books available at the moment.
+                </p>
+                <p className='mt-1 text-xs text-gray-400'>Please check again later.</p>
               </div>
             )}
           </div>
 
           {!isLoading && books.length > 1 && (
             <>
-              <div className='pointer-events-none absolute inset-y-0 left-0 w-12 bg-transparent sm:w-20' />
-              <div className='pointer-events-none absolute inset-y-0 right-0 w-12 bg-transparent sm:w-20' />
+              <div
+                className='
+                  pointer-events-none absolute inset-y-0 left-0
+                  hidden w-16 bg-gradient-to-r
+                  from-white via-white/70 to-transparent sm:block
+                '
+              />
 
-              <button
-                type='button'
-                onClick={() => scroll("left")}
-                className='absolute left-2 top-1/2 z-10 -translate-y-1/2 rounded-full border border-gray-200 bg-white/95 p-2.5 shadow-md transition hover:border-orange-300 hover:bg-orange-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 sm:left-3'
-                aria-label='Show previous books'
-              >
-                <ChevronLeft
-                  className='h-5 w-5 text-gray-800'
-                  aria-hidden='true'
-                />
-              </button>
-              <button
-                type='button'
-                onClick={() => scroll("right")}
-                className='absolute right-2 top-1/2 z-10 -translate-y-1/2 rounded-full border border-gray-200 bg-white/95 p-2.5 shadow-md transition hover:border-orange-300 hover:bg-orange-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 sm:right-3'
-                aria-label='Show next books'
-              >
-                <ChevronRight
-                  className='h-5 w-5 text-gray-800'
-                  aria-hidden='true'
-                />
-              </button>
+              <div
+                className='
+                  pointer-events-none absolute inset-y-0 right-0
+                  hidden w-16 bg-gradient-to-l
+                  from-white via-white/70 to-transparent sm:block
+                '
+              />
+
+              <CarouselButton
+                direction='left'
+                disabled={!canScrollLeft}
+                onClick={() => scrollToDirection("left")}
+              />
+
+              <CarouselButton
+                direction='right'
+                disabled={!canScrollRight}
+                onClick={() => scrollToDirection("right")}
+              />
             </>
           )}
 
@@ -233,5 +356,66 @@ export function DiscoverBooksSectionCarousel() {
         </div>
       </div>
     </section>
+  );
+}
+
+function CarouselButton({
+  direction,
+  disabled,
+  onClick,
+}: {
+  direction: "left" | "right";
+  disabled: boolean;
+  onClick: () => void;
+}) {
+  const isLeft = direction === "left";
+  const Icon = isLeft ? ChevronLeft : ChevronRight;
+
+  return (
+    <button
+      type='button'
+      onClick={onClick}
+      disabled={disabled}
+      aria-label={isLeft ? "Show previous books" : "Show next books"}
+      className={`
+        absolute top-1/2 z-10 hidden -translate-y-1/2
+        rounded-full border border-gray-200 bg-white/95 p-3
+        shadow-lg backdrop-blur-sm transition-all
+        hover:scale-105 hover:border-orange-300 hover:bg-orange-50
+        focus-visible:outline-none focus-visible:ring-2
+        focus-visible:ring-orange-400 focus-visible:ring-offset-2
+        disabled:pointer-events-none disabled:scale-90
+        disabled:opacity-0 sm:flex
+        ${isLeft ? "left-2" : "right-2"}
+      `}
+    >
+      <Icon
+        className='h-5 w-5 text-gray-800'
+        aria-hidden='true'
+      />
+    </button>
+  );
+}
+
+function BookCardSkeleton() {
+  return (
+    <div
+      className='
+        w-[76vw] max-w-[260px] shrink-0 snap-start
+        sm:w-[220px]
+        lg:w-[calc((100%_-_6rem)/5)]
+      '
+      aria-hidden='true'
+    >
+      <div className='aspect-[3/4] animate-pulse rounded-xl bg-gray-200' />
+
+      <div className='mt-4 h-4 animate-pulse rounded bg-gray-200' />
+      <div className='mt-2 h-3 w-2/3 animate-pulse rounded bg-gray-200' />
+
+      <div className='mt-4 flex items-center justify-between'>
+        <div className='h-4 w-16 animate-pulse rounded bg-gray-200' />
+        <div className='h-8 w-8 animate-pulse rounded-full bg-gray-200' />
+      </div>
+    </div>
   );
 }

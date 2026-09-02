@@ -2,6 +2,7 @@ import { Plus } from "lucide-react";
 import Link from "next/link";
 import { Badge, SectionHeader } from "../Components";
 import { BookActionButtonApprove, BookActionButtonEditandView } from "./BookComponents";
+import BulkBookImportModal from "./BulkBookImportModal";
 import { getBookData } from "./action";
 
 export default async function BooksPage() {
@@ -14,15 +15,18 @@ export default async function BooksPage() {
         title='Books & Products'
         sub='Manage digital and physical book inventory'
         action={
-          <Link href='/dashboard/admin/books/upload-books'>
-            <button className="inline-flex items-center gap-1.5 px-4.5 py-2.5 rounded bg-linear-to-br from-orange to-orange-dark text-white font-['Outfit'] font-semibold text-[13px] shadow shadow-orange-500/25 hover:shadow-orange-500/45 hover:-translate-y-px transition-all cursor-pointer border-none">
-              <Plus
-                size={14}
-                color='white'
-              />
-              Add Book
-            </button>
-          </Link>
+          <div className='flex flex-wrap items-center gap-2'>
+            <BulkBookImportModal />
+            <Link href='/dashboard/admin/books/upload-books'>
+              <button className="inline-flex items-center gap-1.5 px-4.5 py-2.5 rounded bg-linear-to-br from-orange to-orange-dark text-white font-['Outfit'] font-semibold text-[13px] shadow shadow-orange-500/25 hover:shadow-orange-500/45 hover:-translate-y-px transition-all cursor-pointer border-none">
+                <Plus
+                  size={14}
+                  color='white'
+                />
+                Add Book
+              </button>
+            </Link>
+          </div>
         }
       />
 

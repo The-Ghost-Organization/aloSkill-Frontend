@@ -40,6 +40,42 @@ const PdfPreviewModal = dynamic(() => import("./PdfPreviewModal.tsx"), {
 
 const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
 
+function extractBunnyUrl(payload: unknown): string {
+  const candidates: unknown[] = [payload];
+
+  if (payload && typeof payload === "object") {
+    const value = payload as Record<string, unknown>;
+    candidates.push(value["url"], value["fileUrl"], value["location"], value["data"]);
+
+    if (value["data"] && typeof value["data"] === "object") {
+      const nested = value["data"] as Record<string, unknown>;
+      candidates.push(nested["url"], nested["fileUrl"], nested["location"]);
+    }
+  }
+
+  for (const candidate of candidates) {
+    if (typeof candidate !== "string") continue;
+
+    let normalized = candidate.trim().replace(/^["']|["']$/g, "");
+    if (!normalized) continue;
+
+    if (normalized.startsWith("//")) {
+      normalized = `https:${normalized}`;
+    } else if (/^[\w.-]+\.b-cdn\.net\//i.test(normalized)) {
+      normalized = `https://${normalized}`;
+    }
+
+    try {
+      const url = new URL(normalized);
+      if (url.protocol === "https:") return url.href;
+    } catch {
+      // Try the next supported response shape.
+    }
+  }
+
+  throw new Error("Bunny upload succeeded, but the server did not return a valid HTTPS CDN URL.");
+}
+
 const bookSchema = z
   .object({
     title: z
@@ -340,7 +376,7 @@ export default function AddBookPage() {
       formData.append("file", file);
 
       const response = await apiClient.postFormData<string>(
-        `/course/file-upload?folder=${user?.email}`,
+        "/course/instructor-file-upload?folder=books/pdfs",
         formData
       );
 
@@ -351,7 +387,7 @@ export default function AddBookPage() {
 
       return {
         name: file.name,
-        url: response.data as string,
+        url: extractBunnyUrl(response.data),
       };
     } catch (error: unknown) {
       setFileUploadError(error instanceof Error ? error.message : "An unknown error occurred.");
@@ -376,7 +412,7 @@ export default function AddBookPage() {
       formData.append("file", file);
 
       const response = await apiClient.postFormData<string>(
-        `/course/file-upload?folder=${user.email}`,
+        "/course/instructor-file-upload?folder=books/covers",
         formData
       );
 
@@ -386,7 +422,7 @@ export default function AddBookPage() {
       }
 
       return {
-        url: response.data,
+        url: extractBunnyUrl(response.data),
       };
     } catch (error: unknown) {
       setImageUploadError(error instanceof Error ? error.message : "An unknown error occurred.");
@@ -448,10 +484,13 @@ export default function AddBookPage() {
         if (img.width === 130 && img.height === 186) {
           const uploadedImage = await uploadImageToBunny(file);
           if (uploadedImage.url !== "") {
-            setValue("coverImageUrl", encodeURI(uploadedImage.url));
+            setValue("coverImageUrl", uploadedImage.url, {
+              shouldDirty: true,
+              shouldValidate: true,
+            });
             setCoverPreview(objectUrl);
             setValue("coverImage", file);
-            trigger("coverImage");
+            void trigger(["coverImage", "coverImageUrl"]);
           }
         } else {
           setImageError(
@@ -477,7 +516,7 @@ export default function AddBookPage() {
 
         const fileItem = {
           name: uploadedResult.name,
-          url: encodeURI(uploadedResult.url),
+          url: uploadedResult.url,
           fileType: currentFileType,
         } as const;
 
