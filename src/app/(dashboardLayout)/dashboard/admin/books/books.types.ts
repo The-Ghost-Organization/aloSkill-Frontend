@@ -65,3 +65,22 @@ export type BookEditData = {
     bookId: string;
   }[];
 } | null;
+
+export type BulkBookImportError = {
+  field: string;
+  message: string;
+};
+
+export type BulkBookImportRowResult = {
+  row: number;
+  success: boolean;
+  bookId?: string;
+  errors?: BulkBookImportError[];
+};
+
+export type BulkBookImportResult = {
+  total: number;
+  imported: number;
+  failed: number;
+  results: BulkBookImportRowResult[];
+};
