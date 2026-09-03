@@ -1,13 +1,13 @@
 "use client";
 import { FadeIn } from "@/lib/course/utils.tsx";
-import { ArrowRight, BaggageClaim, ChevronRight, Truck } from "lucide-react";
+import { ArrowRight, BaggageClaim, Banknote, ChevronRight, CreditCard, Truck } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { apiClient } from "../../../../lib/api/client";
+import { checkoutDataStorage } from "../../../../lib/storage/courseDraftStorage";
 import { useSessionContext } from "../../../contexts/SessionContext";
-import { checkoutDataStorage } from '../../../../lib/storage/courseDraftStorage';
 
 type OrderSummary = {
   items: {
@@ -18,6 +18,7 @@ type OrderSummary = {
       discountPrice?: number;
       originalPrice: number;
       thumbnailUrl?: string;
+      weight?: number;
     }[];
     courses: {
       id: string;
@@ -36,7 +37,9 @@ type OrderSummary = {
 };
 
 export default function CheckoutPage() {
-  const [paymentMethod, setPaymentMethod] = useState<string>("bkash");
+  const [paymentMethod, setPaymentMethod] = useState<"CASH_ON_DELIVERY" | "ONLINE_PAYMENT">(
+    "ONLINE_PAYMENT"
+  );
   const router = useRouter();
   const { user } = useSessionContext();
 
@@ -60,11 +63,12 @@ export default function CheckoutPage() {
     addressLine: "",
     city: "",
     postalCode: "",
+    deliveryArea: "" as "" | "INSIDE_DHAKA" | "OUTSIDE_DHAKA",
   });
 
   useEffect(() => {
     async function fetchOrderSummary() {
-      if(isCart) {
+      if (isCart) {
         try {
           const storedCheckoutData = checkoutDataStorage.get<OrderSummary>();
           if (storedCheckoutData) {
@@ -92,10 +96,16 @@ export default function CheckoutPage() {
         orderSummary: orderSummary,
       };
 
-      const response = await apiClient.post<{gatewayUrl:string}>("/order/create-order-with-UDDOKTAPAY", checkoutPayload);
+      const response = await apiClient.post<{
+        gatewayUrl?: string;
+        orderId: string;
+        paymentType: "CASH_ON_DELIVERY" | "ONLINE_PAYMENT";
+      }>("/order/create-order-with-UDDOKTAPAY", checkoutPayload);
 
       if (response.success) {
-        if (response.data?.gatewayUrl) {
+        if (response.data?.paymentType === "CASH_ON_DELIVERY") {
+          router.replace(`/dashboard/student/orders/${response.data.orderId}?placed=true`);
+        } else if (response.data?.gatewayUrl) {
           window.location.href = response.data.gatewayUrl;
         } else {
           router.push("/checkout");
@@ -113,6 +123,24 @@ export default function CheckoutPage() {
   const targetBooks = orderSummary?.quantities?.books || [];
   const hasPhysicalBook = targetBooks.some((book: any) => book.format === "PHYSICAL");
 
+  const totalPhysicalWeight = orderSummary.items.books.reduce((total, book) => {
+    const quantityMeta = targetBooks.find(item => item.bookId === book.id);
+    if (quantityMeta?.format !== "PHYSICAL") return total;
+    return total + Number(book.weight || 0) * (quantityMeta.quantity || 1);
+  }, 0);
+  const baseShippingCost = !hasPhysicalBook
+    ? 0
+    : shippingDetails.deliveryArea === "INSIDE_DHAKA"
+      ? 80
+      : shippingDetails.deliveryArea === "OUTSIDE_DHAKA"
+        ? 130
+        : 0;
+  const extraWeightCharge = hasPhysicalBook
+    ? Math.ceil(Math.max(0, totalPhysicalWeight - 2)) * 20
+    : 0;
+  const shippingCost = baseShippingCost + extraWeightCharge;
+  const grandTotal = Number(orderSummary.subtotal || 0) + shippingCost;
+
   // Validate form requirements
   const isFormValid =
     !hasPhysicalBook ||
@@ -120,19 +148,29 @@ export default function CheckoutPage() {
       shippingDetails.phoneNumber.trim() !== "" &&
       shippingDetails.addressLine.trim() !== "" &&
       shippingDetails.city.trim() !== "" &&
-      shippingDetails.postalCode.trim() !== "");
+      shippingDetails.postalCode.trim() !== "" &&
+      shippingDetails.deliveryArea !== "");
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setShippingDetails(prev => ({ ...prev, [name]: value }));
   };
 
   const paymentMethods = [
-    { id: "bkash", icon: "B", label: "Bkash" },
-    { id: "nagad", icon: "N", label: "Nagad", bgColor: "bg-blue-100" },
-    { id: "qcash", icon: "Q", label: "Qcash", bgColor: "bg-blue-200" },
-    { id: "card", icon: "C", label: "Card", bgColor: "bg-gray-800 text-white" },
-    { id: "others", icon: "O", label: "Others" },
+    {
+      id: "CASH_ON_DELIVERY" as const,
+      icon: Banknote,
+      label: "Cash on Delivery",
+      description: hasPhysicalBook ? "Pay when your order arrives" : "Available for physical books",
+      disabled: !hasPhysicalBook,
+    },
+    {
+      id: "ONLINE_PAYMENT" as const,
+      icon: CreditCard,
+      label: "Online Payment",
+      description: "Pay securely through the gateway",
+      disabled: false,
+    },
   ];
 
   if (!orderSummary) {
@@ -215,10 +253,10 @@ export default function CheckoutPage() {
 
                     <div className='text-right shrink-0 w-24'>
                       <p className='text-sm font-semibold text-[#DA7C36]'>
-                        ${item.discountPrice ?? item.originalPrice}
+                        ৳{item.discountPrice ?? item.originalPrice}
                       </p>
                       {item.discountPrice && (
-                        <p className='text-xs text-gray-400 line-through'>${item.originalPrice}</p>
+                        <p className='text-xs text-gray-400 line-through'>৳{item.originalPrice}</p>
                       )}
                     </div>
                   </div>
@@ -283,11 +321,11 @@ export default function CheckoutPage() {
 
                       <div className='text-right shrink-0 w-24'>
                         <p className='text-sm font-semibold text-[#DA7C36]'>
-                          ${item.discountPrice ?? item.salePrice ?? item.originalPrice}
+                          ৳{item.discountPrice ?? item.salePrice ?? item.originalPrice}
                         </p>
                         {(item.discountPrice || item.salePrice) && (
                           <p className='text-xs text-gray-400 line-through'>
-                            ${item.originalPrice ?? item.regularPrice}
+                            ৳{item.originalPrice ?? item.regularPrice}
                           </p>
                         )}
                       </div>
@@ -320,6 +358,22 @@ export default function CheckoutPage() {
                 </p>
 
                 <div className='grid grid-cols-1 sm:grid-cols-2 gap-4'>
+                  <div className='sm:col-span-2'>
+                    <label className='block text-xs font-semibold text-gray-700 mb-1'>
+                      Delivery Area *
+                    </label>
+                    <select
+                      name='deliveryArea'
+                      required
+                      value={shippingDetails.deliveryArea}
+                      onChange={handleInputChange}
+                      className='w-full px-3 py-2 text-sm border border-gray-200 rounded-md bg-white focus:outline-hidden focus:border-[#DA7C36] transition-colors'
+                    >
+                      <option value=''>Select delivery area</option>
+                      <option value='INSIDE_DHAKA'>Inside Dhaka — ৳80</option>
+                      <option value='OUTSIDE_DHAKA'>Outside Dhaka — ৳130</option>
+                    </select>
+                  </div>
                   <div className='sm:col-span-2'>
                     <label className='block text-xs font-semibold text-gray-700 mb-1'>
                       Full Name *
@@ -398,25 +452,29 @@ export default function CheckoutPage() {
               style={{ animationDelay: "150ms" }}
             >
               <h2 className='text-lg font-bold text-[#074079] mb-6'>Payment Option</h2>
-              <div className='grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-4'>
+              <div className='grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4'>
                 {paymentMethods.map(method => (
                   <button
                     key={method.id}
                     type='button'
+                    disabled={method.disabled}
                     onClick={() => setPaymentMethod(method.id)}
-                    className={`p-2 rounded border transition-all duration-300 flex flex-col items-center cursor-pointer hover:scale-105 ${
+                    className={`p-4 rounded-lg border transition-all duration-300 flex items-center gap-3 text-left cursor-pointer hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0 ${
                       paymentMethod === method.id
                         ? "border-[#DA7C36] bg-orange-50 shadow-md"
                         : "border-gray-200 hover:border-gray-300"
                     }`}
                   >
-                    <div
-                      className={`text-xl ${paymentMethod === method.id ? "scale-110" : ""} transition-transform duration-300`}
-                    >
-                      {method.icon}
+                    <div className='flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white shadow-sm'>
+                      <method.icon
+                        className={`h-5 w-5 ${paymentMethod === method.id ? "text-[#DA7C36]" : "text-gray-500"}`}
+                      />
                     </div>
-                    <span className='text-xs text-center font-medium text-gray-700'>
-                      {method.label}
+                    <span>
+                      <span className='block text-sm font-semibold text-gray-800'>
+                        {method.label}
+                      </span>
+                      <span className='block text-xs text-gray-500'>{method.description}</span>
                     </span>
                   </button>
                 ))}
@@ -435,15 +493,33 @@ export default function CheckoutPage() {
               <div className='space-y-3 border-t border-gray-200 pt-4'>
                 <div className='flex justify-between text-gray-700'>
                   <span>Sub-total</span>
-                  <span className='font-semibold'>${orderSummary.subtotal || 0}</span>
+                  <span className='font-semibold'>
+                    ৳{Number(orderSummary.subtotal || 0).toFixed(2)}
+                  </span>
                 </div>
                 <div className='flex justify-between text-gray-700'>
                   <span>Shipping</span>
-                  <span className='font-semibold text-green-600'>Fr ee</span>
+                  <span className='font-semibold'>
+                    {hasPhysicalBook && !shippingDetails.deliveryArea
+                      ? "Select area"
+                      : `৳${shippingCost.toFixed(2)}`}
+                  </span>
                 </div>
+                {hasPhysicalBook && totalPhysicalWeight > 0 && (
+                  <div className='flex justify-between text-xs text-gray-500'>
+                    <span>Physical weight</span>
+                    <span>{totalPhysicalWeight.toFixed(2)} kg</span>
+                  </div>
+                )}
+                {extraWeightCharge > 0 && (
+                  <div className='flex justify-between text-xs text-gray-500'>
+                    <span>Extra weight charge</span>
+                    <span>৳{extraWeightCharge.toFixed(2)}</span>
+                  </div>
+                )}
                 <div className='flex justify-between text-lg font-bold text-[#074079] pt-3 border-t border-gray-200'>
                   <span>Total</span>
-                  <span className='text-[#DA7C36]'>${orderSummary.subtotal || 0} USD</span>
+                  <span className='text-[#DA7C36]'>৳{grandTotal.toFixed(2)} BDT</span>
                 </div>
               </div>
 
@@ -457,8 +533,10 @@ export default function CheckoutPage() {
                   <span className='animate-pulse'>PROCESSING...</span>
                 ) : !isFormValid ? (
                   "FILL SHIPPING DETAILS"
+                ) : paymentMethod === "CASH_ON_DELIVERY" ? (
+                  "PLACE COD ORDER"
                 ) : (
-                  `PAY WITH ${paymentMethod.toUpperCase()}`
+                  "CONTINUE TO PAYMENT"
                 )}
                 {!isSubmitting && <ArrowRight className='w-5 h-5' />}
               </button>
