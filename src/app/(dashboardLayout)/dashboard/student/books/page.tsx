@@ -1,8 +1,8 @@
 import { mockBooks } from "./Mockbooks";
 import { MyBooksView } from "./Mybooksview";
+import { getUserBookData } from './userBookAction';
 
-// Replace mockBooks with a real fetch from your API / DB, e.g.:
-// const books = await getPurchasedBooks(userId);
+const books = await getUserBookData();
 
 export default function BooksPage() {
   return (

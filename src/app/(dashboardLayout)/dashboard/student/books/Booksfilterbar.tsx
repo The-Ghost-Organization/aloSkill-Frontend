@@ -1,7 +1,7 @@
 "use client";
 
 import { Search } from "lucide-react";
-import type { PhysicalStatus } from "./Book";
+import type { PhysicalStatus } from "./UserBook.type";
 
 export type TypeFilter = "all" | "ebook" | "physical";
 export type SortOption = "newest" | "oldest" | "price_high" | "price_low";
@@ -45,20 +45,20 @@ export function BooksFilterBar({
   onSortChange,
 }: Props) {
   return (
-    <div className="space-y-4">
-      <div className="relative">
-        <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+    <div className='space-y-4'>
+      <div className='relative'>
+        <Search className='pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400' />
         <input
           value={query}
-          onChange={(e) => onQueryChange(e.target.value)}
-          placeholder="Search by title, author, or order ID…"
-          className="w-full rounded-lg border border-gray-200 py-2.5 pl-10 pr-4 text-sm text-gray-700 placeholder:text-gray-400 focus:border-orange-400 focus:outline-none focus:ring-1 focus:ring-orange-400"
+          onChange={e => onQueryChange(e.target.value)}
+          placeholder='Search by title, author, or order ID…'
+          className='w-full rounded-lg border border-gray-200 py-2.5 pl-10 pr-4 text-sm text-gray-700 placeholder:text-gray-400 focus:border-orange-400 focus:outline-none focus:ring-1 focus:ring-orange-400'
         />
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap gap-2">
-          {TYPE_FILTERS.map((f) => (
+      <div className='flex flex-wrap items-center justify-between gap-3'>
+        <div className='flex flex-wrap gap-2'>
+          {TYPE_FILTERS.map(f => (
             <button
               key={f.key}
               onClick={() => onTypeFilterChange(f.key)}
@@ -73,14 +73,17 @@ export function BooksFilterBar({
           ))}
         </div>
 
-        <div className="flex gap-2">
+        <div className='flex gap-2'>
           <select
             value={statusFilter}
-            onChange={(e) => onStatusFilterChange(e.target.value as StatusFilter)}
-            className="rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-600 focus:border-orange-400 focus:outline-none focus:ring-1 focus:ring-orange-400"
+            onChange={e => onStatusFilterChange(e.target.value as StatusFilter)}
+            className='rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-600 focus:border-orange-400 focus:outline-none focus:ring-1 focus:ring-orange-400'
           >
-            {STATUS_OPTIONS.map((s) => (
-              <option key={s.key} value={s.key}>
+            {STATUS_OPTIONS.map(s => (
+              <option
+                key={s.key}
+                value={s.key}
+              >
                 {s.label}
               </option>
             ))}
@@ -88,13 +91,13 @@ export function BooksFilterBar({
 
           <select
             value={sort}
-            onChange={(e) => onSortChange(e.target.value as SortOption)}
-            className="rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-600 focus:border-orange-400 focus:outline-none focus:ring-1 focus:ring-orange-400"
+            onChange={e => onSortChange(e.target.value as SortOption)}
+            className='rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-600 focus:border-orange-400 focus:outline-none focus:ring-1 focus:ring-orange-400'
           >
-            <option value="newest">Newest First</option>
-            <option value="oldest">Oldest First</option>
-            <option value="price_high">Price: High to Low</option>
-            <option value="price_low">Price: Low to High</option>
+            <option value='newest'>Newest First</option>
+            <option value='oldest'>Oldest First</option>
+            <option value='price_high'>Price: High to Low</option>
+            <option value='price_low'>Price: Low to High</option>
           </select>
         </div>
       </div>

@@ -1,4 +1,4 @@
-import { type PhysicalStatus } from "./Book";
+import { type PhysicalStatus } from "./UserBook.type";
 
 const STATUS_CONFIG: Record<
   PhysicalStatus,

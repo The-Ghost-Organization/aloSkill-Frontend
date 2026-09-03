@@ -1,4 +1,4 @@
-import type { BookItem } from "./Book";
+import type { BookItem } from "./UserBook.type";
 
 export const mockBooks: BookItem[] = [
   {
