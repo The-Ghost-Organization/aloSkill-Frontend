@@ -15,6 +15,7 @@ export default function StudentLayout({ children }: { children: React.ReactNode 
     { name: "Dashboard", path: "/dashboard/student" },
     { name: "Courses", path: "/dashboard/student/courses" },
     { name: "Books", path: "/dashboard/student/books" },
+    { name: "My Orders", path: "/dashboard/student/orders" },
     { name: "Teachers", path: "/dashboard/student/teachers" },
     { name: "Message", path: "/dashboard/student/message" },
     { name: "Wishlist", path: "/dashboard/student/wishlist" },
@@ -80,13 +81,13 @@ export default function StudentLayout({ children }: { children: React.ReactNode 
                     key={item.path}
                     href={item.path}
                     className={`whitespace-nowrap pb-2 font-medium text-sm sm:text-base transition-colors relative ${
-                      pathname === item.path
+                      pathname === item.path || pathname.startsWith(`${item.path}/`)
                         ? "text-orange-500"
                         : "text-gray-600 hover:text-gray-900"
                     }`}
                   >
                     {item.name}
-                    {pathname === item.path && (
+                    {(pathname === item.path || pathname.startsWith(`${item.path}/`)) && (
                       <span className='absolute bottom-0 left-0 right-0 h-0.5 bg-orange-500'></span>
                     )}
                   </Link>

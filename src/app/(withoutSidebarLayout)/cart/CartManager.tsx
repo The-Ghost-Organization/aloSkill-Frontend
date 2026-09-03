@@ -2,7 +2,11 @@
 
 import { useSessionContext } from "@/app/contexts/SessionContext.tsx";
 import { apiClient } from "@/lib/api/client";
-import { bookDraftStorage, checkoutDataStorage, courseDraftStorage } from "@/lib/storage/courseDraftStorage";
+import {
+  bookDraftStorage,
+  checkoutDataStorage,
+  courseDraftStorage,
+} from "@/lib/storage/courseDraftStorage";
 import { ArrowLeft, Minus, Plus, Tag, X } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -17,6 +21,7 @@ type CartResponse = {
     title: string;
     originalPrice: number;
     thumbnailUrl: string | null;
+    weight: number;
   }[];
   courses: {
     category: string | undefined;
