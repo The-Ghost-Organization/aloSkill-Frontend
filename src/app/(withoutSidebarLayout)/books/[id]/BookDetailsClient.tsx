@@ -684,7 +684,7 @@ export default function BookDetailsClient({ book, relatedBooks }: BookDetailsCli
             ═══════════════════════════════════════════════════════════════ */}
 
             <div className='flex flex-col items-center gap-4 [animation:book-fade-up_0.4s_ease-out_both] lg:sticky lg:top-8 lg:h-fit lg:items-stretch'>
-              <div className='relative mx-auto aspect-[3/4] w-56 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_24px_60px_rgba(15,23,42,0.12)] sm:w-64 lg:w-full'>
+              <div className='relative mx-auto aspect-[3/4] object-contain overflow-hidden rounded-xl border border-slate-200 bg-white shadow-[0_24px_60px_rgba(15,23,42,0.12)] sm:w-64 lg:w-full'>
                 <Image
                   src={book.coverImage}
                   alt={`Cover of ${book.title}`}
@@ -787,7 +787,7 @@ export default function BookDetailsClient({ book, relatedBooks }: BookDetailsCli
 
               {/* Quick stats */}
 
-              <div className='mb-7 grid grid-cols-2 gap-2.5 sm:grid-cols-4'>
+              <div className='mb-7 grid gap-2.5 sm:grid-cols-2'>
                 <StatChip
                   icon={BookOpen}
                   label='Pages'
