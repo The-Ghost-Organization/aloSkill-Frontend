@@ -25,6 +25,7 @@ interface FilterPanelProps {
   onFiltersChange: (filters: FilterState) => void;
   resultCount: number;
   totalCount: number;
+  booksCategories: { id: string; name: string }[];
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -34,6 +35,7 @@ export default function FilterPanel({
   onFiltersChange,
   resultCount,
   totalCount,
+  booksCategories
 }: FilterPanelProps) {
   const update = (partial: Partial<FilterState>) => onFiltersChange({ ...filters, ...partial });
 
@@ -138,21 +140,21 @@ export default function FilterPanel({
         <Divider /> */}
 
         {/* Genre */}
-        <SectionLabel>Genre</SectionLabel>
+        <SectionLabel>Category</SectionLabel>
         <div className='flex flex-wrap gap-1.5'>
-          {GENRES.map(genre => {
-            const selected = filters.genres.includes(genre);
+          {booksCategories.map(category => {
+            const selected = filters.genres.includes(category.name);
             return (
               <button
-                key={genre}
-                onClick={() => toggleGenre(genre)}
+                key={category.id}
+                onClick={() => toggleGenre(category.name)}
                 className={`text-[11px] px-2.5 py-1 rounded-full border font-medium transition-all duration-150 ${
                   selected
                     ? "bg-amber-400 border-amber-400 text-white shadow-sm"
                     : "bg-white border-gray-200 text-gray-600 hover:border-amber-300 hover:text-amber-600 hover:bg-amber-50"
                 }`}
               >
-                {genre}
+                {category.name}
               </button>
             );
           })}

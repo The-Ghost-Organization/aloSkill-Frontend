@@ -1,4 +1,4 @@
-import { getAllBooks } from "./bookAction";
+import { getAllBooks, getAllBooksCategory } from "./bookAction";
 import type { BookResponse } from "./Books.type.ts";
 import BooksClient from "./components/BooksClient";
 
@@ -9,7 +9,7 @@ export const metadata = {
 
 export default async function BooksPage() {
   const books = (await getAllBooks()) as BookResponse;
-  // console.log("books data:", books);
+  const booksCategories = await getAllBooksCategory();
   return (
     <main className='min-h-screen bg-white'>
       {/* ── Static header — server-rendered, zero JS, perfect for SEO ── */}
@@ -28,7 +28,15 @@ export default async function BooksPage() {
       </div>
 
       {/* ── Interactive client island — filtering, sorting, view toggle ── */}
-      <BooksClient initialBooks={books} />
+      <BooksClient
+        initialBooks={books}
+        booksCategories={
+          booksCategories as {
+            id: string;
+            name: string;
+          }[]
+        }
+      />
     </main>
   );
 }

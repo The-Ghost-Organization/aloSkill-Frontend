@@ -15,9 +15,26 @@ export const getAllBooks = async () => {
   }
   return fetchData.data;
 };
+
 export const getBookDetails = async (bookId: string) => {
   const session = await getServerSession(authOptions);
   const fetchData = await apiClient.get<BookDetailsResponse>(`/book/book-details/${bookId}`, {
+    Authorization: `Bearer ${session?.accessToken}`,
+  });
+  if (!fetchData.success) {
+    return null;
+  }
+  return fetchData.data;
+};
+
+export const getAllBooksCategory = async () => {
+  const session = await getServerSession(authOptions);
+  const fetchData = await apiClient.get<
+    {
+      id: string;
+      name: string;
+    }[]
+  >("/book/categories", {
     Authorization: `Bearer ${session?.accessToken}`,
   });
   if (!fetchData.success) {
