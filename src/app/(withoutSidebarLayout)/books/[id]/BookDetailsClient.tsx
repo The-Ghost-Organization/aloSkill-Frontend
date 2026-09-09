@@ -38,7 +38,6 @@ type CartStorageItem = {
   bookId: string;
   format: "PHYSICAL" | "EBOOK";
   quantity: number;
-  isComplimentary?: boolean;
 };
 
 type TabKey = "description" | "details" | "author";
