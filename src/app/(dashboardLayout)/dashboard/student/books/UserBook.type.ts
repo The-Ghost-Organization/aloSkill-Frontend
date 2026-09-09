@@ -21,7 +21,7 @@ interface BaseBook {
   id: string;
   title: string;
   author: string;
-  coverUrl?: string; 
+  coverUrl?: string;
   orderId: string;
   purchaseDate: string; // ISO date
   price: number;
@@ -44,5 +44,36 @@ export interface PhysicalBookItem extends BaseBook {
   address?: string;
   timeline: TimelineStep[];
 }
+
+export type BookState = {
+  orderItemId: string;
+  createdAt: Date;
+  orderId: string;
+  orderStatus: string;
+  shippingAddress: {
+    id: string;
+    city: string;
+    fullName: string;
+    addressLine: string;
+    postalCode: string;
+    country: string;
+    phone: string;
+  } | null;
+  book: {
+    id: string | undefined;
+    title: string | undefined;
+    coverImage: string | undefined;
+    format: string;
+    price: number;
+  };
+  delivery: {
+    status: string;
+    courierName: string | null;
+    trackingNumber: string | null;
+    shippedAt: string | null;
+    deliveredAt: string | null;
+  } | null;
+  downloadUrls: never[] | null;
+}[];
 
 export type BookItem = EbookItem | PhysicalBookItem;

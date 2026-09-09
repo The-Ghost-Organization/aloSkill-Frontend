@@ -379,26 +379,86 @@ export default function BookDetailsClient({ book, relatedBooks }: BookDetailsCli
   // simultaneously.
   // ───────────────────────────────────────────────────────────────────────────
 
-  const bookAddToCartHandler = useCallback((bookId: string, format: FormatKey) => {
-    const storageData = bookDraftStorage.get<CartStorageItem[]>() || [];
+  // const bookAddToCartHandler = useCallback((bookId: string, format: FormatKey) => {
+  //   const storageData = bookDraftStorage.get<CartStorageItem[]>() || [];
 
-    const existingIndex = storageData.findIndex(
-      item => item.bookId === bookId && item.format === format
-    );
+  //   const existingIndex = storageData.findIndex(
+  //     item => item.bookId === bookId && item.format === format
+  //   );
 
-    // Already exists — do not duplicate it.
-    if (existingIndex !== -1) {
-      return;
-    }
+  //   // Already exists — do not duplicate it.
+  //   if (existingIndex !== -1) {
+  //     return;
+  //   }
 
-    storageData.push({
-      bookId,
-      format,
-      quantity: 1,
-    });
+  //   storageData.push({
+  //     bookId,
+  //     format,
+  //     quantity: 1,
+  //   });
 
-    bookDraftStorage.save(storageData);
-  }, []);
+  //   bookDraftStorage.save(storageData);
+  // }, []);
+
+  const bookAddToCartHandler = useCallback(
+    (bookId: string, allFormats: string[], format: "PHYSICAL" | "EBOOK") => {
+      let cartData =
+        bookDraftStorage.get<
+          { bookId: string; format: "PHYSICAL" | "EBOOK"; quantity: number }[]
+        >() || [];
+
+      const hasPhysical = allFormats.includes("HARDCOVER");
+      const hasEbook = allFormats.includes("E_BOOK");
+      // CASE 1: User selects PHYSICAL and book supports BOTH formats
+      // -> Ensure BOTH PHYSICAL and EBOOK are in the cart
+      if (format === "PHYSICAL" && hasPhysical && hasEbook) {
+        const hasPhysicalInCart = cartData.some(
+          item => item.bookId === bookId && item.format === "PHYSICAL"
+        );
+        const hasEbookInCart = cartData.some(
+          item => item.bookId === bookId && item.format === "EBOOK"
+        );
+        // If both are already present, do nothing
+        if (hasPhysicalInCart && hasEbookInCart) return;
+        if (!hasPhysicalInCart) {
+          cartData.push({ bookId, format: "PHYSICAL", quantity: 1 });
+        }
+        if (!hasEbookInCart) {
+          cartData.push({ bookId, format: "EBOOK", quantity: 1 });
+        }
+      }
+      // CASE 2: User selects EBOOK only
+      else if (format === "EBOOK") {
+        const hasPhysicalInCart = cartData.some(
+          item => item.bookId === bookId && item.format === "PHYSICAL"
+        );
+        // If physical book exists from previous selection, filter it out
+        if (hasPhysicalInCart) {
+          cartData = cartData.filter(
+            item => !(item.bookId === bookId && item.format === "PHYSICAL")
+          );
+        }
+        // Ensure EBOOK is present
+        const hasEbookInCart = cartData.some(
+          item => item.bookId === bookId && item.format === "EBOOK"
+        );
+        if (hasEbookInCart && !hasPhysicalInCart) return;
+        if (!hasEbookInCart) {
+          cartData.push({ bookId, format: "EBOOK", quantity: 1 });
+        }
+      }
+      // CASE 3: Single-format physical book
+      else {
+        const existsInCart = cartData.some(
+          item => item.bookId === bookId && item.format === format
+        );
+        if (existsInCart) return;
+        cartData.push({ bookId, format, quantity: 1 });
+      }
+      bookDraftStorage.save(cartData);
+    },
+    []
+  );
 
   const replaceBookCartSelection = useCallback(
     (bookId: string, format: FormatKey, includeComplimentaryEbook: boolean) => {
@@ -409,7 +469,7 @@ export default function BookDetailsClient({ book, relatedBooks }: BookDetailsCli
         otherBooks.push({ bookId, format: "PHYSICAL", quantity: 1 });
 
         if (includeComplimentaryEbook) {
-          otherBooks.push({ bookId, format: "EBOOK", quantity: 1, isComplimentary: true });
+          otherBooks.push({ bookId, format: "EBOOK", quantity: 1 });
         }
       } else {
         otherBooks.push({ bookId, format: "EBOOK", quantity: 1 });
@@ -421,13 +481,11 @@ export default function BookDetailsClient({ book, relatedBooks }: BookDetailsCli
   );
 
   const handleAddToCart = useCallback(
-    (bookId: string, format?: FormatKey) => {
+    (bookId: string, allFormats: string[], format?: FormatKey) => {
       if (!format) {
         return;
       }
-
-      bookAddToCartHandler(bookId, format);
-
+      bookAddToCartHandler(bookId, allFormats, format);
       setUpdateCart(previous => !previous);
       setCartUpdate?.(previous => !previous);
     },

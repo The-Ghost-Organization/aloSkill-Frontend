@@ -1,6 +1,6 @@
 "use client";
 
-import { LayoutGrid, LayoutList, SlidersHorizontal, X } from "lucide-react";
+import { SlidersHorizontal, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { bookDraftStorage } from "../../../../lib/storage/courseDraftStorage";
 import { useSessionContext } from "../../../contexts/SessionContext";
@@ -8,11 +8,6 @@ import { type BookResponse, MAX_PRICE } from "../Books.type";
 import { type FilterState, initialFilters } from "../Filters";
 import BookCard from "./BookCard";
 import FilterPanel from "./Filterpanel";
-
-// export type AddToCartProps = {
-//   bookId: string;
-//   format?: "PHYSICAL" | "DIGITAL";
-// };
 
 // ─── Active Filter Chips ──────────────────────────────────────────────────────
 
@@ -151,9 +146,14 @@ function EmptyState({ onReset }: { onReset: () => void }) {
 
 // ─── BooksClient ──────────────────────────────────────────────────────────────
 
-export default function BooksClient({ initialBooks }: { initialBooks: BookResponse }) {
+export default function BooksClient({
+  initialBooks,
+  booksCategories,
+}: {
+  initialBooks: BookResponse;
+  booksCategories: { id: string; name: string }[];
+}) {
   const [filters, setFilters] = useState<FilterState>(initialFilters);
-  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
   const [cartItems, setCartItems] = useState<{ bookId: string; quantity: number }[]>([]);
   const [updateCart, setUpdateCart] = useState<boolean>(false);
@@ -208,28 +208,67 @@ export default function BooksClient({ initialBooks }: { initialBooks: BookRespon
     [filters.sort]
   );
 
-  const bookAddToCartHandler = (bookId: string, format: "PHYSICAL" | "EBOOK") => {
-    const getStorageData =
+  const bookAddToCartHandler = (
+    bookId: string,
+    allFormats: string[],
+    format: "PHYSICAL" | "EBOOK"
+  ) => {
+    let cartData =
       bookDraftStorage.get<
         { bookId: string; format: "PHYSICAL" | "EBOOK"; quantity: number }[]
       >() || [];
-    const existingBook = getStorageData?.find(item => item.bookId === bookId);
-    if (existingBook?.format === format) return;
-    if (existingBook?.format === "PHYSICAL" || existingBook?.format === "EBOOK") {
-      getStorageData.splice(getStorageData.indexOf(existingBook), 1);
-      getStorageData?.push({ bookId, format, quantity: 1 });
-      bookDraftStorage.save(getStorageData);
-      return;
+
+    const hasPhysical = allFormats.includes("HARDCOVER");
+    const hasEbook = allFormats.includes("E_BOOK");
+    // CASE 1: User selects PHYSICAL and book supports BOTH formats
+    // -> Ensure BOTH PHYSICAL and EBOOK are in the cart
+    if (format === "PHYSICAL" && hasPhysical && hasEbook) {
+      const hasPhysicalInCart = cartData.some(
+        item => item.bookId === bookId && item.format === "PHYSICAL"
+      );
+      const hasEbookInCart = cartData.some(
+        item => item.bookId === bookId && item.format === "EBOOK"
+      );
+      // If both are already present, do nothing
+      if (hasPhysicalInCart && hasEbookInCart) return;
+      if (!hasPhysicalInCart) {
+        cartData.push({ bookId, format: "PHYSICAL", quantity: 1 });
+      }
+      if (!hasEbookInCart) {
+        cartData.push({ bookId, format: "EBOOK", quantity: 1 });
+      }
     }
-    getStorageData?.push({ bookId, format, quantity: 1 });
-    bookDraftStorage.save(getStorageData);
-    return;
+    // CASE 2: User selects EBOOK only
+    else if (format === "EBOOK") {
+      const hasPhysicalInCart = cartData.some(
+        item => item.bookId === bookId && item.format === "PHYSICAL"
+      );
+      // If physical book exists from previous selection, filter it out
+      if (hasPhysicalInCart) {
+        cartData = cartData.filter(item => !(item.bookId === bookId && item.format === "PHYSICAL"));
+      }
+      // Ensure EBOOK is present
+      const hasEbookInCart = cartData.some(
+        item => item.bookId === bookId && item.format === "EBOOK"
+      );
+      if (hasEbookInCart && !hasPhysicalInCart) return;
+      if (!hasEbookInCart) {
+        cartData.push({ bookId, format: "EBOOK", quantity: 1 });
+      }
+    }
+    // CASE 3: Single-format physical book
+    else {
+      const existsInCart = cartData.some(item => item.bookId === bookId && item.format === format);
+      if (existsInCart) return;
+      cartData.push({ bookId, format, quantity: 1 });
+    }
+    bookDraftStorage.save(cartData);
   };
 
   const handleAddToCart = useCallback(
-    (bookId: string, format?: "PHYSICAL" | "EBOOK") => {
+    (bookId: string, allFormats: string[], format?: "PHYSICAL" | "EBOOK") => {
       if (!format) return;
-      bookAddToCartHandler(bookId, format);
+      bookAddToCartHandler(bookId, allFormats, format);
       setUpdateCart(prev => !prev);
       setCartUpdate?.(prev => !prev);
     },
@@ -262,31 +301,6 @@ export default function BooksClient({ initialBooks }: { initialBooks: BookRespon
               <SlidersHorizontal className='w-3.5 h-3.5 text-amber-500' />
               Filters
             </button>
-
-            <div className='flex items-center gap-1 bg-gray-50 border border-gray-200 rounded-xl p-1'>
-              <button
-                onClick={() => setViewMode("grid")}
-                className={`p-2 rounded-lg transition-all duration-200 ${
-                  viewMode === "grid"
-                    ? "bg-amber-400 text-white shadow-sm"
-                    : "text-gray-400 hover:text-gray-600"
-                }`}
-                aria-label='Grid view'
-              >
-                <LayoutGrid className='w-3.5 h-3.5' />
-              </button>
-              <button
-                onClick={() => setViewMode("list")}
-                className={`p-2 rounded-lg transition-all duration-200 ${
-                  viewMode === "list"
-                    ? "bg-amber-400 text-white shadow-sm"
-                    : "text-gray-400 hover:text-gray-600"
-                }`}
-                aria-label='List view'
-              >
-                <LayoutList className='w-3.5 h-3.5' />
-              </button>
-            </div>
           </div>
         </div>
       </div>
@@ -313,6 +327,7 @@ export default function BooksClient({ initialBooks }: { initialBooks: BookRespon
               onFiltersChange={setFilters}
               resultCount={filteredBooks.length}
               totalCount={initialBooks.length}
+              booksCategories={booksCategories}
             />
           </div>
 
@@ -321,19 +336,12 @@ export default function BooksClient({ initialBooks }: { initialBooks: BookRespon
             {filteredBooks.length === 0 ? (
               <EmptyState onReset={handleReset} />
             ) : (
-              <div
-                className={
-                  viewMode === "grid"
-                    ? "grid grid-cols-2 sm:grid-cols-4 gap-4 lg:gap-5"
-                    : "flex flex-col gap-3"
-                }
-              >
+              <div className='grid grid-cols-2 sm:grid-cols-4 gap-4 lg:gap-5'>
                 {filteredBooks.map((book, index) => (
                   <BookCard
                     key={book.id}
                     book={book}
                     index={index}
-                    viewMode={viewMode}
                     cartItems={cartItems}
                     onAddToCart={handleAddToCart}
                   />

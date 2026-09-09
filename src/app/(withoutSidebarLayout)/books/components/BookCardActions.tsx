@@ -1,14 +1,14 @@
 "use client";
 
 import { CircleDollarSign, ShoppingCart, Truck, X } from "lucide-react";
-import { useRouter } from 'next/navigation';
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 interface Props {
   bookId: string;
   bookTitle: string;
   isInCart?: boolean;
-  onAddToCart?: (bookId: string, format?: "PHYSICAL" | "EBOOK") => void;
+  onAddToCart?: (bookId: string, allFormats: string[], format?: "PHYSICAL" | "EBOOK") => void;
   format: string[];
   prices: {
     physical: {
@@ -47,7 +47,7 @@ export default function BookCardActions({
 
   const handleConfirmAdd = (e: React.MouseEvent) => {
     stop(e);
-    onAddToCart?.(bookId, selectedFormat);
+    onAddToCart?.(bookId, format, selectedFormat);
     setIsModalOpen(false);
   };
 
@@ -63,10 +63,10 @@ export default function BookCardActions({
   };
 
   return (
-    <div className='flex items-center gap-2.5 relative'>
+    <div className='flex items-center justify-between gap-1.5 relative w-full h-8 mt-2'>
       <button
         onClick={handleCartClick}
-        className={`w-10 h-10 rounded-full flex items-center justify-center text-gray-700 shadow-lg transition-transform duration-150 hover:scale-110 active:scale-95 ${isInCart ? "bg-amber-400 hover:bg-amber-500 text-white" : "bg-white hover:bg-gray-50 text-gray-700"}`}
+        className={`w-full h-full border-gray-300 border rounded flex items-center justify-center text-gray-700 shadow transition-transform duration-150 hover:scale-110 active:scale-95 ${isInCart ? "bg-amber-400 hover:bg-amber-500 text-white" : "bg-white hover:bg-gray-50 text-gray-700"}`}
         aria-label={`Add ${bookTitle} to cart`}
         title='add to cart'
       >
@@ -75,7 +75,7 @@ export default function BookCardActions({
 
       <button
         onClick={handleBuyNow}
-        className='w-10 h-10 rounded-full bg-white hover:bg-gray-50 flex items-center justify-center text-gray-700 shadow-lg transition-transform duration-150 hover:scale-110 active:scale-95'
+        className='w-full h-full rounded border-gray-300 border bg-white hover:bg-gray-50 flex items-center justify-center text-gray-700 shadow transition-transform duration-150 hover:scale-110 active:scale-95'
         aria-label={`Buy ${bookTitle} now`}
         title='Buy Now'
       >

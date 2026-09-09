@@ -2,7 +2,6 @@
 
 import { BookOpen } from "lucide-react";
 import { useMemo, useState } from "react";
-import type { BookItem } from "./Book";
 import { BookRow } from "./Bookrow";
 import {
   BooksFilterBar,
@@ -11,6 +10,7 @@ import {
   type TypeFilter,
 } from "./Booksfilterbar";
 import { BookStats } from "./Bookstats";
+import type { BookItem } from "./UserBook.type";
 
 export function MyBooksView({ books }: { books: BookItem[] }) {
   const [query, setQuery] = useState("");

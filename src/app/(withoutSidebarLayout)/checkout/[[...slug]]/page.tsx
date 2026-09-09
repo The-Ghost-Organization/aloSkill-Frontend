@@ -1,24 +1,55 @@
 "use client";
 import { FadeIn } from "@/lib/course/utils.tsx";
-import { ArrowRight, BaggageClaim, Banknote, ChevronRight, CreditCard, Truck } from "lucide-react";
+import {
+  ArrowRight,
+  BaggageClaim,
+  Banknote,
+  ChevronRight,
+  CreditCard,
+  MapPin,
+  Truck,
+} from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { apiClient } from "../../../../lib/api/client";
 import { checkoutDataStorage } from "../../../../lib/storage/courseDraftStorage";
 import { useSessionContext } from "../../../contexts/SessionContext";
+
+// NOTE: adjust these import paths to wherever your three JSON files actually live.
+import districtsData from "@/lib/bd-division-district/districts.json";
+import divisionsData from "@/lib/bd-division-district/divisions.json";
+import upazilasData from "@/lib/bd-division-district/upazilas.json";
+
+// Dhaka DISTRICT id (not the whole Dhaka division) — used to auto-decide
+// "Inside Dhaka" vs "Outside Dhaka" courier pricing.
+const DHAKA_DISTRICT_ID = "1";
+
+type Division = { id: string; name: string; bn_name: string };
+type District = { id: string; division_id: string; name: string; bn_name: string };
+// Assumed shape — adjust the key name (e.g. to "districtId") if your upazilas.json differs.
+type Upazila = { id: string; district_id: string; name: string; bn_name: string };
+
+const divisions = divisionsData as Division[];
+const districts = districtsData as District[];
+const upazilas = upazilasData as Upazila[];
 
 type OrderSummary = {
   items: {
     books: {
       id: string;
       title: string;
-      category?: string;
-      discountPrice?: number;
-      originalPrice: number;
-      thumbnailUrl?: string;
-      weight?: number;
+      thumbnailUrl: string;
+      category: string | undefined;
+      weight: number;
+      physicalRegularPrice: number | null;
+      physicalSalePrice: number | null;
+      digitalRegularPrice: number | null;
+      digitalSalePrice: number | null;
+      hasDigital?: boolean;
+      // Stock for the physical format. Rename this to match your API's actual field.
+      stockQuantity?: number | null;
     }[];
     courses: {
       id: string;
@@ -36,6 +67,13 @@ type OrderSummary = {
   subtotal: number;
 };
 
+type StockIssue = {
+  bookId: string;
+  title: string;
+  requested: number;
+  available: number;
+};
+
 export default function CheckoutPage() {
   const [paymentMethod, setPaymentMethod] = useState<"CASH_ON_DELIVERY" | "ONLINE_PAYMENT">(
     "ONLINE_PAYMENT"
@@ -46,7 +84,7 @@ export default function CheckoutPage() {
   const searchParams = useSearchParams();
   const isCart = searchParams.get("isCart");
   const bookId = searchParams.get("bookId");
-  const bookFormat = searchParams.get("format");
+  const format = searchParams.get("format");
   const courseId = searchParams.get("courseId");
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -56,18 +94,26 @@ export default function CheckoutPage() {
     subtotal: 0,
   });
 
-  // Delivery Form State
+  // Delivery Form State (location is now selected via division/district/upazila,
+  // deliveryArea is DERIVED, not chosen manually — see `deliveryArea` below)
   const [shippingDetails, setShippingDetails] = useState({
     fullName: "",
     phoneNumber: "",
     addressLine: "",
-    city: "",
     postalCode: "",
-    deliveryArea: "" as "" | "INSIDE_DHAKA" | "OUTSIDE_DHAKA",
+    divisionId: "",
+    districtId: "",
+    upazilaId: "",
   });
+
+  // Stock check state
+  const [stockIssues, setStockIssues] = useState<StockIssue[]>([]);
+  const [isCheckingStock, setIsCheckingStock] = useState(false);
+  const [stockCheckError, setStockCheckError] = useState<string | null>(null);
 
   useEffect(() => {
     async function fetchOrderSummary() {
+      // 1. Cart Checkout
       if (isCart) {
         try {
           const storedCheckoutData = checkoutDataStorage.get<OrderSummary>();
@@ -77,10 +123,230 @@ export default function CheckoutPage() {
         } catch (error) {
           console.error("Failed to retrieve checkout data from storage:", error);
         }
+        return;
+      }
+
+      // 2. Direct Book Purchase
+      if (bookId && format) {
+        try {
+          const response = await apiClient.get<OrderSummary["items"]["books"][0]>(
+            `/book/user/checkout/${bookId}?format=${format}`
+          );
+
+          if (response.success && response.data) {
+            const book = response.data;
+            const isPhysical = format === "PHYSICAL";
+
+            // Determine pricing based on selected format
+            const itemPrice = isPhysical
+              ? (book.physicalSalePrice ?? book.physicalRegularPrice ?? 0)
+              : (book.digitalSalePrice ?? book.digitalRegularPrice ?? 0);
+
+            // Build quantity entries: Include both formats if physical is chosen AND book has digital available
+            const bookQuantities = [
+              {
+                bookId: book.id,
+                quantity: 1,
+                format: format as string,
+              },
+            ];
+
+            if (isPhysical && book.hasDigital) {
+              bookQuantities.push({
+                bookId: book.id,
+                quantity: 1,
+                format: "EBOOK",
+              });
+            }
+
+            setOrderSummary(prev => ({
+              ...prev,
+              items: {
+                ...prev.items,
+                books: [
+                  {
+                    ...book,
+                    physicalRegularPrice: Number(book.physicalRegularPrice),
+                    digitalRegularPrice: Number(book.digitalRegularPrice),
+                    physicalSalePrice: Number(book.physicalSalePrice),
+                    digitalSalePrice: Number(book.digitalSalePrice),
+                    weight: Number(book.weight),
+                    stockQuantity:
+                      book.stockQuantity === undefined || book.stockQuantity === null
+                        ? null
+                        : Number(book.stockQuantity),
+                  },
+                ],
+              },
+              quantities: {
+                ...prev.quantities,
+                books: bookQuantities,
+              },
+              subtotal: Number(itemPrice),
+            }));
+          } else {
+            console.error("Failed to fetch book order summary:", response.errors);
+          }
+        } catch (error) {
+          console.error("Error fetching book order summary:", error);
+        }
+        return;
+      }
+
+      // 3. Direct Course Purchase
+      if (courseId) {
+        try {
+          const response = await apiClient.get<OrderSummary>(`/course/user/checkout/${courseId}`);
+
+          if (response.success && response.data) {
+            setOrderSummary(response.data);
+          } else {
+            console.error("Failed to fetch course order summary:", response.errors);
+          }
+        } catch (error) {
+          console.error("Error fetching course order summary:", error);
+        }
       }
     }
+
     fetchOrderSummary();
-  }, [isCart]);
+  }, [isCart, bookId, format, courseId]);
+
+  const targetBooks = orderSummary?.quantities?.books || [];
+  const hasPhysicalBook = targetBooks.some((book: any) => book.format === "PHYSICAL");
+
+  // ---- Stock verification ----
+  // Re-checks live stock for every physical book in the order. Runs once the
+  // order summary is loaded, and again right before final submission so a
+  // book that sold out between page-load and checkout click still gets caught.
+  async function verifyPhysicalStock(): Promise<StockIssue[]> {
+    const physicalEntries = targetBooks.filter(b => b.format === "PHYSICAL");
+    if (physicalEntries.length === 0) return [];
+
+    setIsCheckingStock(true);
+    setStockCheckError(null);
+    try {
+      const results = await Promise.all(
+        physicalEntries.map(async entry => {
+          const bookMeta = orderSummary.items.books.find(b => b.id === entry.bookId);
+          try {
+            const res = await apiClient.get<{ stockQuantity?: number | null }>(
+              `/book/user/checkout/${entry.bookId}?format=PHYSICAL`
+            );
+            const available =
+              res.success && res.data && res.data.stockQuantity !== undefined
+                ? Number(res.data.stockQuantity ?? 0)
+                : null;
+
+            if (available !== null && available < entry.quantity) {
+              return {
+                bookId: entry.bookId,
+                title: bookMeta?.title || "This book",
+                requested: entry.quantity,
+                available,
+              } as StockIssue;
+            }
+            return null;
+          } catch (err) {
+            console.error(`Failed to verify stock for book ${entry.bookId}:`, err);
+            return null;
+          }
+        })
+      );
+
+      const issues = results.filter((r): r is StockIssue => r !== null);
+      setStockIssues(issues);
+      return issues;
+    } catch (error) {
+      console.error("Stock verification failed:", error);
+      setStockCheckError("Couldn't verify book stock right now. Please try again.");
+      return [];
+    } finally {
+      setIsCheckingStock(false);
+    }
+  }
+
+  // Run an initial stock check once we know which physical books are in the order.
+  useEffect(() => {
+    if (hasPhysicalBook) {
+      verifyPhysicalStock();
+    } else {
+      setStockIssues([]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasPhysicalBook, orderSummary.items.books.length]);
+
+  // ---- Location cascading ----
+  const filteredDistricts = useMemo(
+    () => districts.filter(d => d.division_id === shippingDetails.divisionId),
+    [shippingDetails.divisionId]
+  );
+
+  const filteredUpazilas = useMemo(
+    () => upazilas.filter(u => u.district_id === shippingDetails.districtId),
+    [shippingDetails.districtId]
+  );
+
+  const selectedDistrict = useMemo(
+    () => districts.find(d => d.id === shippingDetails.districtId) || null,
+    [shippingDetails.districtId]
+  );
+
+  // Auto-derived delivery area — no manual toggle needed.
+  const deliveryArea: "" | "INSIDE_DHAKA" | "OUTSIDE_DHAKA" = !shippingDetails.districtId
+    ? ""
+    : shippingDetails.districtId === DHAKA_DISTRICT_ID
+      ? "INSIDE_DHAKA"
+      : "OUTSIDE_DHAKA";
+
+  const totalPhysicalWeight = orderSummary.items.books.reduce((total, book) => {
+    const quantityMeta = targetBooks.find(item => item.bookId === book.id);
+    if (quantityMeta?.format !== "PHYSICAL") return total;
+    return total + Number(book.weight || 0) * (quantityMeta.quantity || 1);
+  }, 0);
+
+  const baseShippingCost = !hasPhysicalBook
+    ? 0
+    : deliveryArea === "INSIDE_DHAKA"
+      ? 80
+      : deliveryArea === "OUTSIDE_DHAKA"
+        ? 130
+        : 0;
+
+  const extraWeightCharge = hasPhysicalBook
+    ? Math.ceil(Math.max(0, totalPhysicalWeight - 2)) * 20
+    : 0;
+
+  const shippingCost = baseShippingCost + extraWeightCharge;
+  const grandTotal = Number(orderSummary.subtotal || 0) + shippingCost;
+
+  // Validate form requirements
+  const isFormValid =
+    !hasPhysicalBook ||
+    (shippingDetails.fullName.trim() !== "" &&
+      shippingDetails.phoneNumber.trim() !== "" &&
+      shippingDetails.addressLine.trim() !== "" &&
+      shippingDetails.postalCode.trim() !== "" &&
+      shippingDetails.divisionId !== "" &&
+      shippingDetails.districtId !== "" &&
+      shippingDetails.upazilaId !== "");
+
+  const canCheckout = isFormValid && stockIssues.length === 0 && !isCheckingStock;
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+
+    setShippingDetails(prev => {
+      if (name === "divisionId") {
+        // Reset downstream selections when the division changes
+        return { ...prev, divisionId: value, districtId: "", upazilaId: "" };
+      }
+      if (name === "districtId") {
+        return { ...prev, districtId: value, upazilaId: "" };
+      }
+      return { ...prev, [name]: value };
+    });
+  };
 
   const handleCheckout = async () => {
     if (!user) {
@@ -88,11 +354,38 @@ export default function CheckoutPage() {
       return;
     }
 
+    if (!isFormValid) return;
+
+    // Final stock guard right before placing the order — closes the race
+    // condition where stock changed after the page loaded.
+    if (hasPhysicalBook) {
+      const issues = await verifyPhysicalStock();
+      if (issues.length > 0) {
+        return;
+      }
+    }
+
     try {
       setIsSubmitting(true);
+
+      const division = divisions.find(d => d.id === shippingDetails.divisionId);
+      const district = selectedDistrict;
+      const upazila = upazilas.find(u => u.id === shippingDetails.upazilaId);
+
       const checkoutPayload = {
         paymentMethod: paymentMethod,
-        shippingDetails: hasPhysicalBook ? shippingDetails : null,
+        shippingDetails: hasPhysicalBook
+          ? {
+              fullName: shippingDetails.fullName,
+              phoneNumber: shippingDetails.phoneNumber,
+              addressLine: shippingDetails.addressLine,
+              postalCode: shippingDetails.postalCode,
+              deliveryArea, // auto-derived
+              division: division ? { id: division.id, name: division.name } : null,
+              district: district ? { id: district.id, name: district.name } : null,
+              upazila: upazila ? { id: upazila.id, name: upazila.name } : null,
+            }
+          : null,
         orderSummary: orderSummary,
       };
 
@@ -111,49 +404,19 @@ export default function CheckoutPage() {
           router.push("/checkout");
         }
       } else {
+        // Surface a backend-side stock rejection (final source of truth) if present.
         console.error("Checkout failed:", response.errors);
+        setStockCheckError(
+          typeof response.errors === "string"
+            ? response.errors
+            : "Checkout failed. Please review your order and try again."
+        );
       }
     } catch (error) {
       console.error("Error during checkout process:", error);
     } finally {
       setIsSubmitting(false);
     }
-  };
-
-  const targetBooks = orderSummary?.quantities?.books || [];
-  const hasPhysicalBook = targetBooks.some((book: any) => book.format === "PHYSICAL");
-
-  const totalPhysicalWeight = orderSummary.items.books.reduce((total, book) => {
-    const quantityMeta = targetBooks.find(item => item.bookId === book.id);
-    if (quantityMeta?.format !== "PHYSICAL") return total;
-    return total + Number(book.weight || 0) * (quantityMeta.quantity || 1);
-  }, 0);
-  const baseShippingCost = !hasPhysicalBook
-    ? 0
-    : shippingDetails.deliveryArea === "INSIDE_DHAKA"
-      ? 80
-      : shippingDetails.deliveryArea === "OUTSIDE_DHAKA"
-        ? 130
-        : 0;
-  const extraWeightCharge = hasPhysicalBook
-    ? Math.ceil(Math.max(0, totalPhysicalWeight - 2)) * 20
-    : 0;
-  const shippingCost = baseShippingCost + extraWeightCharge;
-  const grandTotal = Number(orderSummary.subtotal || 0) + shippingCost;
-
-  // Validate form requirements
-  const isFormValid =
-    !hasPhysicalBook ||
-    (shippingDetails.fullName.trim() !== "" &&
-      shippingDetails.phoneNumber.trim() !== "" &&
-      shippingDetails.addressLine.trim() !== "" &&
-      shippingDetails.city.trim() !== "" &&
-      shippingDetails.postalCode.trim() !== "" &&
-      shippingDetails.deliveryArea !== "");
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    setShippingDetails(prev => ({ ...prev, [name]: value }));
   };
 
   const paymentMethods = [
@@ -264,11 +527,32 @@ export default function CheckoutPage() {
 
                 {/* Loop Through Books */}
                 {orderSummary?.items.books?.map((item: any) => {
-                  const currentQty =
-                    orderSummary?.quantities.books.find(b => b.bookId === item.id)?.quantity || 1;
-                  const bookFormat = orderSummary?.quantities.books.find(
-                    b => b.bookId === item.id
-                  )?.format;
+                  // Find all format entries matching this book ID
+                  const bookQuantities =
+                    orderSummary?.quantities?.books?.filter(b => b.bookId === item.id) || [];
+
+                  const hasPhysicalInQuantities = bookQuantities.some(b => b.format === "PHYSICAL");
+                  const hasEbookInQuantities = bookQuantities.some(b => b.format === "EBOOK");
+
+                  // Both formats stored -> prioritize PHYSICAL display and grant FREE E-Book
+                  const hasBothFormats = hasPhysicalInQuantities && hasEbookInQuantities;
+
+                  // Render as Physical if explicitly selected or if both are present
+                  const isPhysical =
+                    hasPhysicalInQuantities || (hasBothFormats && !hasEbookInQuantities);
+
+                  // Free E-Book badge and $0 pricing ONLY show when both formats are present in storage
+                  const showFreeEBook = isPhysical && hasBothFormats;
+
+                  // Retrieve total or primary selected quantity
+                  const primaryQuantity =
+                    bookQuantities.find(b => b.format === (isPhysical ? "PHYSICAL" : "EBOOK"))
+                      ?.quantity || 1;
+
+                  const stockIssue = isPhysical
+                    ? stockIssues.find(issue => issue.bookId === item.id)
+                    : undefined;
+
                   return (
                     <div
                       key={item.id}
@@ -293,13 +577,28 @@ export default function CheckoutPage() {
                             <span className='inline-block text-[10px] bg-orange-50 text-[#DA7C36] px-2 py-0.5 rounded-full font-medium uppercase tracking-wider'>
                               Book
                             </span>
-                            {bookFormat !== "PHYSICAL" ? (
+
+                            {isPhysical ? (
+                              <>
+                                <span className='inline-block text-[10px] bg-purple-50 text-purple-600 px-2 py-0.5 rounded-full font-medium uppercase tracking-wider border border-purple-100'>
+                                  Physical Book
+                                </span>
+                                {showFreeEBook && (
+                                  <span className='inline-block text-[10px] bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded-full font-medium uppercase tracking-wider border border-emerald-100'>
+                                    E-Book (Free)
+                                  </span>
+                                )}
+                                {stockIssue && (
+                                  <span className='inline-block text-[10px] bg-red-50 text-red-600 px-2 py-0.5 rounded-full font-medium uppercase tracking-wider border border-red-200'>
+                                    {stockIssue.available <= 0
+                                      ? "Out of stock"
+                                      : `Only ${stockIssue.available} left`}
+                                  </span>
+                                )}
+                              </>
+                            ) : (
                               <span className='inline-block text-[10px] bg-teal-50 text-teal-600 px-2 py-0.5 rounded-full font-medium uppercase tracking-wider border border-teal-100'>
                                 E-Book
-                              </span>
-                            ) : (
-                              <span className='inline-block text-[10px] bg-purple-50 text-purple-600 px-2 py-0.5 rounded-full font-medium uppercase tracking-wider border border-purple-100'>
-                                Physical Book
                               </span>
                             )}
                           </div>
@@ -316,17 +615,48 @@ export default function CheckoutPage() {
                         <span className='text-[10px] text-gray-400 block uppercase font-medium'>
                           Qty
                         </span>
-                        <span className='text-sm font-bold text-[#074079]'>{currentQty}</span>
+                        <span className='text-sm font-bold text-[#074079]'>{primaryQuantity}</span>
                       </div>
 
-                      <div className='text-right shrink-0 w-24'>
-                        <p className='text-sm font-semibold text-[#DA7C36]'>
-                          ৳{item.discountPrice ?? item.salePrice ?? item.originalPrice}
-                        </p>
-                        {(item.discountPrice || item.salePrice) && (
-                          <p className='text-xs text-gray-400 line-through'>
-                            ৳{item.originalPrice ?? item.regularPrice}
-                          </p>
+                      <div className='text-right shrink-0 w-28'>
+                        {isPhysical ? (
+                          <>
+                            <p className='text-sm font-semibold text-[#DA7C36]'>
+                              ৳
+                              {item.physicalSalePrice ??
+                                item.physicalRegularPrice ??
+                                item.discountPrice ??
+                                item.originalPrice}
+                            </p>
+
+                            {/* RENDER ORIGINAL PRICE WITH STRIKETHROUGH FOR PHYSICAL BOOKS */}
+                            {item.physicalSalePrice && item.physicalRegularPrice && (
+                              <p className='text-xs text-gray-400 line-through'>
+                                ৳{item.physicalRegularPrice}
+                              </p>
+                            )}
+
+                            {showFreeEBook && (
+                              <p className='text-[10px] text-emerald-600 font-medium'>
+                                Digital: ৳0 (Free)
+                              </p>
+                            )}
+                          </>
+                        ) : (
+                          <>
+                            <p className='text-sm font-semibold text-[#DA7C36]'>
+                              ৳
+                              {item.digitalSalePrice ??
+                                item.digitalRegularPrice ??
+                                item.discountPrice ??
+                                item.originalPrice}
+                            </p>
+                            {item.digitalSalePrice && item.digitalRegularPrice && (
+                              <p className='text-xs text-gray-400 line-through'>
+                                ৳{item.digitalRegularPrice}
+                              </p>
+                            )}
+                          </>
                         )}
                       </div>
                     </div>
@@ -342,7 +672,29 @@ export default function CheckoutPage() {
               </div>
             </div>
 
-            {/* DYNAMIC SHIPPNG FORM: Visible only when a physical book is in checkout */}
+            {/* Out-of-stock summary banner */}
+            {hasPhysicalBook && stockIssues.length > 0 && (
+              <div className='bg-red-50 border border-red-200 rounded-lg p-4 text-sm text-red-700 animate-fade-in'>
+                <p className='font-semibold mb-1'>Some physical books are no longer available:</p>
+                <ul className='list-disc list-inside space-y-0.5'>
+                  {stockIssues.map(issue => (
+                    <li key={issue.bookId}>
+                      {issue.title} — requested {issue.requested}, only {issue.available} in stock
+                    </li>
+                  ))}
+                </ul>
+                <p className='mt-2 text-xs text-red-500'>
+                  Please update the quantity or remove this item from your cart to continue.
+                </p>
+              </div>
+            )}
+            {stockCheckError && (
+              <div className='bg-red-50 border border-red-200 rounded-lg p-3 text-xs text-red-600'>
+                {stockCheckError}
+              </div>
+            )}
+
+            {/* DYNAMIC SHIPPING FORM */}
             {hasPhysicalBook && (
               <div
                 className='bg-white rounded-lg shadow-md p-6 sm:p-8 border border-orange-100 animate-fade-in'
@@ -353,27 +705,91 @@ export default function CheckoutPage() {
                   <h2 className='text-lg font-bold'>Delivery Address</h2>
                 </div>
                 <p className='text-xs text-gray-500 mb-4 -mt-2'>
-                  You have physical items in your order. Please complete your shipping destination
-                  details.
+                  You have physical items in your order. Select your division, district and upazila
+                  — we&apos;ll work out the delivery zone and cost automatically.
                 </p>
 
+                {deliveryArea && (
+                  <div className='mb-4 flex items-center gap-2 p-3 bg-blue-50 border border-blue-100 text-[#074079] rounded-md text-xs font-medium'>
+                    <MapPin className='w-4 h-4 text-[#DA7C36] shrink-0' />
+                    {deliveryArea === "INSIDE_DHAKA"
+                      ? "Detected: Inside Dhaka — delivery charge ৳80"
+                      : "Detected: Outside Dhaka — delivery charge ৳130"}
+                  </div>
+                )}
+
                 <div className='grid grid-cols-1 sm:grid-cols-2 gap-4'>
-                  <div className='sm:col-span-2'>
+                  <div>
                     <label className='block text-xs font-semibold text-gray-700 mb-1'>
-                      Delivery Area *
+                      Division *
                     </label>
                     <select
-                      name='deliveryArea'
+                      name='divisionId'
                       required
-                      value={shippingDetails.deliveryArea}
+                      value={shippingDetails.divisionId}
                       onChange={handleInputChange}
                       className='w-full px-3 py-2 text-sm border border-gray-200 rounded-md bg-white focus:outline-hidden focus:border-[#DA7C36] transition-colors'
                     >
-                      <option value=''>Select delivery area</option>
-                      <option value='INSIDE_DHAKA'>Inside Dhaka — ৳80</option>
-                      <option value='OUTSIDE_DHAKA'>Outside Dhaka — ৳130</option>
+                      <option value=''>Select division</option>
+                      {divisions.map(division => (
+                        <option
+                          key={division.id}
+                          value={division.id}
+                        >
+                          {division.name}
+                        </option>
+                      ))}
                     </select>
                   </div>
+
+                  <div>
+                    <label className='block text-xs font-semibold text-gray-700 mb-1'>
+                      District *
+                    </label>
+                    <select
+                      name='districtId'
+                      required
+                      disabled={!shippingDetails.divisionId}
+                      value={shippingDetails.districtId}
+                      onChange={handleInputChange}
+                      className='w-full px-3 py-2 text-sm border border-gray-200 rounded-md bg-white focus:outline-hidden focus:border-[#DA7C36] transition-colors disabled:bg-gray-50 disabled:text-gray-400'
+                    >
+                      <option value=''>Select district</option>
+                      {filteredDistricts.map(district => (
+                        <option
+                          key={district.id}
+                          value={district.id}
+                        >
+                          {district.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className='sm:col-span-2'>
+                    <label className='block text-xs font-semibold text-gray-700 mb-1'>
+                      Upazila *
+                    </label>
+                    <select
+                      name='upazilaId'
+                      required
+                      disabled={!shippingDetails.districtId}
+                      value={shippingDetails.upazilaId}
+                      onChange={handleInputChange}
+                      className='w-full px-3 py-2 text-sm border border-gray-200 rounded-md bg-white focus:outline-hidden focus:border-[#DA7C36] transition-colors disabled:bg-gray-50 disabled:text-gray-400'
+                    >
+                      <option value=''>Select upazila</option>
+                      {filteredUpazilas.map(upazila => (
+                        <option
+                          key={upazila.id}
+                          value={upazila.id}
+                        >
+                          {upazila.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
                   <div className='sm:col-span-2'>
                     <label className='block text-xs font-semibold text-gray-700 mb-1'>
                       Full Name *
@@ -403,14 +819,16 @@ export default function CheckoutPage() {
                     />
                   </div>
                   <div>
-                    <label className='block text-xs font-semibold text-gray-700 mb-1'>City *</label>
+                    <label className='block text-xs font-semibold text-gray-700 mb-1'>
+                      Postal Code *
+                    </label>
                     <input
                       type='text'
-                      name='city'
+                      name='postalCode'
                       required
-                      value={shippingDetails.city}
+                      value={shippingDetails.postalCode}
                       onChange={handleInputChange}
-                      placeholder='Dhaka'
+                      placeholder='1230'
                       className='w-full px-3 py-2 text-sm border border-gray-200 rounded-md focus:outline-hidden focus:border-[#DA7C36] transition-colors'
                     />
                   </div>
@@ -425,20 +843,6 @@ export default function CheckoutPage() {
                       value={shippingDetails.addressLine}
                       onChange={handleInputChange}
                       placeholder='House 12, Road 4, Sector 3'
-                      className='w-full px-3 py-2 text-sm border border-gray-200 rounded-md focus:outline-hidden focus:border-[#DA7C36] transition-colors'
-                    />
-                  </div>
-                  <div>
-                    <label className='block text-xs font-semibold text-gray-700 mb-1'>
-                      Postal Code *
-                    </label>
-                    <input
-                      type='text'
-                      name='postalCode'
-                      required
-                      value={shippingDetails.postalCode}
-                      onChange={handleInputChange}
-                      placeholder='1230'
                       className='w-full px-3 py-2 text-sm border border-gray-200 rounded-md focus:outline-hidden focus:border-[#DA7C36] transition-colors'
                     />
                   </div>
@@ -467,7 +871,9 @@ export default function CheckoutPage() {
                   >
                     <div className='flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white shadow-sm'>
                       <method.icon
-                        className={`h-5 w-5 ${paymentMethod === method.id ? "text-[#DA7C36]" : "text-gray-500"}`}
+                        className={`h-5 w-5 ${
+                          paymentMethod === method.id ? "text-[#DA7C36]" : "text-gray-500"
+                        }`}
                       />
                     </div>
                     <span>
@@ -500,8 +906,8 @@ export default function CheckoutPage() {
                 <div className='flex justify-between text-gray-700'>
                   <span>Shipping</span>
                   <span className='font-semibold'>
-                    {hasPhysicalBook && !shippingDetails.deliveryArea
-                      ? "Select area"
+                    {hasPhysicalBook && !deliveryArea
+                      ? "Select location"
                       : `৳${shippingCost.toFixed(2)}`}
                   </span>
                 </div>
@@ -523,14 +929,17 @@ export default function CheckoutPage() {
                 </div>
               </div>
 
-              {/* The checkout button is conditionally disabled if a physical book exists but inputs are missing */}
               <button
-                disabled={!isFormValid || isSubmitting}
+                disabled={!canCheckout || isSubmitting}
                 onClick={handleCheckout}
                 className='w-full mt-6 py-3 bg-linear-to-r from-[#DA7C36] to-orange-dark text-white rounded-lg font-bold text-base hover:shadow-lg hover:scale-105 transition-all duration-300 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100'
               >
                 {isSubmitting ? (
                   <span className='animate-pulse'>PROCESSING...</span>
+                ) : isCheckingStock ? (
+                  <span className='animate-pulse'>CHECKING STOCK...</span>
+                ) : stockIssues.length > 0 ? (
+                  "ITEM OUT OF STOCK"
                 ) : !isFormValid ? (
                   "FILL SHIPPING DETAILS"
                 ) : paymentMethod === "CASH_ON_DELIVERY" ? (
@@ -538,12 +947,14 @@ export default function CheckoutPage() {
                 ) : (
                   "CONTINUE TO PAYMENT"
                 )}
-                {!isSubmitting && <ArrowRight className='w-5 h-5' />}
+                {!isSubmitting && !isCheckingStock && <ArrowRight className='w-5 h-5' />}
               </button>
 
-              {!isFormValid && (
+              {!canCheckout && !isCheckingStock && (
                 <p className='text-[11px] text-red-500 text-center mt-2 font-medium'>
-                  Delivery address details are required to buy physical books.
+                  {stockIssues.length > 0
+                    ? "Please resolve the out-of-stock item(s) above to continue."
+                    : "Delivery address details are required to buy physical books."}
                 </p>
               )}
             </div>
