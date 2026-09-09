@@ -1,4 +1,3 @@
-
 "use client";
 
 import { motion, type PanInfo } from "framer-motion";

@@ -19,6 +19,8 @@ const nextConfig: NextConfig = {
 
   // === Image Optimizations ===
   images: {
+    // loader: "custom",
+    // loaderFile: "./lib/bunny-img-loader.js",
     formats: ["image/avif", "image/webp"],
     remotePatterns: [
       {
@@ -38,7 +40,22 @@ const nextConfig: NextConfig = {
       },
       {
         protocol: "https",
-        hostname: "aloskill-course-storage-pullzone.b-cdn.net",
+        hostname: "alo-pull-zone.b-cdn.net",
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
+        hostname: "aloskill-pull-zone-7.b-cdn.net",
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
+        hostname: "sg.storage.bunnycdn.com",
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
+        hostname: "aloskill-server-production.up.railway.app",
         pathname: "/**",
       },
       {
@@ -46,6 +63,7 @@ const nextConfig: NextConfig = {
         hostname: "securepay.sslcommerz.com",
         pathname: "/**",
       },
+      { protocol: "https", hostname: "picsum.photos", pathname: "/**" },
     ],
 
     unoptimized: false,
@@ -58,9 +76,9 @@ const nextConfig: NextConfig = {
   },
 
   // === Development & Tooling ===
-  eslint: {
-    dirs: ["src", "app", "pages", "components", "lib", "hooks", "utils"],
-  },
+  // eslint: {
+  //   dirs: ["src", "app", "pages", "components", "lib", "hooks", "utils"],
+  // },
   typescript: {
     ignoreBuildErrors: false,
     tsconfigPath: "./tsconfig.json",
@@ -186,10 +204,11 @@ const nextConfig: NextConfig = {
   //   ];
   // },
   async rewrites() {
+    const backendBaseUrl = config.NEXT_PUBLIC_BACKEND_BASE_URL ||"http://localhost:5000"|| "https://alobackendskill.aloskill.com";
     return [
       {
         source: "/api/v1/:path*",
-        destination: "http://localhost:5000/api/v1/:path*",
+        destination: `${backendBaseUrl}/api/v1/:path*`,
       },
     ];
   },
@@ -197,7 +216,7 @@ const nextConfig: NextConfig = {
   env: {
     APP_VERSION: process.env["npm_package_version"],
     BUILD_TIME: new Date().toISOString(),
-    BACKEND_URL: config.BACKEND_API_URL || "http://localhost:5000/api/v1",
+    BACKEND_URL: config.NEXT_PUBLIC_BACKEND_API_URL || "http://localhost:5000/api/v1" || "https://alobackendskill.aloskill.com/api/v1",
   },
 
   // === Webpack Optimizations ===
@@ -271,17 +290,13 @@ const securityHeaders = [
     key: "Content-Security-Policy",
     value: `
     default-src 'self';
-    script-src 'self' 'unsafe-inline' ${config.NODE_ENV === "development" ? "'unsafe-eval'" : ""} http://assets.mediadelivery.net;
+    script-src 'self' 'unsafe-inline' ${config.NODE_ENV === "development" ? "'unsafe-eval'" : ""} http://assets.mediadelivery.net/playerjs/playerjs-latest.min.js;
     style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
     img-src 'self' data: https: blob:;
     font-src 'self' https://fonts.gstatic.com;
-    connect-src 'self' ${
-      config.NODE_ENV === "development"
-        ? "http://localhost:5000"
-        : process.env["NEXT_PUBLIC_API_URL"] || ""
-    } https://vitals.vercel-insights.com https://video.bunnycdn.com;
-    frame-ancestors 'none';
-    frame-src https://iframe.mediadelivery.net;
+    connect-src 'self' https://alobackendskill.aloskill.com http://localhost:5000 ${config.NEXT_PUBLIC_BACKEND_BASE_URL} https://vitals.vercel-insights.com https://video.bunnycdn.com https://fortunate-kindness-production.up.railway.app http://assets.mediadelivery.net alo-pull-zone.b-cdn.net https://sg.storage.bunnycdn.com https://aloskill-pull-zone-7.b-cdn.net;
+    frame-ancestors 'self';
+    frame-src https://iframe.mediadelivery.net blob:;
     object-src 'none';
     base-uri 'self';
     form-action 'self';
@@ -326,8 +341,7 @@ if (config.NODE_ENV === "production") {
 const apiSecurityHeaders = [
   {
     key: "Content-Security-Policy",
-    value:
-      "default-src 'self'; connect-src 'self' http://localhost:5000/ https://vitals.vercel-insights.com;",
+    value: `default-src 'self'; connect-src 'self' ${config.NEXT_PUBLIC_BACKEND_BASE_URL} https://alobackendskill.aloskill.com http://localhost:5000 https://vitals.vercel-insights.com https://video.bunnycdn.com;`,
   },
   {
     key: "X-Content-Type-Options",

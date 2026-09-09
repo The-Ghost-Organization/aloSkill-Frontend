@@ -7,7 +7,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import GradientButton from "../../../components/buttons/GradientButton.tsx";
-import "./HeroSection.module.css";
+import { useSessionContext } from "../../contexts/SessionContext.tsx";
+// import "./HeroSection.module.css";
 const avatars = [
   "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400&q=80",
   "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&q=80",
@@ -18,14 +19,14 @@ const avatars = [
 ];
 
 const features = [
-  { icon: BookOpen, label: "1000+ Courses Available" },
-  { icon: Users, label: "Expert Instructors" },
-  { icon: Award, label: "Lifetime Access" },
+  { icon: BookOpen, label: "Learn & Earn Togethe" },
+  { icon: Users, label: "Industry Expert Instructors" },
+  { icon: Award, label: "Start Learning & Get Certified" },
 ];
 
 const stats = [
-  { value: "10K+", label: "Active Learners" },
-  { value: "500+", label: "Courses" },
+  { value: "1K+", label: "Active Learners" },
+  { value: "5+", label: "Courses" },
   { value: "98%", label: "Success Rate" },
 ];
 
@@ -77,6 +78,7 @@ const scaleVariants = {
 export default function HeroSection() {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const { user } = useSessionContext();
 
   const handleRegistration = () => {
     setLoading(true);
@@ -84,7 +86,7 @@ export default function HeroSection() {
   };
 
   return (
-    <section className='relative  min-h-screen flex items-center justify-center  py-28 overflow-hidden'>
+    <section className='relative w-full  min-h-screen flex items-center justify-center  pt-36 pb-10 lg:py-28 px-2 overflow-hidden'>
       {/* Animated Background Gradients */}
       <div className='absolute inset-0 overflow-hidden pointer-events-none'>
         <motion.div
@@ -178,7 +180,7 @@ export default function HeroSection() {
       >
         {/* Social Proof - Top */}
         <motion.div
-          className='flex items-center justify-center gap-4 flex-wrap'
+          className='flex items-center justify-center gap-5 flex-wrap'
           variants={itemVariants}
         >
           {/* Avatars with Animation */}
@@ -211,7 +213,7 @@ export default function HeroSection() {
 
           {/* Rating Badge */}
           <motion.div
-            className='flex items-center gap-1 bg-white/90 backdrop-blur-md px-5 py-2.5 rounded-full shadow-lg border border-yellow-200'
+            className='flex items-center gap-1 bg-white/90 backdrop-blur-md px-3 py-1.5 lg:px-5 lg:py-2.5 rounded-full shadow-lg border border-yellow-200'
             variants={scaleVariants}
             whileHover='hover'
           >
@@ -242,7 +244,7 @@ export default function HeroSection() {
 
         {/* Feature Badge */}
         <motion.div
-          className='inline-flex items-center gap-2 bg-gradient-to-r from-orange-50 to-orange-100 backdrop-blur-md px-6 py-3 rounded-full shadow-lg border border-orange-200'
+          className='inline-flex items-center gap-2 bg-linear-to-r from-orange-50 to-orange-100 backdrop-blur-md px-4 py-3 rounded-full shadow-lg border border-orange-200'
           variants={itemVariants}
         >
           <motion.span
@@ -274,7 +276,7 @@ export default function HeroSection() {
           >
             Start{" "}
             <motion.span
-              className='inline-block text-transparent bg-clip-text bg-gradient-to-r from-orange-dark via-orange-dark to-orange-200'
+              className='inline-block text-transparent bg-clip-text bg-linear-to-r from-orange-dark via-orange-dark to-orange-200'
               animate={{
                 backgroundPosition: ["0% 50%", "100% 50%", "0% 50%"],
               }}
@@ -305,20 +307,20 @@ export default function HeroSection() {
 
         {/* Stats Row */}
         <motion.div
-          className='flex flex-wrap items-center justify-center gap-6 py-4'
+          className='flex flex-wrap items-center justify-center gap-2 py-4'
           variants={itemVariants}
         >
           {stats.map((stat, index) => (
             <motion.div
               key={index}
-              className='bg-white/80 backdrop-blur-md px-6 py-4 rounded-2xl shadow-lg border border-gray-200'
+              className='bg-white/80 backdrop-blur-md px-2 md:px-6 py-2 rounded-lg shadow-lg border border-gray-200'
               initial={{ scale: 0, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               transition={{ delay: 0.6 + index * 0.1, duration: 0.4 }}
               whileHover={{ scale: 1.05, y: -5 }}
             >
               <motion.p
-                className='text-2xl sm:text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600'
+                className='text-xl lg:text-3xl font-black text-transparent bg-clip-text bg-linear-to-r from-blue-600 to-purple-600'
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
                 transition={{ delay: 0.8 + index * 0.1, type: "spring" }}
@@ -331,34 +333,52 @@ export default function HeroSection() {
         </motion.div>
 
         {/* Primary Action Buttons */}
-        <motion.div
-          className='flex flex-col sm:flex-row items-center justify-center gap-4'
-          variants={itemVariants}
-        >
+        {!user ? (
           <motion.div
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
+            className='flex flex-col sm:flex-row items-center justify-center gap-4'
+            variants={itemVariants}
           >
-            <GradientButton
-              icon={ArrowRightIcon}
-              iconPosition='right'
-              iconAnimation='slide'
-              onClick={handleRegistration}
-              loading={loading}
-            >
-              Free Registration
-            </GradientButton>
-          </motion.div>
-
-          <Link href='/auth/instructor-signup'>
             <motion.div
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
             >
-              <BorderGradientButton icon={Send}>Become Instructor</BorderGradientButton>
+              <GradientButton
+                icon={ArrowRightIcon}
+                iconPosition='right'
+                iconAnimation='slide'
+                onClick={handleRegistration}
+                loading={loading}
+              >
+                Free Registration
+              </GradientButton>
             </motion.div>
-          </Link>
-        </motion.div>
+
+            <Link href='/auth/instructor-signup'>
+              <motion.div
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+              >
+                <BorderGradientButton icon={Send}>Become Instructor</BorderGradientButton>
+              </motion.div>
+            </Link>
+          </motion.div>
+        ) : (
+          !user.role.includes("INSTRUCTOR") && (
+            <motion.div
+              className='flex flex-col sm:flex-row items-center justify-center gap-4'
+              variants={itemVariants}
+            >
+              <Link href='/auth/instructor-signup'>
+                <motion.div
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  <BorderGradientButton icon={Send}>Become Instructor</BorderGradientButton>
+                </motion.div>
+              </Link>
+            </motion.div>
+          )
+        )}
 
         {/* Features List with Icons */}
         <motion.div

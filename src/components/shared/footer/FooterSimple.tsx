@@ -11,6 +11,7 @@ import {
   Youtube,
 } from "lucide-react";
 import Image from "next/image";
+import Logo from "../header/Logo.tsx";
 
 const footerLinks = {
   usefulLinks: [
@@ -77,20 +78,9 @@ export default function ModernFooter() {
           <div className='grid grid-cols-2 gap-8 sm:gap-10 lg:grid-cols-12 lg:gap-8'>
             {/* Brand Section - Full width on mobile, spans 4 cols on desktop */}
             <div className='col-span-2 lg:col-span-4'>
-              <div className='flex items-center gap-3 mb-6'>
-                <div className='relative w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-[#DA7C36] via-[#E88A4A] to-[#B85C1A] rounded-2xl flex items-center justify-center shadow-xl shadow-orange-500/20'>
-                  <span className='text-white font-bold text-2xl sm:text-3xl'>আ</span>
-                  <div className='absolute inset-0 rounded-2xl bg-gradient-to-tr from-white/20 to-transparent'></div>
-                </div>
-                <span className='text-2xl sm:text-3xl font-bold bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 bg-clip-text text-transparent'>
-                  আলো{" "}
-                  <span className='bg-gradient-to-r from-[#DA7C36] to-[#E88A4A] bg-clip-text text-transparent'>
-                    স্কিল
-                  </span>
-                </span>
-              </div>
+              <Logo />
 
-              <p className='text-gray-600 leading-relaxed mb-6 sm:mb-8 text-sm sm:text-base'>
+              <p className='text-gray-600 leading-relaxed my-6 sm:mb-8 text-sm sm:text-base'>
                 Empowering learners with expert-led courses in Bangla. Transform your skills with
                 cutting-edge technology.
               </p>

@@ -1,8 +1,8 @@
-
 "use client";
 
 import { SessionProvider as NextAuthSessionProvider, useSession } from "next-auth/react";
 import { createContext, useContext, useEffect, useState } from "react";
+import { apiClient } from "../../lib/api/client";
 
 interface SessionType {
   user: any;
@@ -12,8 +12,19 @@ interface SessionType {
 
 interface SessionContextType extends SessionType {
   isCartUpdate?: boolean;
-  setCartUpdate? : React.Dispatch<React.SetStateAction<boolean>>;
+  setCartUpdate?: React.Dispatch<React.SetStateAction<boolean>>;
+  categories: Category[] | null;
 }
+
+export type Category = {
+  id: string;
+  name: string;
+  parentId: string | null;
+  children: {
+    id: string;
+    name: string;
+  }[];
+};
 
 const SessionContext = createContext<SessionContextType | undefined>(undefined);
 
@@ -33,8 +44,21 @@ function SessionContextProvider({ children }: { children: React.ReactNode }) {
     isAuthenticated: false,
   });
   const [isCartUpdate, setIsCartUpdate] = useState<boolean>(false);
+  const [categories, setCategories] = useState<Category[] | null>(null);
 
   useEffect(() => {
+    const getCategories = async () => {
+      try {
+        const response = await apiClient.get<Category[]>("/course/category");
+        if (response.success && response.data) {
+          setCategories(response.data);
+          return;
+        }
+      } catch (_error) {
+        return undefined;
+      }
+    };
+    getCategories();
     setSessionValue({
       user: session?.user || null,
       isLoading: status === "loading",
@@ -45,14 +69,11 @@ function SessionContextProvider({ children }: { children: React.ReactNode }) {
   const contextValue = {
     ...sessionValue,
     isCartUpdate,
+    categories,
     setCartUpdate: setIsCartUpdate,
   };
 
-  return (
-    <SessionContext.Provider value={contextValue}>
-      {children}
-    </SessionContext.Provider>
-  );
+  return <SessionContext.Provider value={contextValue}>{children}</SessionContext.Provider>;
 }
 
 export const useSessionContext = () => {

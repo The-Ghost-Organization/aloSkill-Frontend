@@ -15,10 +15,9 @@ export default function TabletDrawer() {
 
   return (
     <>
-      {/* Floating Toggle Button (Tablet Only) */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className='fixed bottom-6 right-6 z-40 md:hidden lg:hidden p-4 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-300'
+        className='fixed bottom-6 right-6 z-40 md:hidden lg:hidden p-4 bg-linear-to-r from-orange-500 to-orange-600 text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-300'
         aria-label='Toggle quick menu'
       >
         {isOpen ? <X className='w-6 h-6' /> : <Menu className='w-6 h-6' />}

@@ -1,4 +1,3 @@
-// StatsSection.tsx
 "use client";
 
 import { Award, BookOpen, type LucideIcon, Star, Users } from "lucide-react";
@@ -28,7 +27,6 @@ const stats: Stat[] = [
   },
 ];
 
-// Custom hook for counting animation
 function useCountUp(
   end: number,
   duration: number = 2000,

@@ -1,21 +1,21 @@
 "use client";
 
 import {
-  Home,
   BookOpen,
-  GraduationCap,
-  Users,
-  Library,
   CalendarDays,
-  Trophy,
+  Facebook,
+  GraduationCap,
+  HandCoins,
+  Home,
+  Instagram,
+  Library,
+  LifeBuoy,
   MessageCircle,
   Route,
-  HandCoins,
   Star,
-  LifeBuoy,
+  Trophy,
   Twitter,
-  Facebook,
-  Instagram,
+  Users,
   X,
 } from "lucide-react";
 import Link from "next/link";
@@ -26,7 +26,6 @@ interface LeftSidebarProps {
   onClose?: () => void;
 }
 
-// ✅ CLEANED: Removed duplicate items
 const navItems = [
   {
     icon: Home,
@@ -49,7 +48,7 @@ const navItems = [
   {
     icon: Users,
     label: "Students Hub",
-    href: "/students",
+    href: "/studentHub",
     color: "text-green-500",
   },
   {

@@ -21,7 +21,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { useSessionContext } from "../../../app/contexts/SessionContext.tsx";
-import { courseDraftStorage } from "../../../lib/storage/courseDraftStorage.ts";
+import { bookDraftStorage, courseDraftStorage } from "../../../lib/storage/courseDraftStorage.ts";
 import Logo from "./Logo.tsx";
 
 interface HeaderProps {
@@ -63,7 +63,8 @@ export default function NavBar({ onMenuToggle }: HeaderProps) {
       }
     }
     const getLocalData = courseDraftStorage.get<{ courseId: string; quantity: number }[]>();
-    setCartCount(getLocalData?.length || 0);
+    const getBookData = bookDraftStorage.get<{ bookId: string; quantity: number }[]>();
+    setCartCount((getLocalData?.length || 0) + (getBookData?.length || 0));
   }, [user, isCartUpdate]);
 
   const handleSignIn = () => {
@@ -199,38 +200,20 @@ export default function NavBar({ onMenuToggle }: HeaderProps) {
   return (
     <>
       <header className='w-full bg-transparent backdrop-blur-md border-b border-gray-200/50 shadow-sm'>
-        <div className='flex items-center justify-between px-4 md:px-6 py-3 max-w-full mx-auto'>
+        <div className='flex items-center justify-between px-4 md:px-6 py-3  mx-auto'>
           {/* Mobile Menu Button */}
           <button
             onClick={onMenuToggle}
-            className='lg:hidden p-2 hover:bg-gray-100 rounded-lg transition-colors flex-shrink-0'
+            className='lg:hidden p-2 hover:bg-gray-100 rounded-lg transition-colors shrink-0 z-50'
             aria-label='Toggle menu'
           >
-            <Menu className='w-6 h-6 text-gray-700' />
+            <Menu className='w-6 h-6 text-gray-700 z-60' />
           </button>
 
           {/* Logo */}
-          <div className='flex-shrink-0 relative z-40'>
+          <div className='shrink-0 relative z-40'>
             <Logo />
           </div>
-
-          {/* Category Button */}
-          {/* <button className='hidden md:flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-orange-500 to-orange-700 text-white rounded-full hover:from-orange-700 hover:to-orange-500 transition-all duration-300 shadow-md hover:shadow-lg'>
-            <svg
-              className='w-4 h-4'
-              fill='none'
-              stroke='currentColor'
-              viewBox='0 0 24 24'
-            >
-              <path
-                strokeLinecap='round'
-                strokeLinejoin='round'
-                strokeWidth={2}
-                d='M4 6h16M4 12h16M4 18h16'
-              />
-            </svg>
-            <span className='text-sm font-medium'>Category</span>
-          </button> */}
 
           {/* Search Bar */}
           <div className='flex-1 max-w-xl mx-4 hidden md:block'>
@@ -294,16 +277,16 @@ export default function NavBar({ onMenuToggle }: HeaderProps) {
                 >
                   {/* User Avatar */}
                   <div className='relative'>
-                    {user && user.image ? (
+                    {user && user?.profilePicture ? (
                       <Image
                         width={50}
                         height={50}
-                        src={user.image}
-                        alt={user.name || "User"}
+                        src={user?.profilePicture}
+                        alt={user.displayName || "User"}
                         className='w-9 h-9 rounded-full object-cover border-2 border-orange-500'
                       />
                     ) : (
-                      <div className='w-9 h-9 rounded-full bg-gradient-to-br from-orange-500 to-orange-700 flex items-center justify-center text-white font-semibold text-sm border-2 border-orange-500'>
+                      <div className='w-9 h-9 rounded-full bg-linear-to-br from-orange-500 to-orange-700 flex items-center justify-center text-white font-semibold text-sm border-2 border-orange-500'>
                         {getInitials(user.name || "User")}
                       </div>
                     )}
@@ -460,7 +443,7 @@ export default function NavBar({ onMenuToggle }: HeaderProps) {
             ) : (
               <button
                 onClick={handleSignIn}
-                className='px-4 md:px-6 py-2 bg-gradient-to-r from-orange-500 to-orange-700 text-white rounded-full hover:from-orange-700 hover:to-orange-500 transition-all duration-300 shadow-md hover:shadow-lg font-medium text-sm'
+                className='px-4 md:px-6 py-2 bg-linear-to-r from-orange-500 to-orange-700 text-white rounded-full hover:from-orange-700 hover:to-orange-500 transition-all duration-300 shadow-md hover:shadow-lg font-medium text-sm'
               >
                 Login account
               </button>

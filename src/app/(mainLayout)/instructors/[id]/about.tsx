@@ -4,17 +4,17 @@ export function AboutTab({ instructor }: { instructor: InstructorDetail }) {
   return (
     <div className='space-y-6 animate-fade-in-content'>
       <div>
-        <h3 className='text-xl font-bold text-[#074079] mb-4'>About {instructor.name}</h3>
+        <h3 className='text-lg font-bold text-[#074079] mb-4'>About {instructor.displayName}</h3>
         <p className='text-gray-600 leading-relaxed mb-4'>{instructor.bio}</p>
       </div>
 
       <div>
-        <h3 className='text-xl font-bold text-[#074079] mb-4'>Expertise:</h3>
+        <h3 className='text-lg font-bold text-[#074079] mb-4'>Expertise:</h3>
         <p className='text-gray-600 leading-relaxed'>{instructor.skills.join(", ")}</p>
       </div>
 
       <div>
-        <h3 className='text-xl font-bold text-[#074079] mb-4'>Skills:</h3>
+        <h3 className='text-lg font-bold text-[#074079] mb-4'>Skills:</h3>
         <div className='flex flex-wrap gap-2'>
           {instructor.skills.map((skill, index) => (
             <div
@@ -29,7 +29,7 @@ export function AboutTab({ instructor }: { instructor: InstructorDetail }) {
 
       {instructor.website && (
         <div>
-          <h3 className='text-xl font-bold text-[#074079] mb-4'>Website:</h3>
+          <h3 className='text-lg font-bold text-[#074079] mb-4'>Website:</h3>
           <a
             href={instructor.website}
             target='_blank'

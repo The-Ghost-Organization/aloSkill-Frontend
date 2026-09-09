@@ -18,6 +18,7 @@ export function SidebarImageSlider() {
               src={src}
               alt={`Book ${i + 1}`}
               fill
+              sizes='(max-width: 768px) 100vw, 320px'
               className="object-cover"
             />
           </div>

@@ -17,6 +17,7 @@ export interface LoginPayload {
   email: string;
   password?: string;
   googleId?: string;
+  role?: string;
 }
 
 export interface UserData {
@@ -90,9 +91,20 @@ export const authService = {
   async login(payload: LoginPayload) {
     const response = await apiClient.post<AuthResponse>("/auth/login", payload);
 
-    if (response.success && response.data) {
-      this.currentUser = response.data;
-    }
+    // if (response.success && response.data) {
+    //   this.currentUser = response.data;
+    // }
+
+    return response;
+  },
+
+  // Login admin
+  async loginAdmin(payload: LoginPayload) {
+    const response = await apiClient.post<AuthResponse>("/auth/admin-login", payload);
+
+    // if (response.success && response.data) {
+    //   this.currentUser = response.data;
+    // }
 
     return response;
   },

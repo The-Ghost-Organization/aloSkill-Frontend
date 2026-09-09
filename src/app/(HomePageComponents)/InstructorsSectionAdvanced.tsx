@@ -7,7 +7,7 @@ import BorderGradientButton from "@/components/buttons/BorderGradientButton.tsx"
 import GradientButton from "@/components/buttons/GradientButton.tsx";
 import SectionHeader from "@/components/sections/SectionHeader.tsx";
 import { apiClient } from "@/lib/api/client.ts";
-import { type Instructor, type InstructorListApiResponse } from "@/types/instructor.types.ts";
+import { type Instructor } from "@/types/instructor.types.ts";
 import { ArrowRightIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 
@@ -28,28 +28,11 @@ export function InstructorsSectionAdvanced() {
     const fetchFeatured = async () => {
       try {
         setLoading(true);
-
-        // ✅ Fetch from homepage
-        const response = await apiClient.get<InstructorListApiResponse[]>("/user/instructors/all");
-        const transformInstructor = (apiData: InstructorListApiResponse): Instructor => ({
-          id: apiData.id,
-          name: apiData.displayName,
-          image:
-            apiData.avaterUrl ||
-            "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&q=80",
-          roles: apiData.role || [],
-          skills: apiData.skills || [],
-          rating: Number(apiData.ratingAverage) || 0,
-          totalCourses: apiData.totalCourses || 0,
-        });
+        const response = await apiClient.get<Instructor[]>("/user/instructors/all");
         if (response.success && response.data) {
-          // take first 4
-          const transformed = response.data.slice(0, 4).map(transformInstructor);
-
-          setFeaturedInstructors(transformed);
+          setFeaturedInstructors(response.data);
         }
       } catch (error) {
-        // console.error("Error:", error);
       } finally {
         setLoading(false);
       }
@@ -60,15 +43,16 @@ export function InstructorsSectionAdvanced() {
   if (loading) return <div>Loading...</div>;
   return (
     <section className='py-16 md:py-24 bg-linear-to-br from-gray-50 via-white to-purple-50'>
-      <div className=' mx-auto px-2'>
-        <div className='grid grid-cols-1 lg:grid-cols-2 gap-2 2xl:gap-4 items-center'>
+      <div className=' mx-auto px-4'>
+        <div className='grid grid-cols-1 lg:grid-cols-2  gap-4 xl:gap-4 items-center'>
           {/* Left Content */}
 
-          <div className='space-y-6 lg:pr-8 order-2 lg:order-1 animate-fade-in'>
+          <div className='px-4 sm:px-6 lg:px-8 animate-fade-in'>
             <SectionHeader
               badge='Our Instructor'
-              title='Meet Our Expert Instructors'
-              subtitle=' Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris...'
+              title='Meet our'
+              color_title='Expert Instructors'
+              subtitle='Learn from industry experts and entrepreneurs who share real-world skills you can apply immediately.'
             />
 
             <div className='flex flex-col 2xl:flex-row lg:flex-col md:flex-row gap-4 animate-slide-up'>
@@ -86,7 +70,7 @@ export function InstructorsSectionAdvanced() {
           </div>
 
           {/* Right - Instructors Grid */}
-          <div className='grid grid-cols-1 sm:grid-cols-2 gap-2 2xl:gap-6 order-1 lg:order-2'>
+          <div className='grid grid-cols-1 sm:grid-cols-2 gap-2 2xl:gap-6 order-2 lg:order-2'>
             {featuredInstructors.map((instructor, index) => (
               <InstructorCard
                 key={instructor.id}

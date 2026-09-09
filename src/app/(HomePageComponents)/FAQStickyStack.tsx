@@ -1,5 +1,6 @@
-"use client";
+// "use client";
 
+import SectionMiddleHeader from "@/components/sections/SectionMiddleHeader.tsx";
 import { ArrowUpRight } from "lucide-react";
 
 const faqs = [
@@ -51,10 +52,11 @@ export default function FAQStickyStack() {
       <div className='mx-auto max-w-5xl px-6'>
         {/* Header */}
         <div className='mb-24 md:text-center'>
-          <h2 className='text-3xl font-bold tracking-tight text-slate-900 md:text-5xl '>
-            Common <span className='text-slate-400'>Questions.</span>
-          </h2>
-          <p className='mt-2 text-lg text-slate-600 '>Scroll to uncover the details.</p>
+          <SectionMiddleHeader
+            title='Common'
+            color_title='Questions.'
+            subtitle='Scroll to uncover the details.'
+          />
         </div>
 
         {/* 1. Removed space-y-8 here */}
@@ -101,7 +103,8 @@ export default function FAQStickyStack() {
           >
             <h3 className='text-3xl font-bold'>Have a different question?</h3>
             <p className='max-w-md text-slate-400 '>
-              We&apos;re transparent about our process. Let&apos;s hop on a call and clear things up.
+              We&apos;re transparent about our process. Let&apos;s hop on a call and clear things
+              up.
             </p>
             <a
               href='#contact'

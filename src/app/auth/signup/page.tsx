@@ -1,4 +1,3 @@
-
 // "use client";
 
 // import { authService } from "@/lib/api/auth.service";
@@ -709,7 +708,7 @@ export default function SignupPage() {
   };
 
   return (
-    <div className='min-h-screen relative overflow-hidden bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 flex items-center justify-center p-4'>
+    <div className='min-h-screen relative overflow-hidden bg-linear-to-br from-slate-50 via-blue-50 to-indigo-50 flex items-center justify-center p-4'>
       {/* Modern Gradient Background */}
       <div className='absolute inset-0 overflow-hidden pointer-events-none'>
         {/* Top left gradient */}
@@ -765,8 +764,8 @@ export default function SignupPage() {
       {/* Success Toast */}
       {isSuccess && (
         <div className='fixed top-6 right-6 z-50 animate-slide-in'>
-          <div className='bg-white border border-emerald-200 rounded-2xl shadow-2xl p-5 flex items-center gap-4 backdrop-blur-md bg-opacity-95 min-w-[320px]'>
-            <div className='w-12 h-12 bg-gradient-to-br from-emerald-400 to-emerald-600 rounded-full flex items-center justify-center shadow-lg'>
+          <div className='bg-white border border-emerald-200 rounded shadow-2xl p-3 flex items-center gap-4 backdrop-blur-md bg-opacity-95 min-w-[320px]'>
+            <div className='w-12 h-12 bg-linear-to-br from-emerald-400 to-emerald-600 rounded-full flex items-center justify-center shadow-lg'>
               <CheckCircle2 className='w-7 h-7 text-white' />
             </div>
             <div className='flex-1'>
@@ -789,7 +788,7 @@ export default function SignupPage() {
               <h1 className='text-5xl font-bold text-(--color-text-dark) leading-tight'>
                 Welcome to
                 <br />
-                <span className='bg-gradient-to-r from-orange-dark  to-orange bg-clip-text text-transparent'>
+                <span className='bg-linear-to-r from-orange-dark  to-orange bg-clip-text text-transparent'>
                   Aloskill
                 </span>
               </h1>
@@ -824,13 +823,13 @@ export default function SignupPage() {
             {/* Card with enhanced glassmorphism */}
             <div className='backdrop-blur-2xl bg-white/90 border border-white/40 rounded-3xl shadow-2xl p-8 md:p-8 relative overflow-hidden'>
               {/* Decorative corner elements */}
-              <div className='absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-blue-400/20 to-purple-400/20 rounded-bl-full' />
-              <div className='absolute bottom-0 left-0 w-24 h-24 bg-gradient-to-tr from-indigo-400/20 to-pink-400/20 rounded-tr-full' />
+              <div className='absolute top-0 right-0 w-32 h-32 bg-linear-to-br from-blue-400/20 to-purple-400/20 rounded-bl-full' />
+              <div className='absolute bottom-0 left-0 w-24 h-24 bg-linear-to-tr from-indigo-400/20 to-pink-400/20 rounded-tr-full' />
 
               <div className='relative z-10'>
                 {/* Header */}
                 <div className='text-center mb-8'>
-                  <div className='w-16 h-16 bg-gradient-to-br from-orange-dark via-orange to-orange   rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-xl'>
+                  <div className='w-16 h-16 bg-linear-to-br from-orange-dark via-orange to-orange   rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-xl'>
                     <User className='w-8 h-8 text-white' />
                   </div>
                   <h2 className='text-3xl font-bold text-(--color-text-dark) mb-2'>
@@ -842,7 +841,7 @@ export default function SignupPage() {
                 {/* API Error Alert */}
                 {apiError && (
                   <div className='mb-6 p-4 bg-red-50 border-l-4 border-red-500 rounded-xl flex items-start gap-3 shadow-sm'>
-                    <AlertCircle className='w-5 h-5 text-red-600 flex-shrink-0 mt-0.5' />
+                    <AlertCircle className='w-5 h-5 text-red-600 shrink-0 mt-0.5' />
                     <div className='flex-1'>
                       <p className='text-sm text-red-800 font-medium'>{apiError}</p>
                     </div>
@@ -1163,7 +1162,7 @@ export default function SignupPage() {
                     type='submit'
                     disabled={isSubmitting}
                     onClick={handleSubmit(onSubmit as SubmitHandler<unknown>)}
-                    className='w-full py-4 rounded-xl text-white font-bold bg-gradient-to-r from-orange-dark via-orange to-orange hover:from-orange hover:via-orange hover:to-orange-dark shadow-xl hover:shadow-2xl transition-all duration-300 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-[1.02] active:scale-[0.98]'
+                    className='w-full py-4 rounded-xl text-white font-bold bg-linear-to-r from-orange-dark via-orange to-orange hover:from-orange hover:via-orange hover:to-orange-dark shadow-xl hover:shadow-2xl transition-all duration-300 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-[1.02] active:scale-[0.98]'
                   >
                     {isSubmitting ? (
                       <>

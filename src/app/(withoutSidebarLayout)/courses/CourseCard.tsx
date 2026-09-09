@@ -16,7 +16,6 @@ import Image from "next/image";
 import Link from "next/link";
 import { memo, useState } from "react";
 import type { CourseCardProps, CourseStatus } from "./allCourses.types.ts";
-
 const CourseCard = memo(function CourseCard({
   course,
   onAddToCart,
@@ -24,6 +23,9 @@ const CourseCard = memo(function CourseCard({
   isInCart = false,
   isInWishlist = false,
   dashboardActions,
+  isEnrolled,
+  isOwner,
+  user
 }: CourseCardProps) {
   const {
     id,
@@ -36,16 +38,29 @@ const CourseCard = memo(function CourseCard({
     originalPrice,
     discountPrice,
     status,
+    lessonProgress,
   } = course;
+
+  // hasProgress
+  const hasProgress = lessonProgress && lessonProgress.length > 0;
+  const overallProgress = hasProgress
+    ? Math.round(
+        lessonProgress.reduce((acc, curr) => acc + curr.progressValue, 0) / lessonProgress.length
+      )
+    : 0;
+
   const lessons = modules.reduce((acc, m) => acc + m._count.lessons, 0);
 
-  const totalMinutes = modules
-    .flatMap(m => m.lessons)
-    .reduce((acc, l) => acc + (l.duration ?? 0), 0);
+  const totalSecond = modules.reduce((total, module) => {
+    const moduleTotal = module.lessons.reduce((sum, lesson) => sum + (lesson.duration ?? 0), 0);
+    return total + moduleTotal;
+  }, 0);
 
-  const duration = `${Math.ceil(totalMinutes / 60)}h`;
+  const hours = Math.floor(totalSecond / 3600);
+  const minutes = Math.floor((totalSecond % 3600) / 60);
+  const totalDurationInFormatted = `${hours}:${minutes.toString().padStart(2, "0")} hrs`;
 
-  const price = discountPrice ?? originalPrice;
+  const price = discountPrice && discountPrice > 0 ? discountPrice : originalPrice;
 
   const instructor = {
     name: createdBy.displayName ?? "Unknown Instructor",
@@ -56,13 +71,10 @@ const CourseCard = memo(function CourseCard({
   const reviewCount = _count.reviews;
   const students = _count.enrollments;
 
-  const [imageError, setImageError] = useState(false);
+  const [imgSrc, setImgSrc] = useState(thumbnailUrl || "/images/course-placeholder.png");
+
   const [isWishlistLoading, setIsWishlistLoading] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
-
-  const handleImageError = () => {
-    setImageError(true);
-  };
 
   const handleWishlistToggle = async (e: React.MouseEvent) => {
     e.preventDefault();
@@ -113,20 +125,18 @@ const CourseCard = memo(function CourseCard({
           className='absolute inset-0 z-0'
           aria-label={title}
         >
-          {!imageError ? (
-            <Image
-              src={thumbnailUrl || "/images/course-placeholder.png"}
-              alt={title}
-              fill
-              sizes='(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw'
-              className='object-cover hover:scale-110 transition-transform duration-500'
-              onError={handleImageError}
-            />
-          ) : (
-            <div className='flex items-center justify-center h-full bg-linear-to-br from-gray-200 to-gray-300'>
-              <BookOpen className='w-16 h-16 text-gray-400' />
-            </div>
-          )}
+          <Image
+            src={imgSrc}
+            alt={title}
+            fill
+            sizes='(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw'
+            className='object-cover hover:scale-110 transition-transform duration-500'
+            onError={() => {
+              if (imgSrc !== "/images/course-placeholder.png") {
+                setImgSrc("/images/course-placeholder.png");
+              }
+            }}
+          />
         </Link>
 
         {/* DASHBOARD MENU (OUTSIDE LINK) */}
@@ -191,9 +201,11 @@ const CourseCard = memo(function CourseCard({
           </span>
         </div>
 
-        <div className='absolute top-4 right-4 z-10 bg-white rounded-lg px-3 mr-8 shadow-lg'>
+        <div
+          className={`absolute top-4 right-4 z-10 bg-white rounded px-3 shadow-lg ${dashboardActions && "mr-8"}`}
+        >
           <div className='flex items-center gap-1'>
-            <span className='text-orange-600 font-black text-md '>${price}</span>
+            {price > 0 && <span className='text-orange-600 font-black text-md '>${price}</span>}
             {originalPrice && originalPrice > price && (
               <span className='text-gray-400 text-md line-through'>${originalPrice}</span>
             )}
@@ -221,6 +233,24 @@ const CourseCard = memo(function CourseCard({
       </div>
 
       <div className='p-5 flex flex-col grow'>
+        {/* hasProgress     */}
+        {hasProgress && (
+          <div className='mb-4'>
+            <div className='flex justify-between items-end mb-1'>
+              <span className='text-xs font-bold text-orange-600 uppercase tracking-wider'>
+                Progress
+              </span>
+              <span className='text-xs font-medium text-gray-600'>{overallProgress}%</span>
+            </div>
+            <div className='w-full bg-gray-200 rounded-full h-2'>
+              <div
+                className='bg-orange-500 h-2 rounded-full transition-all duration-500'
+                style={{ width: `${overallProgress}%` }}
+              ></div>
+            </div>
+          </div>
+        )}
+
         <div className='flex items-center justify-between gap-2 mb-3'>
           <div className='flex items-center gap-1'>
             <div
@@ -269,10 +299,10 @@ const CourseCard = memo(function CourseCard({
           </div>
           <div
             className='flex items-center gap-1'
-            title={`Duration: ${duration}`}
+            title={`Duration: ${totalDurationInFormatted}`}
           >
             <Clock className='w-4 h-4 text-orange-600 shrink-0' />
-            <span className='whitespace-nowrap'>{duration}</span>
+            <span className='whitespace-nowrap'>{totalDurationInFormatted}</span>
           </div>
           <div
             className='flex items-center gap-1'
@@ -304,31 +334,54 @@ const CourseCard = memo(function CourseCard({
               <span className='text-sm font-medium text-gray-700 truncate'>{instructor.name}</span>
             </div>
 
-            <div className='flex items-center gap-2 shrink-0'>
-              {onAddToCart && (
-                <button
-                  onClick={handleAddToCart}
-                  disabled={isInCart}
-                  className={`p-2 rounded-lg transition-all ${
-                    isInCart
-                      ? "bg-green-100 text-green-600 cursor-default"
-                      : "bg-gray-100 text-gray-700 hover:bg-orange-100 hover:text-orange-600"
-                  }`}
-                  title={isInCart ? "In cart" : "Add to cart"}
-                  aria-label={isInCart ? "In cart" : "Add to cart"}
-                >
-                  <ShoppingCart className='w-4 h-4' />
-                </button>
-              )}
+            <div className={isOwner ? "hidden" : "flex items-center gap-2 shrink-0"}>
+              {isEnrolled ? (
+                <Link href={`/watch-video/${id}`}>
+                  <button
+                    type='button'
+                    className='px-4 py-1 bg-orange-600 text-white rounded text-md font-semibold hover:bg-orange-700 transition-all shadow-md hover:shadow-lg cursor-pointer'
+                  >
+                    Continue
+                  </button>
+                </Link>
+              ) : dashboardActions ? (
+                <></>
+              ) : !course?.enrollments?.some(enrollment => enrollment.userId === user?.id) ? (
+                <>
+                  {onAddToCart && (
+                    <button
+                      onClick={handleAddToCart}
+                      disabled={isInCart}
+                      className={`p-2 rounded transition-all cursor-pointer ${
+                        isInCart
+                          ? "bg-green-100 text-green-600 cursor-default"
+                          : "bg-gray-100 text-gray-700 hover:bg-orange-100 hover:text-orange-600"
+                      }`}
+                      title={isInCart ? "In cart" : "Add to cart"}
+                    >
+                      <ShoppingCart className='w-4 h-4' />
+                    </button>
+                  )}
 
-              <Link href={`/checkout/${id}`}>
-                <button
-                  type='button'
-                  className='px-4 py-1 bg-linear-to-r from-orange-500 to-orange-600 text-white rounded-lg text-md font-semibold hover:from-orange-600 hover:to-orange-700 transition-all shadow-md hover:shadow-lg whitespace-nowrap'
-                >
-                  Enroll
-                </button>
-              </Link>
+                  <Link href={`/checkout/${id}`}>
+                    <button
+                      type='button'
+                      className='px-4 py-1 bg-linear-to-r from-orange-500 to-orange-600 text-white rounded text-md font-semibold hover:from-orange-600 hover:to-orange-700 transition-all shadow-md hover:shadow-lg whitespace-nowrap cursor-pointer'
+                    >
+                      Enroll
+                    </button>
+                  </Link>
+                </>
+              ) : (
+                <Link href={`/watch-video/${id}`}>
+                  <button
+                    type='button'
+                    className='px-4 py-1 bg-orange-600 text-white rounded text-md font-semibold hover:bg-orange-700 transition-all shadow-md hover:shadow-lg cursor-pointer'
+                  >
+                    Continue
+                  </button>
+                </Link>
+              )}
             </div>
           </div>
         </div>

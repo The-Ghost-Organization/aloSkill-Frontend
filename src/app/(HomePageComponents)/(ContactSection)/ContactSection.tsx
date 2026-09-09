@@ -87,8 +87,8 @@ export default function ContactSection() {
           <PageHeading
             badge='Lets Connect'
             badgeIcon={Sparkles}
-            title='Get Your Free '
-            titleHighlight='Consultation Today'
+            title='Get Your Free Consultation'
+            titleHighlight='Today'
             subtitle='Transform your HR processes with our innovative solutions. Lets discuss how we can help your team thrive.'
           />
         </div>
@@ -122,9 +122,9 @@ export default function ContactSection() {
                 }`}
               >
                 {submitStatus.type === "success" ? (
-                  <CheckCircle2 className='w-5 h-5 text-green-600 flex-shrink-0 mt-0.5' />
+                  <CheckCircle2 className='w-5 h-5 text-green-600 shrink-0 mt-0.5' />
                 ) : (
-                  <AlertCircle className='w-5 h-5 text-red-600 flex-shrink-0 mt-0.5' />
+                  <AlertCircle className='w-5 h-5 text-red-600 shrink-0 mt-0.5' />
                 )}
                 <p
                   className={`text-sm font-medium ${
@@ -369,7 +369,7 @@ export default function ContactSection() {
             <div className='bg-white rounded-lg p-6 shadow-lg border-2 border-gray-100'>
               <div className='flex items-start gap-4'>
                 <div
-                  className='w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0'
+                  className='w-10 h-10 rounded-xl flex items-center justify-center shrink-0'
                   style={{ backgroundColor: "#da7c36" }}
                 >
                   <Sparkles className='w-5 h-5 text-white' />

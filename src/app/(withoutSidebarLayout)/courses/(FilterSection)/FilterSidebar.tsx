@@ -1,6 +1,7 @@
 import { useDebounce } from "@/hooks/useDebounce.ts";
 import { Star } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
+import { useSessionContext } from "../../../contexts/SessionContext.tsx";
 import FilterSection from "./FilterSection.tsx";
 
 interface FilterSidebarProps {
@@ -24,7 +25,10 @@ interface FilterSidebarProps {
   >;
   hasActiveFilters?: boolean;
   clearAllFilters?: () => void;
-  handleFilterChange: (fieldName: string, value: string) => void;
+  handleFilterChange: (
+    fieldName: "category" | "level" | "language" | "rating" | "priceRange",
+    value: string
+  ) => void;
 }
 
 // Filter options
@@ -41,15 +45,15 @@ const CATEGORIES = [
 
 const LEVELS = [
   { value: "", label: "All Levels", count: 125 },
-  { value: "beginner", label: "Beginner", count: 55 },
-  { value: "intermediate", label: "Intermediate", count: 42 },
-  { value: "advanced", label: "Advanced", count: 28 },
+  { value: "BEGINNER", label: "Beginner", count: 55 },
+  { value: "INTERMEDIATE", label: "Intermediate", count: 42 },
+  { value: "ADVANCED", label: "Advanced", count: 28 },
 ];
 
 const LANGUAGES = [
   { value: "", label: "All Languages", count: 125 },
-  { value: "english", label: "English", count: 98 },
-  { value: "bangla", label: "Bangla", count: 15 },
+  { value: "ENGLISH", label: "English", count: 98 },
+  { value: "BANGLA", label: "Bangla", count: 15 },
 ];
 
 const RATINGS = [
@@ -79,13 +83,14 @@ function FilterSidebar({
   const [maxPrice, setMaxPrice] = useState<number>(filteredQuery.priceRange[1] ?? 100000);
   const debouncedMin = useDebounce(minPrice, 400);
   const debouncedMax = useDebounce(maxPrice, 400);
+  const { categories } = useSessionContext();
 
   useEffect(() => {
     handleFilterChange("priceRange", [debouncedMin, debouncedMax]);
   }, [handleFilterChange, debouncedMin, debouncedMax]);
 
   return (
-    <div className='space-y-3'>
+    <div className='space-y-3 pt-6'>
       {/* Category */}
       <FilterSection
         title='CATEGORY'
@@ -93,29 +98,50 @@ function FilterSidebar({
         onToggle={() => toggleSection("category")}
       >
         <div className='space-y-1'>
-          {CATEGORIES.map(cat => (
-            <label
-              key={cat.value}
-              className='flex items-center justify-between px-3 py-1 hover:bg-gradient-to-r hover:from-orange-50 hover:to-purple-50 rounded-lg cursor-pointer group transition-all'
-            >
-              <div className='flex items-center gap-3'>
-                <input
-                  type='radio'
-                  name='category'
-                  value={cat.value}
-                  checked={filteredQuery.category === cat.value}
-                  onChange={e => handleFilterChange("category", e.target.value)}
-                  className='w-4 h-4 accent-orange-600 border-gray-300 focus:ring-orange-500 focus:ring-2'
-                />
-                <span className='text-sm font-medium text-gray-700 group-hover:text-gray-900 transition-colors'>
-                  {cat.label}
-                </span>
-              </div>
-              <span className='text-xs font-semibold text-gray-400 bg-gray-100 px-2 py-1 rounded-md'>
-                {cat.count}
+          <label className='flex items-center justify-between px-3 py-1 hover:bg-linear-to-r hover:from-orange-50 hover:to-purple-50 rounded-lg cursor-pointer group transition-all'>
+            <div className='flex items-center gap-3'>
+              <input
+                type='radio'
+                name='category'
+                value=''
+                checked={filteredQuery.category === ""}
+                onChange={e => handleFilterChange("category", e.target.value)}
+                className='w-4 h-4 accent-orange-600 border-gray-300 focus:ring-orange-500 focus:ring-2'
+              />
+              <span className='text-sm font-medium text-gray-700 group-hover:text-gray-900 transition-colors'>
+                All Categories
               </span>
-            </label>
-          ))}
+            </div>
+            <span className='text-xs font-semibold text-gray-400 bg-gray-100 px-2 py-1 rounded-md'>
+              {0}
+            </span>
+          </label>
+          {categories &&
+            categories
+              .filter(category => category.parentId !== null)
+              .map(cat => (
+                <label
+                  key={cat.id}
+                  className='flex items-center justify-between px-3 py-1 hover:bg-linear-to-r hover:from-orange-50 hover:to-purple-50 rounded-lg cursor-pointer group transition-all'
+                >
+                  <div className='flex items-center gap-3'>
+                    <input
+                      type='radio'
+                      name='category'
+                      value={cat.name}
+                      checked={filteredQuery.category === cat.name}
+                      onChange={e => handleFilterChange("category", e.target.value)}
+                      className='w-4 h-4 accent-orange-600 border-gray-300 focus:ring-orange-500 focus:ring-2'
+                    />
+                    <span className='text-sm font-medium text-gray-700 group-hover:text-gray-900 transition-colors'>
+                      {cat.name}
+                    </span>
+                  </div>
+                  <span className='text-xs font-semibold text-gray-400 bg-gray-100 px-2 py-1 rounded-md'>
+                    {0}
+                  </span>
+                </label>
+              ))}
         </div>
       </FilterSection>
 
@@ -129,14 +155,14 @@ function FilterSidebar({
           {RATINGS.map(rating => (
             <label
               key={rating.value}
-              className='flex items-center gap-3 px-3 py-1  hover:bg-gradient-to-r hover:from-orange-50 hover:to-purple-50 rounded-xl cursor-pointer group transition-all'
+              className='flex items-center gap-3 px-3 py-1  hover:bg-linear-to-r hover:from-orange-50 hover:to-purple-50 rounded-xl cursor-pointer group transition-all'
             >
               <input
                 type='radio'
                 name='rating'
                 value={rating.value}
                 checked={filteredQuery.rating === rating.value}
-                onChange={e => handleFilterChange("category", e.target.value)}
+                onChange={e => handleFilterChange("rating", e.target.value)}
                 className='w-4 h-4 accent-orange-600 focus:ring-orange-500 border-gray-300 focus:ring-2'
               />
               <div className='flex items-center gap-2'>
@@ -173,7 +199,7 @@ function FilterSidebar({
           {LEVELS.map(level => (
             <label
               key={level.value}
-              className='flex items-center justify-between px-3 py-1  hover:bg-gradient-to-r hover:from-orange-50 hover:to-purple-50 rounded-xl cursor-pointer group transition-all'
+              className='flex items-center justify-between px-3 py-1  hover:bg-linear-to-r hover:from-orange-50 hover:to-purple-50 rounded-xl cursor-pointer group transition-all'
             >
               <div className='flex items-center gap-3'>
                 <input
@@ -181,7 +207,7 @@ function FilterSidebar({
                   name='level'
                   value={level.value}
                   checked={filteredQuery.level === level.value}
-                  onChange={e => handleFilterChange("category", e.target.value)}
+                  onChange={e => handleFilterChange("level", e.target.value)}
                   className='w-4 h-4 accent-orange-600 border-gray-300 focus:ring-orange-500 focus:ring-2'
                 />
                 <span className='text-sm font-medium text-gray-700 group-hover:text-gray-900 transition-colors'>
@@ -206,7 +232,7 @@ function FilterSidebar({
           {LANGUAGES.map(lang => (
             <label
               key={lang.value}
-              className='flex items-center justify-between px-3 py-1  hover:bg-gradient-to-r hover:from-orange-50 hover:to-purple-50 rounded-xl cursor-pointer group transition-all'
+              className='flex items-center justify-between px-3 py-1  hover:bg-linear-to-r hover:from-orange-50 hover:to-purple-50 rounded-xl cursor-pointer group transition-all'
             >
               <div className='flex items-center gap-3'>
                 <input
@@ -214,7 +240,7 @@ function FilterSidebar({
                   name='language'
                   value={lang.value}
                   checked={filteredQuery.language === lang.value}
-                  onChange={e => handleFilterChange("category", e.target.value)}
+                  onChange={e => handleFilterChange("language", e.target.value)}
                   className='w-4 h-4 accent-orange-600 focus:ring-orange-500 border-gray-300 focus:ring-2'
                 />
                 <span className='text-sm font-medium text-gray-700 group-hover:text-gray-900 transition-colors'>
@@ -236,7 +262,7 @@ function FilterSidebar({
         onToggle={() => toggleSection("price")}
       >
         <div className='space-y-5'>
-          <div className='flex items-center justify-between px-1'>
+          {/* <div className='flex items-center justify-between px-1'>
             <div className='flex flex-col'>
               <span className='text-xs text-gray-500 font-medium'>Min</span>
               <span className='text-lg font-bold text-gray-900'>${minPrice}</span>
@@ -246,7 +272,7 @@ function FilterSidebar({
               <span className='text-xs text-gray-500 font-medium'>Max</span>
               <span className='text-lg font-bold text-gray-900'>${maxPrice}</span>
             </div>
-          </div>
+          </div> */}
 
           <div className='flex gap-3'>
             <div className='flex-1'>
@@ -258,8 +284,9 @@ function FilterSidebar({
                 <input
                   type='number'
                   value={minPrice}
+                  min={0}
                   onChange={e => setMinPrice(Number(e.target.value))}
-                  className='w-full pl-7 pr-3 py-2.5 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10 text-sm font-medium transition-all'
+                  className='w-full pl-7 pr-3 py-2.5 border-2 border-gray-200 rounded focus:outline-none focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10 text-sm font-medium transition-all'
                   placeholder='0'
                 />
               </div>
@@ -273,8 +300,9 @@ function FilterSidebar({
                 <input
                   type='number'
                   value={maxPrice}
+                  min={0}
                   onChange={e => setMaxPrice(Number(e.target.value))}
-                  className='w-full pl-7 pr-3 py-2.5 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10 text-sm font-medium transition-all'
+                  className='w-full pl-7 pr-3 py-2.5 border-2 border-gray-200 rounded focus:outline-none focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10 text-sm font-medium transition-all'
                   placeholder='100'
                 />
               </div>

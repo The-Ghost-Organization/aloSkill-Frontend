@@ -1,0 +1,12 @@
+.animateFlowMarch {
+  animation: flowMarch 1.5s linear infinite;
+}
+
+@keyframes flowMarch {
+  from {
+    stroke-dashoffset: 16;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}

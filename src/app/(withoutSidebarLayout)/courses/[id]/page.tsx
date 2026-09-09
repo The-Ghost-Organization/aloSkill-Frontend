@@ -4,12 +4,7 @@ import { useSessionContext } from "@/app/contexts/SessionContext.tsx";
 import BorderGradientButton from "@/components/buttons/BorderGradientButton.tsx";
 import GradientButton from "@/components/buttons/GradientButton.tsx";
 import { apiClient } from "@/lib/api/client.ts";
-import {
-  courseAddToCartHandler,
-  FadeIn,
-  getFileIdFromUrl,
-  parseCourseDescription,
-} from "@/lib/course/utils.tsx";
+import { FadeIn, getFileIdFromUrl, parseCourseDescription } from "@/lib/course/utils.tsx";
 import {
   Award,
   Calendar,
@@ -21,8 +16,9 @@ import {
   FileText,
   Globe,
   Heart,
+  Home,
   Linkedin,
-  Play,
+  Loader,
   Share2,
   Shield,
   ShoppingCart,
@@ -30,16 +26,25 @@ import {
   Twitter,
   Users,
   Video,
+  X,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import { courseAddToCartHandler } from "../../../../lib/course/courseHelper.ts";
 import type { CourseDetailsPublic } from "../allCourses.types.ts";
 import { CurriculumTab } from "./(tabs)/CurriculumTab.tsx";
 import InstructorTab from "./(tabs)/InstructorTab.tsx";
 import OverviewTab from "./(tabs)/OverviewTab.tsx";
 import ReviewsTab from "./(tabs)/ReviewsTab.tsx";
+
+type VideoData = {
+  libraryId: string;
+  token: string;
+  expiresAt: number;
+  videoId: string;
+} | null;
 
 export default function CourseDetailPage() {
   const params = useParams();
@@ -49,13 +54,12 @@ export default function CourseDetailPage() {
   const [isInWishlist, setIsInWishlist] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [course, setCourse] = useState<CourseDetailsPublic>();
-  const [videoData, setVideoData] = useState<{
-    libraryId: string;
-    token: string;
-    expiresAt: number;
-    videoId: string;
-  } | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
+  const [modalVideoData, setModalVideoData] = useState<VideoData>(null);
+  const [videoData, setVideoData] = useState<VideoData>(null);
+  const [videoDataLoading, setVidoeDataLoading] = useState<boolean>(false);
   const { setCartUpdate } = useSessionContext();
+
   useEffect(() => {
     const fetchCourses = async () => {
       try {
@@ -75,6 +79,7 @@ export default function CourseDetailPage() {
   }, [courseId]);
 
   useEffect(() => {
+    setVidoeDataLoading(true);
     if (!course?.trailerUrl) {
       return;
     }
@@ -97,8 +102,31 @@ export default function CourseDetailPage() {
         }
       };
       getVideoData();
-    } catch (_error: unknown) {}
+    } catch (_error: unknown) {
+    } finally {
+      setVidoeDataLoading(false);
+    }
   }, [course?.trailerUrl]);
+
+  const getModalVideoData = async (url: string) => {
+    if (!url) return;
+    setIsModalOpen(true);
+    const getVideoFromBunny = await apiClient.post<{
+      libraryId: string;
+      token: string;
+      videoId: string;
+      expiresAt: number;
+    }>("/course/get-video-url", {
+      filePath: getFileIdFromUrl(url),
+      duration: 10,
+    });
+    if (!getVideoFromBunny.success) {
+      return;
+    }
+    if (getVideoFromBunny.data) {
+      setModalVideoData(getVideoFromBunny.data);
+    }
+  };
 
   const courseDescriptionParsed = parseCourseDescription(course?.description);
 
@@ -110,6 +138,7 @@ export default function CourseDetailPage() {
     { icon: Globe, label: "Access on mobile and TV" },
     { icon: Clock, label: "Full lifetime access" },
   ];
+
   const tabs = ["Overview", "Curriculum", "Instructor", "Reviews"];
   const toggleSection = (index: number) => {
     setExpandedSections(prev => {
@@ -124,11 +153,11 @@ export default function CourseDetailPage() {
       return next;
     });
   };
+
   const getRemainingDays = (endDate: string | Date): number => {
     const now = new Date();
     const end = new Date(endDate);
 
-    // If date is invalid or already expired
     if (isNaN(end.getTime()) || end <= now) return 0;
 
     const diffMs = end.getTime() - now.getTime();
@@ -139,43 +168,40 @@ export default function CourseDetailPage() {
     courseAddToCartHandler(courseId);
     setCartUpdate?.(prev => !prev);
   };
+
   if (isLoading) {
     return (
-      <div className='flex items-center justify-center min-h-screen'>
-        <div className='animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900'></div>
+      <div className='font-medium flex items-center justify-center gap-3 min-h-screen'>
+        {/* <div className='animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900'></div> */}
+        <Loader className='w-10 h-10 animate-spin' /> Loading Course...
       </div>
     );
   }
 
   return (
-    <div className='min-h-screen bg-gray-50 max-w-[1420px] mx-auto'>
+    <div className='min-h-screen bg-gray-50 max-w-[1420px] mx-auto py-10'>
       {/* Breadcrumb */}
-      <div className='bg-white border-b border-gray-200 '>
+      <div className=''>
         <div className='  px-4 sm:px-6 lg:px-8 py-3 sm:py-4'>
           <FadeIn>
             <nav className='flex items-center gap-2 text-sm text-gray-600 overflow-x-auto'>
               <Link
                 href='/'
-                className='hover:text-[#da7c36] transition-colors whitespace-nowrap'
+                className='hover:text-orange flex flex-row gap-1 transition-colors whitespace-nowrap'
               >
+                <Home className='w-4 h-4 ' />
                 Home
               </Link>
-              <ChevronRight className='w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0' />
+              <ChevronRight className='w-3 h-3 sm:w-4 sm:h-4 shrink-0' />
               <Link
                 href='/courses'
                 className='hover:text-[#da7c36] transition-colors whitespace-nowrap'
               >
-                Web Development
+                All Courses
               </Link>
-              <ChevronRight className='w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0' />
-              <Link
-                href='/courses'
-                className='hover:text-[#da7c36] transition-colors whitespace-nowrap'
-              >
-                Web Development
-              </Link>
-              <ChevronRight className='w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0' />
-              <span className='text-gray-900 whitespace-nowrap'>Responsive</span>
+              <ChevronRight className='w-3 h-3 sm:w-4 sm:h-4 shrink-0' />
+
+              <span className='text-orange whitespace-nowrap'>{course?.title}</span>
             </nav>
           </FadeIn>
         </div>
@@ -199,7 +225,9 @@ export default function CourseDetailPage() {
                 <div className='flex flex-wrap items-center gap-3 sm:gap-6 mb-4 sm:mb-6'>
                   {/* Rating */}
                   <div className='flex items-center gap-2'>
-                    <span className='font-bold text-lg sm:text-xl text-gray-900'></span>
+                    <span className='text-lg sm:text-xl text-gray-700'>
+                      {course?.ratingAverage}
+                    </span>
                     <div className='flex items-center'>
                       {[1, 2, 3, 4, 5].map(star => (
                         <Star
@@ -216,7 +244,9 @@ export default function CourseDetailPage() {
                   {/* Students */}
                   <div className='flex items-center gap-2'>
                     <Users className='w-4 h-4 sm:w-5 sm:h-5 text-gray-500' />
-                    <span className=' text-sm text-gray-600'>enrolled students</span>
+                    <span className=' text-sm text-gray-600'>
+                      {course?.enrollmentCount} enrolled students
+                    </span>
                   </div>
                 </div>
 
@@ -258,29 +288,20 @@ export default function CourseDetailPage() {
               <FadeIn delay={200}>
                 <div className='relative rounded-md overflow-hidden shadow-xl group'>
                   <div className='relative aspect-video'>
-                    {videoData && (
-                      <iframe
-                        className='w-full h-full'
-                        src={`https://iframe.mediadelivery.net/embed/${videoData.libraryId}/${videoData.videoId}?token=${videoData.token}&expires=${videoData.expiresAt}`}
-                        allow='encrypted-media; autoplay'
-                        allowFullScreen
-                      />
-                    )}
-                    {/* <Image
-                      src={course?.thumbnailUrl || "/course-placeholder.jpg"}
-                      alt={course?.title || "Course Preview"}
-                      fill
-                      className='object-cover group-hover:scale-105 transition-transform duration-700'
-                    /> */}
-                    <div className='absolute inset-0 bg-gradient-to-t from-black/60 to-transparent' />
-                    <div className='absolute inset-0 flex items-center justify-center'>
-                      <button className='w-16 h-16 sm:w-20 sm:h-20 bg-white rounded-full flex items-center justify-center shadow-2xl hover:scale-110 transition-all duration-300 group-hover:bg-[#da7c36]'>
-                        <Play
-                          className='w-6 h-6 sm:w-8 sm:h-8 text-[#da7c36] group-hover:text-white ml-1 transition-colors'
-                          fill='currentColor'
+                    {videoDataLoading ? (
+                      <div className='w-full h-full flex items-center justify-center gap-2'>
+                        <Loader className='w-6 h-6 animate-spin' /> Loading Video...
+                      </div>
+                    ) : (
+                      videoData && (
+                        <iframe
+                          className='w-full h-full'
+                          src={`https://iframe.mediadelivery.net/embed/${videoData.libraryId}/${videoData.videoId}?token=${videoData.token}&expires=${videoData.expiresAt}&autoplay=false`}
+                          allow='encrypted-media;'
+                          allowFullScreen
                         />
-                      </button>
-                    </div>
+                      )
+                    )}
                   </div>
                 </div>
               </FadeIn>
@@ -328,7 +349,7 @@ export default function CourseDetailPage() {
                     >
                       {tab}
                       {activeTab === tab && (
-                        <div className='absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-[#d15100] to-[#da7c36]' />
+                        <div className='absolute bottom-0 left-0 right-0 h-0.5 bg-linear-to-r from-[#d15100] to-[#da7c36]' />
                       )}
                     </button>
                   ))}
@@ -344,6 +365,7 @@ export default function CourseDetailPage() {
                       toggleSection={toggleSection}
                       totalLectures={course?.content?.totalLessons ?? 0}
                       totalDuration={course?.content?.totalDuration ?? 0}
+                      getModalVideoData={getModalVideoData}
                     />
                   )}
                   {activeTab === "Instructor" && (
@@ -366,34 +388,31 @@ export default function CourseDetailPage() {
               <div className='sticky top-20 lg:top-24'>
                 {/* Desktop Preview Image */}
                 <div className='hidden lg:block mb-6'>
-                  <div className='relative rounded-md overflow-hidden shadow-xl group'>
-                    <div className='relative aspect-video'>
-                      {videoData && (
-                        <iframe
-                          className='w-full h-full'
-                          src={`https://iframe.mediadelivery.net/embed/${videoData.libraryId}/${videoData.videoId}?token=${videoData.token}&expires=${videoData.expiresAt}`}
-                          allow='encrypted-media; autoplay'
-                          allowFullScreen
-                        />
-                      )}
-                      <div className='absolute inset-0 bg-gradient-to-t from-black/60 to-transparent' />
-                      <div className='absolute inset-0 flex items-center justify-center'>
-                        <button className='w-20 h-20 bg-white rounded-full flex items-center justify-center shadow-2xl hover:scale-110 transition-all duration-300 group-hover:bg-[#da7c36]'>
-                          <Play
-                            className='w-8 h-8 text-[#da7c36] group-hover:text-white ml-1 transition-colors'
-                            fill='currentColor'
+                  <div className='rounded overflow-hidden shadow m-0 p-0'>
+                    <div className='aspect-video'>
+                      {videoDataLoading ? (
+                        <div className='w-full h-full flex items-center justify-center gap-2 bg-amber-500 z-30'>
+                          <Loader className='w-6 h-6 animate-spin' /> Loading Video...
+                        </div>
+                      ) : (
+                        videoData && (
+                          <iframe
+                            className='w-full h-full object-fill rounded'
+                            src={`https://iframe.mediadelivery.net/embed/${videoData.libraryId}/${videoData.videoId}?token=${videoData.token}&expires=${videoData.expiresAt}&autoplay=false`}
+                            allow='encrypted-media;'
+                            allowFullScreen
                           />
-                        </button>
-                      </div>
+                        )
+                      )}
                     </div>
                   </div>
                 </div>
 
                 <div className='bg-white rounded-md sm:rounded-md shadow-lg border border-gray-200 overflow-hidden'>
                   {/* Price */}
-                  <div className='p-4 sm:p-6 bg-gradient-to-br from-orange-50 via-white to-purple-50'>
+                  <div className='p-4 sm:p-6 bg-linear-to-br from-orange-50 via-white to-purple-50'>
                     <div className='flex items-baseline gap-2 sm:gap-3 mb-3 sm:mb-4 flex-wrap'>
-                      {course?.discountPrice ? (
+                      {course?.discountPrice && course?.discountPrice > 0 ? (
                         <>
                           <span className='text-xl font-bold text-orange-dark'>
                             ${course?.discountPrice}
@@ -414,9 +433,9 @@ export default function CourseDetailPage() {
                       )}
                     </div>
 
-                    {course?.discountPrice && (
+                    {course?.discountPrice && course?.discountPrice > 0 ? (
                       <div className='flex items-center gap-2  text-sm text-red-600 mb-3 sm:mb-4'>
-                        <Clock className='w-4 h-4 flex-shrink-0' />
+                        <Clock className='w-4 h-4 shrink-0' />
                         <span className='font-semibold'>
                           {" "}
                           {getRemainingDays(course?.discountEndDate as string)} day
@@ -424,6 +443,8 @@ export default function CourseDetailPage() {
                           this price!
                         </span>
                       </div>
+                    ) : (
+                      <></>
                     )}
 
                     <div className='space-y-2 sm:space-y-3'>
@@ -452,7 +473,7 @@ export default function CourseDetailPage() {
                     {/* Money-back guarantee */}
                     <div className='mt-4 p-3 bg-green-50 border border-green-200 rounded-lg'>
                       <div className='flex items-center gap-2  text-sm text-green-700'>
-                        <Shield className='w-4 h-4 flex-shrink-0' />
+                        <Shield className='w-4 h-4 shrink-0' />
                         <span className='font-semibold'>30-Day Money-Back Guarantee</span>
                       </div>
                     </div>
@@ -471,7 +492,7 @@ export default function CourseDetailPage() {
                             key={index}
                             className='flex items-center gap-2 sm:gap-3  text-sm text-gray-700 hover:text-[#da7c36] transition-colors group'
                           >
-                            <Icon className='w-4 h-4 sm:w-5 sm:h-5 text-[#da7c36] flex-shrink-0 group-hover:scale-110 transition-transform' />
+                            <Icon className='w-4 h-4 sm:w-5 sm:h-5 text-[#da7c36] shrink-0 group-hover:scale-110 transition-transform' />
                             <span>{item.label}</span>
                           </div>
                         );
@@ -542,6 +563,41 @@ export default function CourseDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* modal for course curriculumn */}
+      {isModalOpen && (
+        <div className='w-screen h-screen fixed top-0 left-0 z-90 bg-black/40 flex items-center justify-center'>
+          <div className='w-[600px] aspect-video bg-white rounded flex items-center justify-center'>
+            {!modalVideoData ? (
+              <div className='flex items-center gap-3'>
+                <Loader className='w-8 h-8 text-orange animate-spin' />
+                <p className='text-lg text-orange'>Loading video...</p>
+              </div>
+            ) : (
+              <div className='w-full h-full rounded relative group'>
+                {modalVideoData && (
+                  <iframe
+                    className='w-full h-full rounded'
+                    src={`https://iframe.mediadelivery.net/embed/${modalVideoData.libraryId}/${modalVideoData.videoId}?token=${modalVideoData.token}&expires=${modalVideoData.expiresAt}&autoplay=false`}
+                    allow='encrypted-media;'
+                    allowFullScreen
+                  />
+                )}
+                <button
+                  type='button'
+                  onClick={() => {
+                    setIsModalOpen(false);
+                    setModalVideoData(null);
+                  }}
+                  className='items-center justify-center p-1 rounded-full bg-orange text-md absolute top-2 right-2 cursor-pointer hidden group-hover:flex transform transition-all duration-1000'
+                >
+                  <X className='font-semibold text-gray-300 text-md' />
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       <style
         jsx
