@@ -169,7 +169,7 @@ function AvailabilityPill({ stock }: { stock: number }) {
   } as const;
 
   return (
-    <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${styles[tier]}`}>
+    <span className={`rounded-full px-2.5 py-1 text-sm font-semibold ${styles[tier]}`}>
       {labels[tier]}
     </span>
   );
@@ -195,7 +195,7 @@ function StatChip({
       </div>
 
       <div className='min-w-0'>
-        <p className='text-[10px] font-bold uppercase tracking-wider text-slate-400'>{label}</p>
+        <p className='text-[12px] font-bold uppercase tracking-wider text-slate-400'>{label}</p>
 
         <p className='truncate text-sm font-semibold text-slate-800'>{value}</p>
       </div>
@@ -262,12 +262,12 @@ function FormatOption({
           </p>
 
           {highlight && (
-            <span className='mt-1.5 inline-flex rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-emerald-700 ring-1 ring-emerald-200'>
+            <span className='mt-1.5 inline-flex rounded-full bg-emerald-100 px-2 py-0.5 text-[12px] font-black uppercase tracking-wide text-emerald-700 ring-1 ring-emerald-200'>
               {highlight}
             </span>
           )}
 
-          <p className='mt-1 text-xs leading-relaxed text-slate-500'>
+          <p className='mt-1 text-sm leading-relaxed text-slate-500'>
             {disabled && disabledMessage ? disabledMessage : description}
           </p>
         </div>
@@ -299,7 +299,7 @@ function FormatOption({
       </div>
 
       {discount !== null && (
-        <p className='mt-1.5 text-xs font-bold text-red-500'>Save {discount}%</p>
+        <p className='mt-1.5 text-sm font-bold text-red-500'>Save {discount}%</p>
       )}
     </button>
   );
@@ -624,7 +624,7 @@ export default function BookDetailsClient({ book, relatedBooks }: BookDetailsCli
         <div className='border-b border-slate-200/80 bg-white/70 backdrop-blur-md'>
           <div className='mx-auto max-w-7xl px-4 py-3.5 sm:px-6 lg:px-8'>
             <nav
-              className='flex items-center gap-1.5 text-xs text-slate-500'
+              className='flex items-center gap-1.5 text-sm text-slate-500'
               aria-label='Breadcrumb'
             >
               <Link
@@ -658,7 +658,7 @@ export default function BookDetailsClient({ book, relatedBooks }: BookDetailsCli
 
               <ChevronRight className='h-3 w-3 text-slate-300' />
 
-              <span className='max-w-[180px] truncate text-slate-800 sm:max-w-xs'>
+              <span className='max-w-[180px] truncate text-slate-800 sm:max-w-sm'>
                 {book.title}
               </span>
             </nav>
@@ -684,19 +684,19 @@ export default function BookDetailsClient({ book, relatedBooks }: BookDetailsCli
             ═══════════════════════════════════════════════════════════════ */}
 
             <div className='flex flex-col items-center gap-4 [animation:book-fade-up_0.4s_ease-out_both] lg:sticky lg:top-8 lg:h-fit lg:items-stretch'>
-              <div className='relative mx-auto aspect-[3/4] object-contain overflow-hidden rounded-xl border border-slate-200 bg-white shadow-[0_24px_60px_rgba(15,23,42,0.12)] sm:w-64 lg:w-full'>
+              <div className='relative mx-auto aspect-[3/4] w-full max-w-64 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-[0_24px_60px_rgba(15,23,42,0.12)] lg:max-w-none'>
                 <Image
                   src={book.coverImage}
                   alt={`Cover of ${book.title}`}
                   fill
                   priority
                   className='object-cover'
-                  sizes='(max-width: 1024px) 256px, 300px'
+                  sizes='(max-width: 640px) 100vw, (max-width: 1024px) 256px, 300px'
                 />
 
                 {activeDiscount > 0 && (
-                  <div className='absolute left-3 top-3'>
-                    <span className='rounded-full bg-red-500 px-2.5 py-1 text-xs font-black text-white shadow-sm'>
+                  <div className='absolute left-3 top-3 z-10'>
+                    <span className='rounded-full bg-red-500 px-2.5 py-1 text-sm font-black text-white shadow-sm'>
                       -{activeDiscount}% Off
                     </span>
                   </div>
@@ -746,7 +746,7 @@ export default function BookDetailsClient({ book, relatedBooks }: BookDetailsCli
                 {book.formats.map((format, index) => (
                   <span
                     key={`${format}-${index}`}
-                    className='rounded-lg border border-slate-200 bg-white/70 px-2.5 py-0.5 text-xs font-semibold text-slate-500'
+                    className='rounded-lg border border-slate-200 bg-white/70 px-2.5 py-0.5 text-sm font-semibold text-slate-500'
                   >
                     {format}
                   </span>
@@ -755,7 +755,7 @@ export default function BookDetailsClient({ book, relatedBooks }: BookDetailsCli
 
               {/* Title */}
 
-              <h1 className='mb-3 text-3xl font-black leading-[1.1] tracking-tight text-slate-950 sm:text-4xl lg:text-5xl'>
+              <h1 className='mb-3 text-2xl font-black leading-[1.1] tracking-tight text-slate-950 sm:text-4xl lg:text-4xl'>
                 {book.title}
               </h1>
 
@@ -884,7 +884,7 @@ export default function BookDetailsClient({ book, relatedBooks }: BookDetailsCli
                     <div className='mb-4 flex items-center gap-2'>
                       <FileText className='h-3.5 w-3.5 text-orange-500' />
 
-                      <h2 className='text-xs font-bold uppercase tracking-wider text-slate-500'>
+                      <h2 className='text-sm font-bold uppercase tracking-wider text-slate-500'>
                         Book Information
                       </h2>
                     </div>
@@ -952,7 +952,7 @@ export default function BookDetailsClient({ book, relatedBooks }: BookDetailsCli
                     <div className='border-b border-slate-100 bg-linear-to-r from-orange-50/80 via-white to-sky-50/70 px-5 py-4'>
                       <div className='flex items-center gap-2'>
                         <User className='h-3.5 w-3.5 text-orange-500' />
-                        <h2 className='text-xs font-bold uppercase tracking-wider text-slate-500'>
+                        <h2 className='text-sm font-bold uppercase tracking-wider text-slate-500'>
                           Author Profile
                         </h2>
                       </div>
@@ -978,7 +978,7 @@ export default function BookDetailsClient({ book, relatedBooks }: BookDetailsCli
                         </div>
 
                         <div className='min-w-0 flex-1'>
-                          <p className='text-[10px] font-bold uppercase tracking-[0.18em] text-orange-500'>
+                          <p className='text-[12px] font-bold uppercase tracking-[0.18em] text-orange-500'>
                             Written by
                           </p>
 
@@ -995,7 +995,7 @@ export default function BookDetailsClient({ book, relatedBooks }: BookDetailsCli
                           <div className='mt-4 border-t border-slate-100 pt-4'>
                             {book.owner?.instructorProfile?.expertise ? (
                               <>
-                                <p className='mb-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400'>
+                                <p className='mb-1.5 text-[12px] font-bold uppercase tracking-wider text-slate-400'>
                                   Expertise
                                 </p>
                                 <p className='whitespace-pre-line text-sm leading-relaxed text-slate-600'>
@@ -1018,7 +1018,7 @@ export default function BookDetailsClient({ book, relatedBooks }: BookDetailsCli
 
               {/* ISBN / Book ID */}
 
-              <div className='mt-4 flex flex-wrap items-center gap-4 text-xs text-slate-400'>
+              <div className='mt-4 flex flex-wrap items-center gap-4 text-sm text-slate-400'>
                 {book.isbn && (
                   <div className='flex items-center gap-1.5'>
                     <Hash className='h-3 w-3' />
@@ -1108,7 +1108,7 @@ export default function BookDetailsClient({ book, relatedBooks }: BookDetailsCli
         <div className='fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/95 px-4 py-3 shadow-[0_-8px_30px_rgba(15,23,42,0.08)] backdrop-blur-md lg:hidden'>
           <div className='flex items-center justify-between gap-4'>
             <div className='min-w-0'>
-              <p className='truncate text-xs text-slate-500'>
+              <p className='truncate text-sm text-slate-500'>
                 {selectedFormat
                   ? selectedFormat === "PHYSICAL"
                     ? hasDigital
@@ -1180,7 +1180,7 @@ function BuyBox({
             <div className='flex items-center gap-2'>
               <Tag className='h-3.5 w-3.5 text-orange-500' />
 
-              <h2 className='text-xs font-bold uppercase tracking-wider text-slate-600'>
+              <h2 className='text-sm font-bold uppercase tracking-wider text-slate-700'>
                 Choose Your Format
               </h2>
             </div>
@@ -1188,7 +1188,7 @@ function BuyBox({
             <AvailabilityPill stock={book.stock} />
           </div>
 
-          <p className='mt-1.5 text-xs text-slate-400'>Choose one purchase option</p>
+          <p className='mt-1.5 text-sm text-slate-600'>Choose one purchase option</p>
         </div>
 
         <div
@@ -1235,11 +1235,11 @@ function BuyBox({
 
       <div className='mb-4 rounded-xl border border-slate-200 bg-slate-50/80 p-3.5'>
         <div className='flex items-center justify-between'>
-          <span className='text-xs font-bold uppercase tracking-wider text-slate-500'>
+          <span className='text-sm font-bold uppercase tracking-wider text-slate-500'>
             Selected
           </span>
 
-          <span className='text-xs font-semibold text-slate-700'>
+          <span className='text-sm font-semibold text-slate-700'>
             {selectedFormat ? "1 option" : "None"}
           </span>
         </div>
@@ -1248,11 +1248,11 @@ function BuyBox({
           <div className='mt-2 flex flex-wrap gap-1.5'>
             {selectedFormat === "PHYSICAL" && (
               <>
-                <span className='rounded-full bg-orange-100 px-2 py-1 text-[10px] font-semibold text-orange-700'>
+                <span className='rounded-full bg-orange-100 px-2 py-1 text-[12px] font-semibold text-orange-700'>
                   Hardcover
                 </span>
                 {hasDigital && (
-                  <span className='rounded-full bg-emerald-100 px-2 py-1 text-[10px] font-semibold text-emerald-700'>
+                  <span className='rounded-full bg-emerald-100 px-2 py-1 text-[12px] font-semibold text-emerald-700'>
                     + Free E-book
                   </span>
                 )}
@@ -1260,7 +1260,7 @@ function BuyBox({
             )}
 
             {selectedFormat === "EBOOK" && (
-              <span className='rounded-full bg-blue-100 px-2 py-1 text-[10px] font-semibold text-blue-700'>
+              <span className='rounded-full bg-blue-100 px-2 py-1 text-[12px] font-semibold text-blue-700'>
                 E-book
               </span>
             )}
@@ -1271,7 +1271,7 @@ function BuyBox({
       {/* Total */}
 
       <div className='mb-4 flex items-center justify-between rounded-xl border border-slate-200 bg-white px-3.5 py-3'>
-        <span className='text-xs font-bold uppercase tracking-wider text-slate-500'>Total</span>
+        <span className='text-sm font-bold uppercase tracking-wider text-slate-500'>Total</span>
 
         <span className='text-xl font-black text-slate-950'>
           {selectedFormat ? formatPrice(totalPrice) : "—"}
@@ -1281,11 +1281,11 @@ function BuyBox({
       {/* Validation messages */}
 
       {!selectedFormat && (
-        <p className='mb-3 text-xs text-slate-400'>Select a format to continue.</p>
+        <p className='mb-3 text-sm text-slate-400'>Select a format to continue.</p>
       )}
 
       {physicalUnavailable && selectedFormat === "PHYSICAL" && (
-        <p className='mb-3 text-xs font-medium text-red-500'>
+        <p className='mb-3 text-sm font-medium text-red-500'>
           Hardcover is currently out of stock. Choose the E-book to continue.
         </p>
       )}
@@ -1340,9 +1340,9 @@ function BuyBox({
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
     <div className='flex items-start justify-between gap-4 border-b border-slate-100 pb-2.5 last:border-0'>
-      <span className='text-xs text-slate-400'>{label}</span>
+      <span className='text-sm text-slate-400'>{label}</span>
 
-      <span className='text-right text-xs font-medium text-slate-600'>{value}</span>
+      <span className='text-right text-sm font-medium text-slate-600'>{value}</span>
     </div>
   );
 }

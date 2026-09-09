@@ -44,6 +44,7 @@ export default withAuth(
       pathname.startsWith("/courses") ||
       pathname.startsWith("/instructors") ||
       pathname.startsWith("/about") ||
+      pathname.startsWith("/books") ||
       pathname.startsWith("/alo")
     ) {
       return NextResponse.next();
