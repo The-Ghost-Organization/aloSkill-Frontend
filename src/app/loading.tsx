@@ -2,8 +2,7 @@ import HandLoader from "@/components/loaders/HandLoader.tsx";
 
 const loading = () => {
   return (
-    <div>
-      This is the loading page.
+    <div className='mx-auto flex h-screen w-full items-center justify-center'>
       <HandLoader />
     </div>
   );

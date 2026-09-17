@@ -1,572 +1,566 @@
-// "use client";
-// import { apiClient } from "@/lib/api/client.ts";
-// import {
-//   BookOpen,
-//   ChevronLeft,
-//   ChevronRight,
-//   Clock,
-//   Download,
-//   FileText,
-//   Maximize,
-//   Menu,
-//   MessageSquare,
-//   Minimize,
-//   Pause,
-//   Play,
-//   PlayCircle,
-//   Share2,
-//   Volume2,
-//   VolumeX,
-//   X,
-// } from "lucide-react";
-// import { useParams } from "next/navigation";
-// import { useEffect, useRef, useState } from "react";
-// import type { CourseDetailsPrivate } from "../../courses/allCourses.types.ts";
+"use client";
 
-// const LMSVideoPlayer = () => {
-//   const [isPlaying, setIsPlaying] = useState(false);
-//   const [isMuted, setIsMuted] = useState(false);
-//   const [isFullscreen, setIsFullscreen] = useState(false);
-//   const [activeSection, setActiveSection] = useState(0);
-//   const [activeTab, setActiveTab] = useState("description");
-//   const [sidebarOpen, setSidebarOpen] = useState(false);
-//   // const [currentTime, setCurrentTime] = useState(85);
-//   // const [duration, setDuration] = useState(310);
-//   const videoContainerRef = useRef(null);
-//   const [isLoading, setIsLoading] = useState(false);
-//   const [course, setCourse] = useState<CourseDetailsPrivate | undefined>(undefined);
-//   const { id } = useParams();
+import {
+  CheckCircle2,
+  ChevronDown,
+  ChevronLeft,
+  ChevronUp,
+  Clock,
+  FileText,
+  Loader,
+  Lock,
+  Pause,
+  Play,
+} from "lucide-react";
+import { useParams, useRouter } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
+import { apiClient } from "../../../../lib/api/client";
+import { getFileIdFromUrl } from "../../../../lib/course/utils";
+import { useSessionContext } from "../../../contexts/SessionContext";
+import type { CourseDetailsPrivate, PrivateLesson } from "../../courses/allCourses.types";
+import AttachFileTab from "./AttachFileTab";
+import BunnyVideoPlayer from "./BunnyVideoPlayer";
+import CommentsTab from "./CommentsTab";
+import DescriptionTab from "./DescriptionTab";
+import LectureNotesTab from "./LectureNotesTab";
+import { useRightClickProtection } from "./Userightclickprotection.ts";
+import VideoProtectionWrapper from "./Videoprotectionwrapper.tsx";
 
-//   useEffect(() => {
-//     if (!id) return;
-//     const fetchCourses = async () => {
-//       try {
-//         setIsLoading(true);
-//         const response = await apiClient.get<CourseDetailsPrivate>(
-//           `/course/private/viewCourse/${id}`
-//         );
-//         console.log("response", response);
-//         setCourse(response.data);
-//       } catch (error) {
-//         console.error("Failed to fetch popular courses", error);
-//       } finally {
-//         setIsLoading(false);
-//       }
-//     };
-//     fetchCourses();
-//   }, [id]);
+const mapUser = new Map<string, string>();
+export default function CoursePage() {
+  const router = useRouter();
+  const [activeTab, setActiveTab] = useState("description");
+  const [expandedSections, setExpandedSections] = useState<number[]>([1]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [course, setCourse] = useState<CourseDetailsPrivate | undefined>(undefined);
+  const [activeContent, setActiveContent] = useState<PrivateLesson | null>(null);
+  const [videoData, setVideoData] = useState<{
+    libraryId: string;
+    token: string;
+    expiresAt: number;
+    videoId: string;
+  } | null>(null);
+  const { id } = useParams();
+  const { user } = useSessionContext();
 
-//   // const courseSections = [
-//   //   {
-//   //     id: 0,
-//   //     title: "Getting Started",
-//   //     lectures: 4,
-//   //     duration: "33m",
-//   //     progress: 50,
-//   //     items: [
-//   //       { id: 0, title: "What is Webflow?", duration: "5m 12s", completed: true },
-//   //       { id: 1, title: "Sign up in Webflow", duration: "4m 30s", completed: true, active: true },
-//   //       { id: 2, title: "Basics of Webflow", duration: "12m 45s", completed: false },
-//   //       { id: 3, title: "Figma Introduction", duration: "10m 33s", completed: false, locked: true },
-//   //     ],
-//   //   },
-//   //   {
-//   //     id: 1,
-//   //     title: "Secrets of Great Design",
-//   //     lectures: 8,
-//   //     duration: "1h 23m",
-//   //     progress: 0,
-//   //     items: [
-//   //       { id: 4, title: "Design Principles", duration: "15m 20s", completed: false, locked: true },
-//   //       { id: 5, title: "Color Theory", duration: "12m 45s", completed: false, locked: true },
-//   //     ],
-//   //   },
-//   //   {
-//   //     id: 2,
-//   //     title: "Practice: Design Like an Artist",
-//   //     lectures: 12,
-//   //     duration: "2h 15m",
-//   //     progress: 0,
-//   //     items: [],
-//   //   },
-//   //   {
-//   //     id: 3,
-//   //     title: "Web Development (webflow)",
-//   //     lectures: 15,
-//   //     duration: "3h 45m",
-//   //     progress: 0,
-//   //     items: [],
-//   //   },
-//   //   {
-//   //     id: 4,
-//   //     title: "Secrets of Making Money Freelancing",
-//   //     lectures: 6,
-//   //     duration: "1h 12m",
-//   //     progress: 0,
-//   //     items: [],
-//   //   },
-//   // ];
+  if (user) {
+    mapUser.set("storedUser", user?.id);
+  }
 
-//   // const progress = (currentTime / duration) * 100;
+  const handleSuspiciousActivity = useCallback(
+    async (action: string) => {
+      // Fire-and-forget — don't await so it doesn't block the user
+      apiClient
+        .post("/course/security-event", {
+          userId: user?.id,
+          courseId: id,
+          lessonId: activeContent?.id,
+          action,
+          timestamp: new Date().toISOString(),
+          userAgent: navigator.userAgent,
+        })
+        .catch(() => {}); // silently swallow — never break the player for this
+    },
+    [user?.id, id, activeContent?.id]
+  );
 
-//   const toggleFullscreen = () => {
-//     if (!document.fullscreenElement) {
-//       videoContainerRef.current?.requestFullscreen();
-//       setIsFullscreen(true);
-//     } else {
-//       document.exitFullscreen();
-//       setIsFullscreen(false);
-//     }
-//   };
+  const handleSetActiveContents = useCallback(
+    (moduleId = 1, lessonId = 1) => {
+      const targetLesson = course?.modules
+        .find(m => m.position === moduleId)
+        ?.lessons.find(l => l.position === lessonId);
 
-//   useEffect(() => {
-//     const handleFullscreenChange = () => {
-//       setIsFullscreen(!!document.fullscreenElement);
-//     };
-//     document.addEventListener("fullscreenchange", handleFullscreenChange);
-//     return () => document.removeEventListener("fullscreenchange", handleFullscreenChange);
-//   }, []);
+      if (!targetLesson) {
+        setActiveContent(null);
+        return;
+      }
 
-//   const tabs = [
-//     { id: "description", label: "Description", icon: BookOpen },
-//     { id: "notes", label: "Lecture Notes", icon: FileText },
-//     { id: "attachments", label: "Attachments", icon: Download, badge: 1 },
-//     { id: "comments", label: "Comments", icon: MessageSquare, badge: 354 },
-//   ];
+      if (moduleId === 1 && lessonId === 1) {
+        setActiveContent(targetLesson);
+        return;
+      }
+      const allLessons = course?.modules
+        .sort((a, b) => a.position - b.position)
+        .flatMap(m => m.lessons.sort((a, b) => a.position - b.position));
 
-//   return (
-//     <div className='flex h-screen max-w-[1420px] mx-auto bg-gray-50 overflow-hidden py-12 px-10'>
-//       {/* Main Content Area */}
-//       <div className='flex-1 flex flex-col min-w-0 '>
-//         {/* Top Navigation */}
-//         <div className='bg-white border-b border-gray-200 px-4 md:px-6 py-3 md:py-4'>
-//           <div className='flex items-center justify-between gap-4'>
-//             <div className='flex items-center gap-2 md:gap-4 min-w-0 flex-1'>
-//               <button
-//                 className='text-gray-600 hover:text-gray-900 transition-colors flex-shrink-0'
-//                 aria-label='Go back'
-//               >
-//                 <ChevronLeft
-//                   size={20}
-//                   className='md:w-6 md:h-6'
-//                 />
-//               </button>
-//               <div className='min-w-0 flex-1'>
-//                 <h1 className='text-sm md:text-lg font-semibold text-[var(--color-text-dark)] truncate'>
-//                   {course ? course.title : "Loading..."}
-//                 </h1>
-//                 <div className='flex items-center gap-3 md:gap-4 mt-1  text-sm text-gray-500'>
-//                   <span className='flex items-center gap-1'>
-//                     <PlayCircle
-//                       size={14}
-//                       className='md:w-4 md:h-4'
-//                     />
-//                     <span className='hidden sm:inline'>
-//                       {course?.content.totalLessons} lectures
-//                     </span>
-//                     <span className='sm:hidden'>285</span>
-//                   </span>
-//                   <span className='flex items-center gap-1'>
-//                     <Clock
-//                       size={14}
-//                       className='md:w-4 md:h-4'
-//                     />
-//                     {course?.content.totalDuration}
-//                   </span>
-//                 </div>
-//               </div>
-//             </div>
+      const targetIndex = allLessons?.findIndex(l => l.id === targetLesson.id);
+      const previousLesson =
+        targetIndex !== undefined && targetIndex > 0 ? allLessons?.[targetIndex - 1] : undefined;
 
-//             <div className='flex items-center gap-2 flex-shrink-0'>
-//               <button
-//                 onClick={() => setSidebarOpen(!sidebarOpen)}
-//                 className='lg:hidden p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors'
-//                 aria-label='Toggle course contents'
-//               >
-//                 <Menu size={20} />
-//               </button>
-//               <button className='hidden sm:flex items-center gap-2 px-3 md:px-4 py-2  text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors'>
-//                 <Share2
-//                   size={14}
-//                   className='md:w-4 md:h-4'
-//                 />
-//                 <span className='hidden md:inline'>Share</span>
-//               </button>
-//               <button className='px-3 md:px-4 py-2  text-sm font-medium text-white bg-[var(--color-orange)] rounded-lg hover:bg-[var(--color-orange-dark)] transition-colors'>
-//                 Next
-//               </button>
-//             </div>
-//           </div>
-//         </div>
+      const isPrevCompleted = previousLesson?.lessonProgress[0]?.completed;
 
-//         {/* Video Player */}
-//         <div
-//           ref={videoContainerRef}
-//           className='relative bg-black flex-1 flex items-center justify-center group'
-//         >
-//           {/* Video Placeholder */}
-//           <div className='relative w-full h-full bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center'>
-//             <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=1200&auto=format&fit=crop')] bg-cover bg-center opacity-60" />
-//             <div className='absolute inset-0 bg-black/30' />
+      if (isPrevCompleted) {
+        setActiveContent(targetLesson);
+      } else {
+        console.warn("Previous lesson not completed!");
+      }
+    },
+    [course?.modules]
+  );
 
-//             {/* Play/Pause Overlay */}
-//             <button
-//               onClick={() => setIsPlaying(!isPlaying)}
-//               className='absolute inset-0 flex items-center justify-center z-10'
-//               aria-label={isPlaying ? "Pause video" : "Play video"}
-//             >
-//               {!isPlaying && (
-//                 <div className='w-16 h-16 md:w-20 md:h-20 rounded-full bg-white/95 flex items-center justify-center group-hover:scale-110 transition-transform shadow-2xl'>
-//                   <Play
-//                     size={28}
-//                     className='md:w-8 md:h-8 text-gray-900 ml-1'
-//                     fill='currentColor'
-//                   />
-//                 </div>
-//               )}
-//             </button>
+  useEffect(() => {
+    if (!id || !mapUser.get("storedUser")) return;
+    const fetchCourses = async () => {
+      try {
+        setIsLoading(true);
+        const response = await apiClient.get<CourseDetailsPrivate>(
+          `/course/private/viewCourse/${id}/${user?.id || mapUser.get("storedUser")}`
+        );
+        setCourse(response.data);
+      } catch (error) {
+        console.error("Failed to fetch Course", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchCourses();
+  }, [id, user]);
 
-//             {/* Video Controls */}
-//             <div className='absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-3 md:p-4 opacity-0 group-hover:opacity-100 transition-opacity z-20'>
-//               {/* Progress Bar - Full Width on Top */}
+  const handleUpdateProgress = useCallback(
+    async (updateData: {
+      lessonId: string;
+      lastPosition: number;
+      progressValue: number;
+      isFinished: boolean;
+    }) => {
+      if (typeof updateData.lessonId !== "string" || !updateData.lessonId) {
+        console.error("Invalid lessonId provided");
+        return;
+      }
+      const updateModule = course?.modules.find(m =>
+        m.lessons.find(l => l.id === updateData.lessonId)
+      );
+      if (!updateModule) {
+        console.warn(`Module not found for lessonId: ${updateData.lessonId}`);
+        return;
+      }
+      const updatingLesson = updateModule.lessons.find(l => l.id === updateData.lessonId);
+      if (!updatingLesson) {
+        console.warn(`Lesson not found for lessonId: ${updateData.lessonId}`);
+        return;
+      }
+      if (updatingLesson.lessonProgress[0]?.completed) return;
 
-//               <div className='flex items-center gap-2 md:gap-4'>
-//                 {/* Left Controls */}
-//                 <div className='flex items-center gap-2 md:gap-3'>
-//                   <button
-//                     onClick={() => setIsPlaying(!isPlaying)}
-//                     className='text-white hover:text-gray-300 transition-colors'
-//                     aria-label={isPlaying ? "Pause" : "Play"}
-//                   >
-//                     {isPlaying ? (
-//                       <Pause
-//                         size={18}
-//                         className='md:w-5 md:h-5'
-//                       />
-//                     ) : (
-//                       <Play
-//                         size={18}
-//                         className='md:w-5 md:h-5'
-//                       />
-//                     )}
-//                   </button>
-//                   <button
-//                     className='text-white hover:text-gray-300 transition-colors hidden sm:block'
-//                     aria-label='Previous lecture'
-//                   >
-//                     <ChevronLeft
-//                       size={18}
-//                       className='md:w-5 md:h-5'
-//                     />
-//                   </button>
-//                   <button
-//                     className='text-white hover:text-gray-300 transition-colors hidden sm:block'
-//                     aria-label='Next lecture'
-//                   >
-//                     <ChevronRight
-//                       size={18}
-//                       className='md:w-5 md:h-5'
-//                     />
-//                   </button>
-//                   <button
-//                     onClick={() => setIsMuted(!isMuted)}
-//                     className='text-white hover:text-gray-300 transition-colors'
-//                     aria-label={isMuted ? "Unmute" : "Mute"}
-//                   >
-//                     {isMuted ? (
-//                       <VolumeX
-//                         size={18}
-//                         className='md:w-5 md:h-5'
-//                       />
-//                     ) : (
-//                       <Volume2
-//                         size={18}
-//                         className='md:w-5 md:h-5'
-//                       />
-//                     )}
-//                   </button>
-//                 </div>
+      const updateLesson = await apiClient.patch(`/course/update-lesson/${user?.id}`, {
+        courseId: id,
+        lessonId: updateData?.lessonId,
+        progressValue: updateData?.progressValue,
+        isFinished: updateData?.isFinished,
+        lastPosition: updateData?.lastPosition,
+      });
 
-//                 {/* Time Display */}
-//                 <div className='flex items-center gap-2 text-white  text-sm flex-1'>
-//                   <span className='text-gray-400'>/</span>
-//                   <span>Duration</span>
-//                 </div>
+      if (updateLesson.success) {
+        setCourse(prev => {
+          if (!prev) return prev;
 
-//                 {/* Right Controls */}
-//                 <button
-//                   onClick={toggleFullscreen}
-//                   className='text-white hover:text-gray-300 transition-colors'
-//                   aria-label={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
-//                 >
-//                   {isFullscreen ? (
-//                     <Minimize
-//                       size={18}
-//                       className='md:w-5 md:h-5'
-//                     />
-//                   ) : (
-//                     <Maximize
-//                       size={18}
-//                       className='md:w-5 md:h-5'
-//                     />
-//                   )}
-//                 </button>
-//               </div>
-//             </div>
-//           </div>
-//         </div>
+          return {
+            ...prev,
+            modules: prev.modules.map(mod => ({
+              ...mod,
+              lessons: mod.lessons.map(less => {
+                if (less.id === updateLesson?.data) {
+                  return {
+                    ...less,
+                    lessonProgress: [
+                      {
+                        ...(less.lessonProgress[0] || {
+                          progressValue: 0,
+                          lastPosition: 0,
+                          lastViewedAt: null,
+                          completedAt: null,
+                          completed: false,
+                        }),
+                        completed: updateData?.isFinished ?? false,
+                        completedAt: updateData?.isFinished ? new Date().toISOString() : null,
+                        progressValue: updateData?.progressValue ?? 0,
+                        lastPosition: updateData?.lastPosition ?? 0,
+                      },
+                    ],
+                  };
+                }
+                return less;
+              }),
+            })),
+          };
+        });
+      }
+    },
+    [id, user, course?.modules]
+  );
 
-//         {/* Tabs Section */}
-//         <div className='bg-white border-t border-gray-200'>
-//           {/* Tab Navigation */}
-//           <div className='flex gap-4 md:gap-6 px-4 md:px-6 pt-3 md:pt-4 overflow-x-auto scrollbar-hide'>
-//             {tabs.map(tab => {
-//               const Icon = tab.icon;
-//               return (
-//                 <button
-//                   key={tab.id}
-//                   onClick={() => setActiveTab(tab.id)}
-//                   className={`pb-2 md:pb-3  text-sm font-medium border-b-2 transition-colors whitespace-nowrap flex items-center gap-1.5 md:gap-2 ${
-//                     activeTab === tab.id
-//                       ? "text-[var(--color-text-dark)] border-[var(--color-orange)]"
-//                       : "text-gray-500 border-transparent hover:text-gray-900"
-//                   }`}
-//                 >
-//                   <Icon
-//                     size={14}
-//                     className='md:w-4 md:h-4'
-//                   />
-//                   <span>{tab.label}</span>
-//                   {tab.badge && (
-//                     <span className='px-1.5 py-0.5  rounded bg-[var(--color-orange)] text-white font-medium'>
-//                       {tab.badge}
-//                     </span>
-//                   )}
-//                 </button>
-//               );
-//             })}
-//           </div>
+  useEffect(() => {
+    if (!activeContent?.contentUrl) {
+      return;
+    }
+    try {
+      const getVideoData = async () => {
+        const getVideoFromBunny = await apiClient.post<{
+          libraryId: string;
+          token: string;
+          videoId: string;
+          expiresAt: number;
+        }>("/course/get-video-url", {
+          filePath: getFileIdFromUrl(activeContent?.contentUrl as string),
+          duration: 1,
+        });
+        if (!getVideoFromBunny.success) {
+          return;
+        }
+        if (getVideoFromBunny.data) {
+          setVideoData(getVideoFromBunny.data);
+        }
+      };
+      getVideoData();
+    } catch (_error: unknown) {}
+  }, [activeContent?.contentUrl]);
 
-//           {/* Tab Content */}
-//           <div className='px-4 md:px-6 py-3 md:py-4 max-h-32 md:max-h-48 overflow-y-auto'>
-//             {activeTab === "description" && (
-//               <div>
-//                 <h3 className='font-semibold text-[var(--color-text-dark)] mb-2 text-sm md:text-base'>
-//                   2. Sign up in Webflow
-//                 </h3>
-//                 <div className='flex flex-wrap items-center gap-2 md:gap-3  text-sm text-gray-500 mb-3 md:mb-4'>
-//                   <span>{new Date(course?.updatedAt as string).toLocaleDateString()}</span>
-//                   <span className='hidden sm:inline'>•</span>
-//                   <span>Comments: 354</span>
-//                 </div>
-//                 <p className=' text-sm text-gray-600 leading-relaxed'>
-//                   We can interactively package your idea into your first website. From creating your
-//                   first page through to uploading your website to the internet. For the first time,
-//                   you can build amazing, bespoke websites. There are reasons this you can do
-//                   whatever task Sketch OR Photoshop can do them work doing with me. At the end of
-//                   each video I have a downloadable version of where we are in the process so that
-//                   you can compare your progress and ensure you&#39;re on the right track.
-//                 </p>
-//               </div>
-//             )}
-//             {activeTab === "notes" && (
-//               <div className=' text-sm text-gray-600'>
-//                 <p className='mb-3'>Lecture notes will appear here...</p>
-//                 <ul className='list-disc list-inside space-y-1'>
-//                   <li>Key point about Webflow signup process</li>
-//                   <li>Important account configuration steps</li>
-//                   <li>Best practices for getting started</li>
-//                 </ul>
-//               </div>
-//             )}
-//             {activeTab === "attachments" && (
-//               <div className=' text-sm text-gray-600'>
-//                 <div className='flex items-center gap-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors'>
-//                   <Download
-//                     size={20}
-//                     className='text-[var(--color-orange)]'
-//                   />
-//                   <div className='flex-1'>
-//                     <p className='font-medium text-gray-900'>Webflow Signup Guide.pdf</p>
-//                     <p className=' text-gray-500'>2.4 MB</p>
-//                   </div>
-//                 </div>
-//               </div>
-//             )}
-//             {activeTab === "comments" && (
-//               <div className=' text-sm text-gray-600'>
-//                 <p>Comments section will appear here...</p>
-//               </div>
-//             )}
-//           </div>
-//         </div>
-//       </div>
+  useEffect(() => {
+    if (activeContent) return;
+    handleSetActiveContents(1, 1);
+  }, [handleSetActiveContents, activeContent]);
 
-//       {/* Sidebar - Course Contents (Desktop) */}
-//       <div className='hidden lg:flex w-80 xl:w-96 border-l border-gray-200 bg-white flex-col'>
-//         <SidebarContent
-//           courseSections={course}
-//           activeSection={activeSection}
-//           setActiveSection={setActiveSection}
-//         />
-//       </div>
+  const toggleSection = (sectionId: number) => {
+    setExpandedSections(prev =>
+      prev.includes(sectionId) ? prev.filter(id => id !== sectionId) : [...prev, sectionId]
+    );
+  };
+  useRightClickProtection({
+    disabled: process.env.NODE_ENV === "development", // remove this line in prod if you want it always on
+    onAttempt: e => {
+      // Optional: log to backend for abuse monitoring
+      // apiClient.post("/course/security-event", {
+      //   userId: user?.id,
+      //   courseId: id,
+      //   action: "right-click",
+      //   timestamp: new Date().toISOString(),
+      // }).catch(() => {});
+    },
+  });
+  const progressCount = () => {
+    if (course) {
+      const allLessons = course.modules.flatMap(m => m.lessons);
+      const total = allLessons.length;
+      const completed = allLessons.filter(l => l.lessonProgress[0]?.completed).length;
+      const percentage = total > 0 ? Math.round((completed / total) * 100) : 0;
+      return percentage;
+    }
+    return 0;
+  };
 
-//       {/* Mobile Sidebar Overlay */}
-//       {sidebarOpen && (
-//         <div
-//           className='lg:hidden fixed inset-0 bg-black/50 z-50'
-//           onClick={() => setSidebarOpen(false)}
-//         >
-//           <div
-//             className='absolute right-0 top-0 bottom-0 w-full max-w-sm bg-white shadow-2xl'
-//             onClick={e => e.stopPropagation()}
-//           >
-//             <div className='flex items-center justify-between px-4 py-4 border-b border-gray-200'>
-//               <h2 className='font-semibold text-[var(--color-text-dark)]'>Course Contents</h2>
-//               <button
-//                 onClick={() => setSidebarOpen(false)}
-//                 className='p-2 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors'
-//                 aria-label='Close sidebar'
-//               >
-//                 <X size={20} />
-//               </button>
-//             </div>
-//             <SidebarContent
-//               courseSections={course}
-//               activeSection={activeSection}
-//               setActiveSection={setActiveSection}
-//             />
-//           </div>
-//         </div>
-//       )}
-//     </div>
-//   );
-// };
+  const tabs = [
+    { id: "description", label: "Description", component: DescriptionTab },
+    { id: "lectures", label: "Lectures Notes", component: LectureNotesTab },
+    { id: "attach", label: "Attach File", component: AttachFileTab },
+    { id: "comments", label: "Comments", component: CommentsTab },
+  ];
 
-// // Sidebar Content Component (Reusable)
-// const SidebarContent = ({
-//   courseSections,
-//   activeSection,
-//   setActiveSection,
-// }: {
-//   courseSections: CourseDetailsPrivate | undefined;
-//   activeSection: number;
-//   setActiveSection: (arg: any) => void;
-// }) => {
-//   // const totalLectures = courseSections?.content.totalLessons;
-//   // const completedLectures = courseSections?.content.modules.reduce(
-//   //   (acc, section) => acc + section.items.filter(item => item.completed).length,
-//   //   0
-//   // );
-//   // const overallProgress = Math.round((completedLectures / totalLectures) * 100) || 18;
+  const ActiveTabComponent = tabs.find(tab => tab.id === activeTab)?.component;
 
-//   return (
-//     <>
-//       <div className='flex items-center justify-between px-4 md:px-6 py-4 border-b border-gray-200'>
-//         <h2 className='font-semibold text-[var(--color-text-dark)] text-sm md:text-base'>
-//           Course Contents
-//         </h2>
-//         {/* <span className=' text-sm font-medium text-[var(--color-orange)]'>
-//           {overallProgress}% Complete
-//         </span> */}
-//       </div>
+  if (isLoading) {
+    return (
+      <div className='min-h-screen flex gap-3 items-center justify-center'>
+        <Loader className='w-8 h-8 text-gray-500 animate-spin' />
+        <p className='text-gray-500'>Loading course details...</p>
+      </div>
+    );
+  }
 
-//       <div className='flex-1 overflow-y-auto'>
-//         {courseSections?.modules?.map((module, idx) => (
-//           <div
-//             key={idx}
-//             className='border-b border-gray-200'
-//           >
-//             <button
-//               onClick={() => setActiveSection(activeSection === idx ? -1 : idx)}
-//               className='w-full px-4 md:px-6 py-3 md:py-4 flex items-center justify-between hover:bg-gray-50 transition-colors'
-//             >
-//               <div className='flex items-center gap-2 md:gap-3 flex-1 min-w-0'>
-//                 <ChevronRight
-//                   size={16}
-//                   className={`text-gray-400 transition-transform flex-shrink-0 ${
-//                     activeSection === idx ? "rotate-90" : ""
-//                   }`}
-//                 />
-//                 <div className='text-left flex-1 min-w-0'>
-//                   <div className=' text-sm font-medium text-[var(--color-text-dark)] truncate'>
-//                     {module.title}
-//                   </div>
-//                   <div className=' text-gray-500 mt-0.5'>
-//                     {module.lessons.length} lectures • {module.duration}
-//                   </div>
-//                 </div>
-//               </div>
-//               {/* {module.progress > 0 && (
-//                 <div className='flex items-center gap-2 flex-shrink-0'>
-//                   <div className='hidden md:block w-12 h-1.5 bg-gray-200 rounded-full overflow-hidden'>
-//                     <div
-//                       className='h-full bg-[var(--color-orange)] rounded-full transition-all'
-//                       style={{ width: `${section.progress}%` }}
-//                     />
-//                   </div>
-//                   <span className=' font-medium text-[var(--color-orange)]'>
-//                     {section.progress}%
-//                   </span>
-//                 </div>
-//               )} */}
-//             </button>
+  if (!course) {
+    return (
+      <div className='min-h-screen flex gap-3 items-center justify-center'>
+        <p className='text-gray-500'>
+          You are not Enrolled in this course or No course available with this request
+        </p>
+      </div>
+    );
+  }
 
-//             {/* Lecture Items */}
-//             {activeSection === idx && module.lessons.length > 0 && (
-//               <div className='bg-gray-50'>
-//                 {module.lessons.map(lesson => (
-//                   <button
-//                     key={lesson.postion}
-//                     // disabled={lesson.locked}
-//                     // className={`w-full px-4 md:px-6 py-2.5 md:py-3 flex items-center gap-2 md:gap-3 transition-colors bg-orange-50 ${
-//                     //   lesson.locked ? "cursor-not-allowed opacity-60" : "hover:bg-gray-100"
-//                     // } ${lesson.active ? "bg-orange-50" : ""}`}
-//                     className='w-full px-4 md:px-6 py-2.5 md:py-3 flex items-center gap-2 md:gap-3 transition-colors bg-orange-50'
-//                   >
-//                     <div className='flex-shrink-0'>
-//                       <PlayCircle
-//                         size={16}
-//                         className='text-[var(--color-orange)]'
-//                       />
-//                       {/* {lesson.completed ? (
-//                         <CheckCircle
-//                           size={16}
-//                           className='text-[var(--color-orange)]'
-//                         />
-//                       ) : lesson.active ? (
-//                         <PlayCircle
-//                           size={16}
-//                           className='text-[var(--color-orange)]'
-//                         />
-//                       ) : (
-//                         <Lock
-//                           size={16}
-//                           className='text-gray-400'
-//                         />
-//                       )} */}
-//                     </div>
-//                     <div className='flex-1 text-left min-w-0'>
-//                       <div
-//                       // className={` text-sm truncate ${
-//                       //   lesson.active
-//                       //     ? "font-medium text-[var(--color-text-dark)]"
-//                       //     : "text-gray-700"
-//                       // }`}
-//                       >
-//                         {lesson.title}
-//                       </div>
-//                     </div>
-//                     <div className=' text-gray-500 flex-shrink-0'>{lesson.duration}</div>
-//                   </button>
-//                 ))}
-//               </div>
-//             )}
-//           </div>
-//         ))}
-//       </div>
-//     </>
-//   );
-// };
+  return (
+    <div
+      className='min-h-screen  bg-linear-to-br from-purple-50 via-pink-50 to-blue-50 py-6'
+      onContextMenu={e => e.preventDefault()}
+      style={{ userSelect: "none" }}
+    >
+      {/* <DevToolsBlocker
+        // disabled={process.env.NODE_ENV === "development"}
+        onDetected={() =>
+          apiClient
+            .post("/course/security-event", {
+              userId: user?.id,
+              courseId: id,
+              action: "devtools-opened",
+            })
+            .catch(() => {})
+        }
+      /> */}
+      {/* Header */}
+      <header className='bg-transparent shadow-md'>
+        <div className='max-w-[90%]  mx-auto px-3 sm:px-4 lg:px-6 py-2.5'>
+          <div className='flex items-center justify-between'>
+            <div className='flex items-center space-x-4'>
+              <button
+                className='cursor-pointer'
+                onClick={() => router.back()}
+              >
+                <ChevronLeft className='w-5 h-5 text-gray-700' />
+              </button>
+              <div>
+                <h1 className='text-md sm:text-lg mb-2 font-semibold text-gray-900'>
+                  {course?.title || "Loading Course Title..."}
+                </h1>
+                <div className='flex items-center space-x-4 mt-1 text-sm text-gray-600'>
+                  <span className='flex items-center space-x-1'>
+                    <FileText className='w-4 h-4' />
+                    <span>{course?.modules.length} Modules</span>
+                  </span>
+                  <span className='flex items-center space-x-1'>
+                    <Play className='w-4 h-4' />
+                    <span>{course?.content.totalLessons} Lectures</span>
+                  </span>
+                  <span className='flex items-center space-x-1'>
+                    <Clock className='w-4 h-4' />
+                    <span>{course?.content.totalDuration}</span>
+                  </span>
+                </div>
+              </div>
+            </div>
+            <div className='flex items-center space-x-3'>
+              <button className='px-3 py-1.5 text-orange font-medium hover:bg-orange-100 rounded transition-colors duration-750'>
+                Write A Review
+              </button>
+              <button className='px-3 py-1.5 bg-orange text-white font-medium rounded hover:bg-orange-500 transition-colors duration-500 cursor-pointer'>
+                Next Lecture
+              </button>
+            </div>
+          </div>
+        </div>
+      </header>
 
-// export default LMSVideoPlayer;
+      <div className='max-w-[90%] mx-auto px-3 sm:px-4 lg:px-6 py-6'>
+        <div className='grid grid-cols-1 lg:grid-cols-3 gap-6'>
+          {/* Main Content */}
+          <div className='lg:col-span-2'>
+            {/* Video/Image Player */}
+            <div className='bg-white overflow-hidden'>
+              {/* <div className='aspect-video bg-linear-to-br from-teal-400 to-teal-500'>
+                {videoData ? (
+                  <>
+                    <BunnyVideoPlayer
+                      videoUrl={`https://iframe.mediadelivery.net/embed/${videoData.libraryId}/${videoData.videoId}?token=${videoData.token}&expires=${videoData.expiresAt}&autoplay=false&api=true&enableStats=true`}
+                      lessonId={activeContent?.id as string}
+                      lastPosition={activeContent?.lessonProgress[0]?.lastPosition as number}
+                      handleUpdateProgress={handleUpdateProgress}
+                    />
+                  </>
+                ) : (
+                  <div className='min-h-screen flex gap-3 items-center justify-center'>
+                    <Loader className='w-8 h-8 text-gray-500 animate-spin' />
+                    <p className='text-gray-500'>Loading Lesson Video.</p>
+                  </div>
+                )}
+              </div> */}
+              <div className='aspect-video bg-linear-to-br from-teal-400 to-teal-500'>
+                <VideoProtectionWrapper
+                  watermarkText={user?.email ?? user?.id} // ties the watermark to the enrolled user
+                  onSuspiciousActivity={handleSuspiciousActivity}
+                  disableDevToolsDetection={false} // set true in dev to avoid annoyance
+                >
+                  {videoData ? (
+                    <BunnyVideoPlayer
+                      videoUrl={`https://iframe.mediadelivery.net/embed/${videoData.libraryId}/${videoData.videoId}?token=${videoData.token}&expires=${videoData.expiresAt}&autoplay=false&api=true&enableStats=true`}
+                      lessonId={activeContent?.id as string}
+                      lastPosition={activeContent?.lessonProgress[0]?.lastPosition as number}
+                      handleUpdateProgress={handleUpdateProgress}
+                      watermarkText={user?.email}
+                      // disableProtection={process.env.NODE_ENV === "development"}
+                    />
+                  ) : (
+                    <div className='min-h-screen flex gap-3 items-center justify-center'>
+                      <Loader className='w-8 h-8 text-gray-500 animate-spin' />
+                      <p className='text-gray-500'>Loading Lesson Video.</p>
+                    </div>
+                  )}
+                </VideoProtectionWrapper>
+              </div>
+            </div>
+            {/* <div className='space-y-2'>
+              <div className='flex justify-between text-sm'>
+                <span>Progress: {progress.toFixed(1)}%</span>
+                {isCompleted && (
+                  <span className='text-green-600 font-medium'>✔ Lesson Completed</span>
+                )}
+              </div>
+
+              <div className='h-2 w-full rounded bg-gray-200'>
+                <div
+                  className='h-full rounded bg-blue-600 transition-all'
+                  style={{ width: `${progress}%` }}
+                />
+              </div>
+            </div> */}
+            {/* Lecture Title */}
+            <div className='bg-transparent border-b border-gray-300 mt-4 pb-4'>
+              <h2 className='text-lg font-bold text-gray-900'>{activeContent?.title}</h2>
+              <span className='text-sm text-gray-500'>
+                Last updated:{" "}
+                {new Date(course.updatedAt).toLocaleDateString("en-GB", {
+                  day: "2-digit",
+                  month: "long",
+                  year: "numeric",
+                })}
+              </span>
+            </div>
+
+            {/* Tabs */}
+            <div className='bg-transparent overflow-hidden'>
+              <div className='border-b border-gray-300'>
+                <div className='flex space-x-8'>
+                  {tabs.map(tab => (
+                    <button
+                      key={tab.id}
+                      onClick={() => setActiveTab(tab.id)}
+                      className={`p-4 font-medium text-sm relative ${
+                        activeTab === tab.id
+                          ? "text-orange-500"
+                          : "text-gray-600 hover:text-gray-900"
+                      }`}
+                    >
+                      <span className='flex items-center space-x-2'>
+                        <span>{tab.label}</span>
+                        {tab.id === "attach" && (
+                          <span className='px-2 py-0.5 bg-orange-500 text-white text-xs rounded-full'>
+                            {activeContent?.files?.length}
+                          </span>
+                        )}
+                      </span>
+                      {activeTab === tab.id && (
+                        <div className='absolute bottom-0 left-0 right-0 h-0.5 bg-orange-500' />
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className='py-6'>
+                {ActiveTabComponent && <ActiveTabComponent content={activeContent} />}
+              </div>
+            </div>
+          </div>
+
+          {/* Sidebar - Course Contents */}
+          <div className='lg:col-span-1'>
+            <div className='bg-white rounded py-6 pb-0 sticky top-22'>
+              <div className='pb-6 mb-3 border-b border-gray-200'>
+                <div className='px-4 flex items-center justify-between mb-3'>
+                  <h3 className='text-md font-semibold text-gray-900'>Course Contents</h3>
+                  <span className='text-sm font-semibold text-orange'>
+                    {progressCount()}% Completed
+                  </span>
+                </div>
+                <div className='px-4'>
+                  <div className='w-full h-1 bg-gray-200 rounded-full'>
+                    <div
+                      className={`h-full bg-orange rounded-full`}
+                      style={{ width: `${progressCount()}%` }}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className='max-h-[calc(100vh-250px)] overflow-y-auto'>
+                {course?.modules.map(section => (
+                  <div
+                    key={section.position}
+                    className='border border-gray-200 overflow-hidden'
+                  >
+                    <button
+                      onClick={() => toggleSection(section.position)}
+                      className='w-full flex items-center justify-between p-4 hover:bg-gray-50 transition-colors'
+                    >
+                      <div className='flex items-center space-x-3'>
+                        {expandedSections.includes(section.position) ? (
+                          <ChevronUp className='w-5 h-5 text-orange-500' />
+                        ) : (
+                          <ChevronDown className='w-5 h-5 text-gray-400' />
+                        )}
+                        <div className='text-left'>
+                          <h4 className='font-semibold text-gray-900 text-sm'>{section.title}</h4>
+                          <div className='flex items-center space-x-3 mt-1 text-xs text-gray-500'>
+                            <span className='flex items-center space-x-1'>
+                              <Play className='w-3 h-3' />
+                              <span>{section.lessons.length} lectures</span>
+                            </span>
+                            <span className='flex items-center space-x-1'>
+                              <Clock className='w-3 h-3' />
+                              <span>{section.moduleDuration}</span>
+                            </span>
+                            <span className='flex items-center space-x-1'>
+                              <CheckCircle2 className='w-3 h-3 text-green-500' />
+                              {(() => {
+                                const completedCount =
+                                  section?.lessons.reduce(
+                                    (acc, lesson) =>
+                                      lesson.lessonProgress[0]?.completed ? acc + 1 : acc,
+                                    0
+                                  ) || 0;
+
+                                const totalLessons = section?.lessons.length || 0;
+                                const percentage =
+                                  totalLessons > 0
+                                    ? Math.floor((completedCount / totalLessons) * 100)
+                                    : 0;
+
+                                return (
+                                  <span>
+                                    {percentage}% finished ({completedCount}/{totalLessons})
+                                  </span>
+                                );
+                              })()}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </button>
+
+                    {expandedSections.includes(section.position) && section.lessons.length > 0 && (
+                      <div className='border-t border-gray-200'>
+                        {section.lessons.map(lesson => (
+                          <div
+                            key={lesson.position}
+                            onClick={() =>
+                              handleSetActiveContents(section.position, lesson.position)
+                            }
+                            className={`flex items-center justify-between p-3 hover:bg-gray-50 transition-colors cursor-pointer ${
+                              activeContent?.id === lesson.id ? "bg-orange-50" : ""
+                            }`}
+                          >
+                            <div className='flex items-center space-x-3'>
+                              {lesson.lessonProgress[0]?.completed ? (
+                                <CheckCircle2 className='w-4 h-4 text-orange-500' />
+                              ) : (
+                                <Lock className='w-4 h-4 text-gray-300' />
+                              )}
+                              <span className='text-sm text-gray-700'>{lesson.title}</span>
+                            </div>
+                            <div className='flex items-center space-x-2'>
+                              <span className='text-xs text-gray-500'>{lesson.duration}</span>
+                              {activeContent?.id === lesson.id ? (
+                                <Pause className='w-4 h-4 text-gray-700' />
+                              ) : (
+                                <Play className='w-4 h-4 text-gray-400' />
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

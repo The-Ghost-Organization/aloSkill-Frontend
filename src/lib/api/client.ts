@@ -1,6 +1,7 @@
 import { getSession } from "next-auth/react";
+import { config } from "../../config/env";
 
-const API_BASE_URL = process.env["BACKEND_API_URL"] || "http://localhost:5000/api/v1";
+const API_BASE_URL = config.NEXT_PUBLIC_BACKEND_API_URL || "http://localhost:5000/api/v1" || "https://alobackendskill.aloskill.com/api/v1";
 
 interface ApiResponse<T = unknown> {
   success: boolean;
@@ -42,9 +43,10 @@ class ApiClient {
   }
 
   // GET request
-  async get<T>(endpoint: string): Promise<ApiResponse<T>> {
+  async get<T>(endpoint: string, customHeaders?: Record<string, string>): Promise<ApiResponse<T>> {
     return this.request<T>(endpoint, {
       method: "GET",
+      headers: customHeaders || {},
     });
   }
 
@@ -89,10 +91,15 @@ class ApiClient {
   }
 
   // PATCH request
-  async patch<T>(endpoint: string, body?: unknown): Promise<ApiResponse<T>> {
+  async patch<T>(
+    endpoint: string,
+    body?: unknown,
+    customHeaders?: Record<string, string>
+  ): Promise<ApiResponse<T>> {
     return this.request<T>(endpoint, {
       method: "PATCH",
       body: JSON.stringify(body),
+      headers: customHeaders || {},
     });
   }
 

@@ -1,0 +1,508 @@
+"use client";
+
+import { useSessionContext } from "@/app/contexts/SessionContext.tsx";
+import { apiClient } from "@/lib/api/client";
+import {
+  bookDraftStorage,
+  checkoutDataStorage,
+  courseDraftStorage,
+} from "@/lib/storage/courseDraftStorage";
+import { ArrowLeft, Minus, Plus, Tag, X } from "lucide-react";
+import Image from "next/image";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+
+type CartResponse = {
+  books: {
+    id: string;
+    title: string;
+    thumbnailUrl: string;
+    category: string | undefined;
+    weight: number;
+    physicalRegularPrice: number | null;
+    physicalSalePrice: number | null;
+    digitalRegularPrice: number | null;
+    digitalSalePrice: number | null;
+  }[];
+  courses: {
+    category: string | undefined;
+    discountPrice: number;
+    id: string;
+    title: string;
+    originalPrice: number;
+    thumbnailUrl: string | null;
+  }[];
+};
+
+type StoredItem = {
+  courses: { courseId: string; quantity: number }[];
+  books: { bookId: string; format: "PHYSICAL" | "EBOOK"; quantity: number }[];
+};
+
+export default function CartManager() {
+  const [cartItems, setCartItems] = useState<CartResponse>({
+    books: [],
+    courses: [],
+  });
+  const [storedCartItems, setStoredCartItems] = useState<StoredItem>({
+    courses: [],
+    books: [],
+  });
+  const [couponCode, setCouponCode] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const router = useRouter();
+
+  const { setCartUpdate } = useSessionContext();
+
+  useEffect(() => {
+    const storedCart = courseDraftStorage.get<StoredItem["courses"]>();
+    const bookCart = bookDraftStorage.get<StoredItem["books"]>();
+    if ((!storedCart || storedCart.length === 0) && (!bookCart || bookCart.length === 0)) {
+      setCartItems({ courses: [], books: [] });
+      setIsLoading(false);
+      return;
+    }
+    setStoredCartItems({
+      courses: storedCart || [],
+      books: bookCart || [],
+    });
+
+    const fetchFreshPrices = async () => {
+      try {
+        const payload: { courses?: string[]; books?: { bookId: string; format: string }[] } = {};
+
+        if (storedCart && storedCart.length > 0) {
+          payload.courses = storedCart.map(item => item.courseId);
+        }
+
+        if (bookCart && bookCart.length > 0) {
+          payload.books = bookCart.map(item => ({ bookId: item.bookId, format: item.format }));
+        }
+
+        const response = await apiClient.post<CartResponse>("/cart/get-cart-items/", payload);
+
+        if (response.success && response.data) {
+          setCartItems(response.data);
+        } else {
+          setCartItems({ courses: [], books: [] });
+        }
+      } catch (error) {
+        console.error("Failed to sync cart items:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchFreshPrices();
+  }, []);
+
+  const updateQuantity = (id: string, format: "PHYSICAL" | "EBOOK", method: "plus" | "minus") => {
+    const updated = storedCartItems.books.map(item => {
+      if (item.bookId === id && item.format === format) {
+        return {
+          ...item,
+          quantity: method === "plus" ? item.quantity + 1 : Math.max(1, item.quantity - 1),
+        };
+      }
+      return item;
+    });
+    setStoredCartItems(prev => ({
+      ...prev,
+      books: updated,
+    }));
+    bookDraftStorage.save(updated);
+  };
+
+  const removeBookItem = (id: string, format: "PHYSICAL" | "EBOOK") => {
+    const updatedItems = storedCartItems.books.filter(item => {
+      if (format === "PHYSICAL") {
+        // Removing Physical also strips any linked Free eBook for this book
+        return item.bookId !== id;
+      }
+      // Removing paid standalone eBook
+      return !(item.bookId === id && item.format === format);
+    });
+
+    setStoredCartItems(prev => ({
+      ...prev,
+      books: updatedItems,
+    }));
+    bookDraftStorage.save(updatedItems);
+
+    const remainingFormatsForBook = updatedItems.some(item => item.bookId === id);
+    if (!remainingFormatsForBook) {
+      setCartItems(prev => ({
+        ...prev,
+        books: prev.books.filter(item => item.id !== id),
+      }));
+    }
+
+    setCartUpdate?.(prev => !prev);
+  };
+
+  const removeCourseItem = (id: string) => {
+    const updatedCourses = storedCartItems.courses.filter(item => item.courseId !== id);
+    setStoredCartItems(prev => ({
+      ...prev,
+      courses: updatedCourses,
+    }));
+    courseDraftStorage.save(updatedCourses);
+    setCartItems(prev => ({
+      ...prev,
+      courses: prev.courses.filter(item => item.id !== id),
+    }));
+    setCartUpdate?.(prev => !prev);
+  };
+
+  const handleProceedToCheckout = async () => {
+    setIsProcessing(true);
+    try {
+      checkoutDataStorage.save({
+        items: cartItems,
+        quantities: storedCartItems,
+        subtotal,
+      });
+
+      router.push(`/checkout?isCart=true`);
+    } catch (error) {
+      console.error("Failed to save checkout data:", error);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const getBookFormatPricing = (
+    book: CartResponse["books"][0],
+    format: "PHYSICAL" | "EBOOK",
+    hasBothFormatsInCart: boolean
+  ) => {
+    if (format === "PHYSICAL") {
+      const sale = book.physicalSalePrice ?? 0;
+      const reg = book.physicalRegularPrice ?? 0;
+      const price = sale > 0 ? sale : reg;
+      return { price, originalPrice: reg, isFree: false };
+    }
+
+    if (hasBothFormatsInCart) {
+      return { price: 0, originalPrice: book.digitalRegularPrice ?? 0, isFree: true };
+    }
+
+    const sale = book.digitalSalePrice ?? 0;
+    const reg = book.digitalRegularPrice ?? 0;
+    const price = sale > 0 ? sale : reg;
+    return { price, originalPrice: reg, isFree: false };
+  };
+
+  const courseSubtotal =
+    cartItems.courses?.reduce((sum, item) => {
+      const qty = storedCartItems.courses.find(ci => ci.courseId === item.id)?.quantity || 1;
+      const price = item.discountPrice > 0 ? item.discountPrice : item.originalPrice;
+      return sum + price * qty;
+    }, 0) || 0;
+
+  const bookSubtotal = storedCartItems.books.reduce((sum, storedBook) => {
+    const bookData = cartItems.books.find(b => b.id === storedBook.bookId);
+    if (!bookData) return sum;
+
+    const hasBothInCart =
+      storedCartItems.books.some(b => b.bookId === storedBook.bookId && b.format === "PHYSICAL") &&
+      storedCartItems.books.some(b => b.bookId === storedBook.bookId && b.format === "EBOOK");
+
+    const pricing = getBookFormatPricing(bookData, storedBook.format, hasBothInCart);
+    return sum + pricing.price * storedBook.quantity;
+  }, 0);
+
+  const subtotal = courseSubtotal + bookSubtotal;
+
+  if (isLoading) {
+    return (
+      <div className='text-center py-12 text-gray-500 font-medium'>
+        Updating cart items and prices...
+      </div>
+    );
+  }
+
+  if (cartItems.courses?.length === 0 && cartItems.books?.length === 0) {
+    return (
+      <div className='text-center py-16 bg-white rounded shadow-sm'>
+        <h2 className='text-xl font-semibold text-gray-700 mb-4'>Your cart is empty</h2>
+        <div className='flex flex-col sm:flex-row justify-center items-center gap-4'>
+          <Link
+            href='/courses'
+            className='px-6 py-2 bg-[#DA7C36] text-white rounded font-medium inline-flex items-center gap-2'
+          >
+            <ArrowLeft className='w-4 h-4' /> Discover Courses
+          </Link>
+          <Link
+            href='/books'
+            className='px-6 py-2 bg-[#DA7C36] text-white rounded font-medium inline-flex items-center gap-2'
+          >
+            <ArrowLeft className='w-4 h-4' /> Discover Books
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <div className='mb-6'>
+        <h2 className='text-xl font-semibold text-[#074079] mb-2'>
+          Shopping Cart ({cartItems.courses?.length + storedCartItems.books?.length})
+        </h2>
+      </div>
+
+      <div className='grid grid-cols-1 lg:grid-cols-3 gap-8'>
+        {/* Products List Panel */}
+        <div className='lg:col-span-2 space-y-4'>
+          <div className='hidden md:grid md:grid-cols-12 gap-4 pb-4 border-b border-gray-200 text-sm font-medium text-gray-600'>
+            <div className='col-span-6'>PRODUCTS</div>
+            <div className='col-span-2 text-center'>PRICE</div>
+            <div className='col-span-2 text-center'>QUANTITY</div>
+            <div className='col-span-2 text-center'>SUBTOTAL</div>
+          </div>
+
+          {/* Book Items Mapping */}
+          {storedCartItems.books.map(storedBook => {
+            const item = cartItems.books.find(b => b.id === storedBook.bookId);
+            if (!item) return null;
+
+            const hasBothFormatsInCart =
+              storedCartItems.books.some(b => b.bookId === item.id && b.format === "PHYSICAL") &&
+              storedCartItems.books.some(b => b.bookId === item.id && b.format === "EBOOK");
+
+            const pricing = getBookFormatPricing(item, storedBook.format, hasBothFormatsInCart);
+            const currentQty = storedBook.quantity;
+
+            return (
+              <div
+                key={`${item.id}-${storedBook.format}`}
+                className='bg-white rounded shadow-sm p-4'
+              >
+                <div className='grid grid-cols-1 md:grid-cols-12 gap-4 items-center'>
+                  {/* Product Info */}
+                  <div className='col-span-1 md:col-span-6 flex gap-4'>
+                    {!pricing.isFree ? (
+                      <button
+                        onClick={() => removeBookItem(item.id, storedBook.format)}
+                        className='text-gray-400 hover:text-red-500 transition-colors self-center'
+                      >
+                        <X className='w-5 h-5' />
+                      </button>
+                    ) : (
+                      <div className='w-5' />
+                    )}
+                    <div className='flex items-center gap-3'>
+                      {item.thumbnailUrl && (
+                        <Image
+                          width={80}
+                          height={80}
+                          src={encodeURI(item.thumbnailUrl)}
+                          alt={item.title}
+                          className='w-20 h-20 object-cover rounded shrink-0'
+                        />
+                      )}
+                      <div className='space-y-1.5'>
+                        <h3 className='text-base font-medium text-gray-700 line-clamp-2 leading-tight'>
+                          {item.title}
+                        </h3>
+
+                        <div>
+                          {storedBook.format === "PHYSICAL" ? (
+                            <span className='inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider bg-emerald-50 text-emerald-700 ring-1 ring-emerald-600/20 px-2 py-0.5 rounded'>
+                              📖 Physical Book
+                            </span>
+                          ) : (
+                            <span className='inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider bg-blue-50 text-blue-700 ring-1 ring-blue-600/20 px-2 py-0.5 rounded'>
+                              📱 eBook {pricing.isFree ? "(Free with Physical)" : "Only"}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Price Display */}
+                  <div className='col-span-1 md:col-span-2 flex md:justify-center items-center gap-2'>
+                    <span className='md:hidden text-sm text-gray-600 font-medium'>Price:</span>
+                    <div className='flex gap-2 items-center'>
+                      {pricing.isFree ? (
+                        <span className='text-emerald-600 font-bold uppercase text-sm'>Free</span>
+                      ) : (
+                        <span className='text-[#DA7C36] font-bold'>${pricing.price}</span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Quantity Actions */}
+                  <div className='col-span-1 md:col-span-2 flex md:justify-center items-center gap-2'>
+                    {!pricing.isFree ? (
+                      <>
+                        <span className='md:hidden text-sm text-gray-600 font-medium'>
+                          Quantity:
+                        </span>
+                        <div className='flex items-center gap-2 bg-gray-100 rounded p-1'>
+                          <button
+                            onClick={() => updateQuantity(item.id, storedBook.format, "minus")}
+                            className='w-7 h-7 flex items-center justify-center hover:bg-white rounded'
+                          >
+                            <Minus className='w-3 h-3 text-gray-600' />
+                          </button>
+                          <span className='w-6 text-center font-medium text-[#074079]'>
+                            {currentQty}
+                          </span>
+                          <button
+                            onClick={() => updateQuantity(item.id, storedBook.format, "plus")}
+                            className='w-7 h-7 flex items-center justify-center hover:bg-white rounded'
+                          >
+                            <Plus className='w-3 h-3 text-gray-600' />
+                          </button>
+                        </div>
+                      </>
+                    ) : (
+                      <span className='text-xs text-gray-400 italic'>Included</span>
+                    )}
+                  </div>
+
+                  {/* Subtotal Item */}
+                  <div className='col-span-1 md:col-span-2 flex md:justify-center items-center gap-2'>
+                    <span className='md:hidden text-sm text-gray-600 font-medium'>Subtotal:</span>
+                    <span className='text-[#074079] font-bold'>
+                      ${(pricing.price * currentQty).toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+
+          {/* Course Items Mapping */}
+          {cartItems.courses?.map(item => {
+            const currentQty =
+              storedCartItems.courses.find(ci => ci.courseId === item.id)?.quantity || 1;
+            const activePrice = item.discountPrice > 0 ? item.discountPrice : item.originalPrice;
+
+            return (
+              <div
+                key={item.id}
+                className='bg-white rounded shadow-sm p-4'
+              >
+                <div className='grid grid-cols-1 md:grid-cols-12 gap-4 items-center'>
+                  {/* Product Info */}
+                  <div className='col-span-1 md:col-span-6 flex gap-4'>
+                    <button
+                      onClick={() => removeCourseItem(item.id)}
+                      className='text-gray-400 hover:text-red-500 transition-colors self-center'
+                    >
+                      <X className='w-5 h-5' />
+                    </button>
+                    <div className='flex items-center gap-3'>
+                      {item.thumbnailUrl && (
+                        <Image
+                          width={80}
+                          height={80}
+                          src={encodeURI(item.thumbnailUrl)}
+                          alt={item.title}
+                          className='w-20 h-20 object-cover rounded'
+                        />
+                      )}
+                      <h3 className='text-base font-medium text-gray-700 line-clamp-2'>
+                        {item.title}
+                      </h3>
+                    </div>
+                  </div>
+
+                  {/* Price Display */}
+                  <div className='col-span-1 md:col-span-2 flex md:justify-center items-center gap-2'>
+                    <span className='md:hidden text-sm text-gray-600 font-medium'>Price:</span>
+                    <div className='flex gap-2 items-center'>
+                      {item.discountPrice > 0 ? (
+                        <>
+                          <span className='text-[#DA7C36] font-bold'>${item.discountPrice}</span>
+                          <span className='text-gray-400 line-through text-xs'>
+                            ${item.originalPrice}
+                          </span>
+                        </>
+                      ) : (
+                        <span className='text-[#DA7C36] font-bold'>${item.originalPrice}</span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Quantity Display */}
+                  <div className='col-span-1 md:col-span-2 flex md:justify-center items-center gap-2'>
+                    <span className='md:hidden text-sm text-gray-600 font-medium'>Quantity:</span>
+                    <div className='flex items-center gap-2 bg-gray-100 rounded p-1'>
+                      <span className='w-6 text-center font-medium text-[#074079]'>
+                        {currentQty}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Subtotal Item */}
+                  <div className='col-span-1 md:col-span-2 flex md:justify-center items-center gap-2'>
+                    <span className='md:hidden text-sm text-gray-600 font-medium'>Subtotal:</span>
+                    <span className='text-[#074079] font-bold'>
+                      ${(activePrice * currentQty).toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+
+          <div className='flex gap-4 pt-4'>
+            <Link
+              href='/courses'
+              className='flex-1 sm:flex-none'
+            >
+              <button className='w-full flex items-center justify-center gap-2 px-6 py-2 border-2 border-[#DA7C36] text-[#DA7C36] rounded hover:bg-[#DA7C36] hover:text-white transition-all font-medium'>
+                <ArrowLeft className='w-4 h-4' /> RETURN TO SHOP
+              </button>
+            </Link>
+          </div>
+        </div>
+
+        {/* Order Summary Panel */}
+        <div className='lg:col-span-1'>
+          <div className='bg-white rounded shadow-md p-6 sticky top-36 space-y-6'>
+            <div className='space-y-3'>
+              <label className='text-sm font-medium text-[#074079] flex items-center gap-2'>
+                <Tag className='w-4 h-4' /> Apply coupon code
+              </label>
+              <div className='flex gap-2'>
+                <input
+                  type='text'
+                  value={couponCode}
+                  onChange={e => setCouponCode(e.target.value)}
+                  placeholder='Coupon code'
+                  className='flex-1 px-3 py-1.5 border border-gray-200 rounded text-sm focus:outline-none focus:ring-1 focus:ring-orange'
+                />
+                <button className='px-4 py-1.5 bg-orange-500 text-white rounded hover:bg-orange-600 transition-colors text-sm font-medium'>
+                  Apply
+                </button>
+              </div>
+            </div>
+
+            <div className='space-y-4 border-t border-gray-200 pt-4 text-sm'>
+              <div className='flex justify-between text-gray-700'>
+                <span>Subtotal</span>
+                <span className='font-semibold'>${subtotal.toFixed(2)} BDT</span>
+              </div>
+            </div>
+
+            <button
+              onClick={handleProceedToCheckout}
+              disabled={cartItems.courses.length === 0 && storedCartItems.books.length === 0}
+              className={`w-full mt-4 py-2.5 bg-linear-to-r from-[#DA7C36] to-orange-dark text-white rounded font-bold transition-all flex items-center justify-center gap-2 shadow-sm hover:shadow-md ${cartItems.courses.length === 0 && storedCartItems.books.length === 0 ? "cursor-not-allowed opacity-50" : "cursor-pointer"}`}
+            >
+              {isProcessing ? "Securing Session..." : "Proceed to Checkout"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}

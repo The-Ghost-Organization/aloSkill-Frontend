@@ -1,34 +1,31 @@
-"use client";
+// "use client";
 
 import SectionHeader from "@/components/sections/SectionHeader.tsx";
+import SectionMiddleHeader from "@/components/sections/SectionMiddleHeader.tsx";
 import { ArrowUpRight, Quote, TrendingUp } from "lucide-react";
 import Image from "next/image";
 
 const testimonials = [
   {
-    content:
-      "We were drowning in technical debt. They didn't just patch the holes; they rebuilt our entire infrastructure. Our load times dropped by 60% overnight.",
-    author: "Alex Rivera",
-    role: "CTO @ FinTech Global",
+    content: `AloSkill-এর কোর্সগুলো শুধু থিওরি না, একদম প্র্যাকটিক্যাল।
+আমি এখানে শেখা স্কিল দিয়েই নিজের বিজনেসে রিয়েল রেজাল্ট পেয়েছি।`,
+    author: "Rahim Uddin",
+    role: "Small Business Owner",
     image:
       "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&q=80&w=100&h=100",
-    metric: "60% Faster Load Time",
     highlight: true, // This card will be larger/distinct
   },
   {
-    content:
-      "The design system they built allowed us to ship features 3x faster. It's not just a pretty UI; it's a productivity engine.",
-    author: "Sarah Chen",
-    role: "Product Lead @ Nexus",
+    content: `Marketing আর Business বোঝার জন্য AloSkill আমার জন্য game changer। Easy language, real-life examples, আর clear guidance—সবকিছু এক জায়গায়।`,
+    author: "Nusrat Jahan",
+    role: "Marketing Executive",
     image:
       "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&q=80&w=100&h=100",
-    metric: "3x Dev Speed",
   },
   {
-    content:
-      "I was skeptical about the timeline, but they delivered the MVP two weeks early. The code quality is impeccable.",
-    author: "Marcus Johnson",
-    role: "Founder @ SaaSify",
+    content: `Personal Development কোর্সগুলো আমাকে শুধু স্কিল না, mindset-ও build করতে সাহায্য করেছে। Highly recommended for anyone who wants growth.`,
+    author: "Tanvir Ahmed",
+    role: "Freelancer",
     image:
       "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=100&h=100",
     metric: null,
@@ -40,7 +37,6 @@ const testimonials = [
     role: "CMO @ GrowthLabs",
     image:
       "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=100&h=100",
-    metric: "+275% Conversion",
     highlight: true,
   },
   {
@@ -63,10 +59,17 @@ export default function StdTestimonials() {
 
       <div className='mx-auto max-w-7xl px-6'>
         {/* Header */}
-        <div className='mb-20 max-w-3xl'>
-          <SectionHeader
-            title='Results that speak for themselves.'
-            badge='Student Testimonials'
+        <div className='mb-20 '>
+          {/* <SectionHeader
+            title='Real stories from learners who upgraded their skills and careers with AloSkill.'
+            badge='What Our Learners Say'
+          /> */}
+          <SectionMiddleHeader
+           badge='What Our Learners Say'
+            title='Real stories from '
+            color_title="learners"
+            subtitle=''
+
           />
           {/* <div className='mb-4 inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-bold uppercase tracking-widest text-indigo-600 shadow-sm '>
             <Star className='h-3 w-3 fill-current' />
@@ -87,7 +90,7 @@ export default function StdTestimonials() {
               key={idx}
               className={`break-inside-avoid rounded-lg p-1 ${
                 t.highlight
-                  ? "bg-gradient-to-br from-indigo-500 via-fuchsia-500 to-pink-500"
+                  ? "bg-linear-to-br from-indigo-500 via-fuchsia-500 to-pink-500"
                   : "bg-transparent"
               }`}
             >
@@ -115,13 +118,13 @@ export default function StdTestimonials() {
                   {t.content}
                 </p>
 
-                {/* Metric Badge (If available) */}
+                {/* Metric Badge (If available)
                 {t.metric && (
                   <div className='mt-6 inline-flex items-center gap-2 rounded-lg bg-green-500/10 px-3 py-1.5 text-sm font-bold text-green-700  '>
                     <TrendingUp className='h-4 w-4' />
                     {t.metric}
                   </div>
-                )}
+                )} */}
 
                 <div className='my-8 h-px w-full bg-slate-100 ' />
 
@@ -136,6 +139,7 @@ export default function StdTestimonials() {
                       }
                       alt={t.author}
                       fill
+                      sizes='48px'
                       className='object-cover'
                     />
                   </div>
@@ -151,13 +155,12 @@ export default function StdTestimonials() {
           {/* CTA Card injected into the grid */}
           <div className='break-inside-avoid rounded-lg bg-slate-900 p-8 text-white shadow-2xl '>
             <div className='flex h-12 w-12 items-center justify-center rounded-xl bg-white/20 mb-6 '>
-              <TrendingUp className='h-6 w-6 text-white ' />
+              <TrendingUp className='h-4 w-4 text-white ' />
             </div>
-            <h3 className='text-2xl font-bold'>Ready to be our next success story?</h3>
-            <p className='mt-2 text-slate-400 '>Join the companies scaling with our tech.</p>
-            <button className='group mt-8 flex w-full items-center justify-center gap-2 rounded-lg bg-white py-4 text-sm font-bold text-slate-900 transition hover:bg-indigo-50 '>
-              Start Project
-              <ArrowUpRight className='h-4 w-4 transition-transform group-hover:-translate-y-1 group-hover:translate-x-1' />
+            <h3 className='text-xl font-bold text-white'>Ready to be our next success story?</h3>
+            <button className='group mt-8 flex w-full items-center justify-center gap-2 rounded-lg bg-white py-3 text-sm font-bold text-slate-900 transition hover:bg-indigo-50 '>
+              Write Your Story
+              <ArrowUpRight className='h-6 w-6 transition-transform group-hover:-translate-y-1 group-hover:translate-x-1' />
             </button>
           </div>
         </div>

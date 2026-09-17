@@ -30,7 +30,9 @@ export type CourseType = {
   id: string;
   title: string;
   thumbnailUrl: string | null;
-
+  level: string;
+  language: string;
+  ratingAverage: number;
   originalPrice: number;
   discountPrice: number | null;
 
@@ -62,9 +64,24 @@ export type CourseType = {
   _count: {
     enrollments: number;
     reviews: number;
+    LessonProgress: number;
+    courseInstructors: number;
   };
+
+  lessonProgress: {
+    completedAt: string | null;
+    completed: boolean;
+    progressValue: number;
+    lastViewedAt: string | null;
+  }[];
+
+  enrollments: {
+    userId: string;
+  }[];
 };
+
 export type CourseStatus = "DRAFT" | "PUBLISHED" | "ARCHIVED";
+
 export type CourseCardProps = {
   course: CourseType;
 
@@ -73,7 +90,11 @@ export type CourseCardProps = {
 
   isInCart?: boolean;
   isInWishlist?: boolean;
-
+  cartItems?: { courseId: string; quantity: number }[];
+  wishlistItems?: Set<string | number>;
+  isEnrolled?: boolean;
+  isOwner?: boolean;
+  user?: any;
   dashboardActions?: {
     onView?: (courseId: string | number) => void;
     onEdit?: (courseId: string) => void;
@@ -128,6 +149,7 @@ export type CourseDetails = {
     percentage: string;
   }[];
 };
+
 export type CourseDetailsPublic = {
   id: string;
   title: string;
@@ -149,6 +171,7 @@ export type CourseDetailsPublic = {
   category: string | undefined;
   courseInstructors: {
     instructorId: string;
+    userId: string;
     bio: string;
     expertise: string | null;
     rating: number | null;
@@ -187,7 +210,9 @@ export type CourseDetailsPublic = {
     percentage: string;
   }[];
 };
+
 export type CourseDetailsPrivate = {
+  id: string;
   title: string;
   createdAt: string;
   updatedAt: string;
@@ -199,9 +224,10 @@ export type CourseDetailsPrivate = {
     isExpanded: boolean;
     position: number;
     title: string;
-    duration: number;
+    moduleDuration: number;
     lessons: {
-      postion: number;
+      id: string;
+      position: number;
       title: string;
       description: string | null;
       notes: string | null;
@@ -212,7 +238,74 @@ export type CourseDetailsPrivate = {
         name: string;
         url: string;
       }[];
+      lessonProgress: {
+        completed: boolean;
+        progressValue: number;
+        lastPosition: number;
+        lastViewedAt: string | null;
+        completedAt: string | null;
+      }[];
     }[];
+  }[];
+};
+
+export type StudentCourseCardType = {
+  id: string;
+  title: string;
+  thumbnailUrl: string | null;
+
+  createdBy: {
+    user: {
+      avatarUrl: string | null;
+    };
+    displayName: string;
+  } | null;
+
+  category: {
+    name: string;
+  } | null;
+
+  modules: {
+    _count: {
+      lessons: number;
+    };
+    lessons: {
+      duration: number | null;
+    }[];
+  }[];
+
+  _count: {
+    enrollments: number;
+    reviews: number;
+  };
+  LessonProgress: {
+    completedAt: string | null;
+    completed: boolean;
+    progressValue: number;
+    lastPosition: number;
+    lastViewedAt: string | null;
+  }[];
+}[];
+
+export type PrivateLesson = {
+  id: string;
+  position: number;
+  title: string;
+  description: string | null;
+  notes: string | null;
+  duration: number | null;
+  type: string;
+  contentUrl: string | null;
+  files: {
+    name: string;
+    url: string;
+  }[];
+  lessonProgress: {
+    completed: boolean;
+    progressValue: number;
+    lastPosition: number;
+    lastViewedAt: string | null;
+    completedAt: string | null;
   }[];
 };
 export interface FilterOption {
@@ -246,6 +339,44 @@ export interface FilterSectionProps {
   onToggle: () => void;
   children: React.ReactNode;
 }
+
+export type DashboardDataType = {
+  profile: {
+    name: string;
+    overallRating: number | null;
+  };
+  counters: {
+    totalCourses: number;
+    totalEnrolled: number;
+    totalStudents: number;
+    totalOtherInstructors: number;
+  };
+  recentActivity: {
+    id: string;
+    userId: string;
+    action: string;
+    entityType: string;
+    entityId: string;
+    changesBefore: JSON | null;
+    changesAfter: JSON | null;
+    ipAddress: string | null;
+    userAgent: string | null;
+    timestamp: Date;
+  }[];
+  reviews: {
+    rating: number;
+    body: string | null;
+    createdAt: Date;
+    userDisplayName: string | undefined;
+    avatarUrl: string | null;
+  }[];
+  courseOverview: {
+    status: CourseStatus;
+    ratingAverage: number | null;
+    enrollmentCount: number;
+    title: string;
+  }[];
+};
 
 export type ViewMode = "grid" | "list";
 

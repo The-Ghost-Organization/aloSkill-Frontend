@@ -2,7 +2,7 @@
 
 import { PageHeading } from "@/components/shared/PageHeading.tsx";
 import { apiClient } from "@/lib/api/client.ts";
-import type { Instructor, InstructorListApiResponse } from "@/types/instructor.types.ts";
+import type { Instructor } from "@/types/instructor.types.ts";
 import { Loader2, Users } from "lucide-react";
 import { useEffect, useState } from "react";
 import InstructorCard from "./InstructorCard";
@@ -15,31 +15,17 @@ export default function AllInstructorsPage() {
   const [error, setError] = useState<string | null>(null);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
 
-  // Filter states
   const [searchQuery, setSearchQuery] = useState("");
 
-  const transformInstructor = (apiData: InstructorListApiResponse): Instructor => ({
-    id: apiData.id,
-    name: apiData.displayName,
-    image:
-      apiData.avaterUrl ||
-      "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&q=80",
-    roles: apiData.role || [],
-    skills: apiData.skills || [],
-    rating: Number(apiData.ratingAverage) || 0,
-    totalCourses: apiData.totalCourses || 0,
-  });
-  // Fetch instructors on mount
   useEffect(() => {
     const fetchInstructors = async () => {
       try {
         setLoading(true);
         setError(null);
-        const response = await apiClient.get<InstructorListApiResponse[]>("/user/instructors/all");
+        const response = await apiClient.get<Instructor[]>("/user/instructors/all");
         if (response.success && response.data) {
-          const transformData = response.data.map(transformInstructor);
-          setInstructors(transformData);
-          setFilteredInstructors(transformData);
+          setInstructors(response.data);
+          setFilteredInstructors(response.data);
         } else {
           setError(response.message || "Failed to fetch instructors");
         }
@@ -54,14 +40,13 @@ export default function AllInstructorsPage() {
     fetchInstructors();
   }, []);
 
-  // Apply search filter
   useEffect(() => {
     let filtered = [...instructors];
 
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(instructor => {
-        const name = instructor.name?.toLowerCase() || "";
+        const name = instructor.displayName?.toLowerCase() || "";
         const skills = instructor.skills?.join(" ").toLowerCase() || "";
         return name.includes(query) || skills.includes(query);
       });

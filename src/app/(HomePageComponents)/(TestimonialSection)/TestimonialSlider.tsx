@@ -48,10 +48,12 @@ export default function TestimonialSlider() {
   ];
 
   return (
-    <div className='min-h-screen bg-linear-to-br from-gray-50 to-gray-100 py-10 px-4'>
+    <div className='min-h-screen bg-linear-to-br from-gray-50 to-gray-100 py-16 px-4'>
       <div className='max-w-5xl mx-auto'>
         <SectionMiddleHeader
-          title={"What Our Clients Say"}
+          badge='Clients testimonials'
+          title={"What Our"}
+          color_title='Clients Say'
           subtitle='Join thousands of satisfied customers who have transformed their business with our solution'
         />
 

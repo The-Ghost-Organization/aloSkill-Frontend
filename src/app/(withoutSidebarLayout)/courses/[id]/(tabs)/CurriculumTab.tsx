@@ -8,6 +8,7 @@ type CurriculumTabProps = {
   toggleSection: (index: number) => void;
   totalLectures: number;
   totalDuration: number;
+  getModalVideoData: (url: string) => void;
 };
 
 export function CurriculumTab({
@@ -16,6 +17,7 @@ export function CurriculumTab({
   toggleSection,
   totalLectures,
   totalDuration,
+  getModalVideoData
 }: CurriculumTabProps) {
   return (
     <div className='space-y-4 sm:space-y-6'>
@@ -40,13 +42,13 @@ export function CurriculumTab({
               {/* Section Header */}
               <button
                 onClick={() => toggleSection(index)}
-                className='w-full flex items-center justify-between p-3 sm:p-5 bg-gradient-to-r from-gray-50 to-white hover:from-orange-50 hover:to-purple-50 transition-all group'
+                className='w-full flex items-center justify-between p-3 sm:p-5 bg-linear-to-r from-gray-50 to-white hover:from-orange-50 hover:to-purple-50 transition-all group'
               >
                 <div className='flex items-center gap-3 sm:gap-4 flex-1 min-w-0'>
                   <div
-                    className={`w-8 h-8  rounded-md flex items-center justify-center transition-all flex-shrink-0 ${
+                    className={`w-8 h-8  rounded-md flex items-center justify-center transition-all shrink-0 ${
                       expandedSections.has(index)
-                        ? "bg-gradient-to-br from-[#d15100] to-[#da7c36] "
+                        ? "bg-linear-to-br from-[#d15100] to-[#da7c36] "
                         : "bg-white border-2 border-gray-300 group-hover:border-[#da7c36]"
                     }`}
                   >
@@ -76,8 +78,8 @@ export function CurriculumTab({
                 <div className='p-3 sm:p-5 pt-0 space-y-1 sm:space-y-2 bg-white'>
                   {module.lessons.map((lesson: any, itemIndex: number) => (
                     <div
-                      key={lesson.id}
-                      className='flex items-center justify-between p-3 sm:p-4 hover:bg-gradient-to-r hover:from-orange-50 hover:to-purple-50 rounded-lg transition-all group cursor-pointer'
+                      key={itemIndex}
+                      className='flex items-center justify-between p-3 sm:p-4 hover:bg-linear-to-r hover:from-orange-50 hover:to-purple-50 rounded-lg transition-all group cursor-pointer'
                       style={{
                         animationDelay: `${itemIndex * 50}ms`,
                         animation: expandedSections.has(itemIndex)
@@ -85,11 +87,11 @@ export function CurriculumTab({
                           : "none",
                       }}
                     >
-                      <div className='flex items-center gap-2 sm:gap-3 flex-1 min-w-0'>
+                      <div onClick={()=> getModalVideoData(lesson?.contentUrl)} className='flex items-center gap-2 sm:gap-3 flex-1 min-w-0'>
                         {lesson?.contentUrl ? (
-                          <Play className='w-3 h-3 sm:w-4 sm:h-4 text-green-600 flex-shrink-0 group-hover:scale-125 transition-transform' />
+                          <Play className='w-3 h-3 sm:w-4 sm:h-4 text-green-600 shrink-0 group-hover:scale-125 transition-transform' />
                         ) : (
-                          <Lock className='w-3 h-3 sm:w-4 sm:h-4 text-gray-400 flex-shrink-0' />
+                          <Lock className='w-3 h-3 sm:w-4 sm:h-4 text-gray-400 shrink-0' />
                         )}
                         <span className=' text-sm text-gray-700 group-hover:text-gray-900 truncate'>
                           {lesson.title}
@@ -100,7 +102,7 @@ export function CurriculumTab({
                           </span>
                         )}
                       </div>
-                      <span className=' text-sm text-gray-500 flex items-center gap-1 sm:gap-2 flex-shrink-0 ml-2'>
+                      <span className=' text-sm text-gray-500 flex items-center gap-1 sm:gap-2 shrink-0 ml-2'>
                         <Clock className='w-3 h-3' />
                         {lesson.duration}
                       </span>

@@ -4,7 +4,7 @@ import type { InstructorCardProps } from "@/types/instructor.types";
 import { ArrowRight, Award, Share2, Star } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-
+import userFallback from "../../../../public/images/userFallback.png";
 function InstructorCard({
   instructor,
   isHovered,
@@ -60,8 +60,8 @@ function InstructorCard({
             // Share functionality
             if (navigator.share) {
               navigator.share({
-                title: instructor.name,
-                text: `Check out ${instructor.name} `,
+                title: instructor.displayName,
+                text: `Check out ${instructor.displayName} `,
                 url: window.location.href,
               });
             }
@@ -73,16 +73,11 @@ function InstructorCard({
         {/* Instructor Image */}
         <div className='relative h-72 sm:h-80 overflow-hidden bg-gray-200'>
           <Image
-            width={400}
-            height={400}
-            src={instructor.image || ""}
-            alt={instructor.name || "Instructor Image"}
-            className='w-full h-full object-cover object-center hover:scale-110 transition-transform duration-500'
-            onError={e => {
-              // Fallback to placeholder if image fails to load
-              (e.target as HTMLImageElement).src =
-                "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&q=80";
-            }}
+            src={instructor.avatarUrl || userFallback}
+            alt={instructor.displayName}
+            fill
+            sizes='(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw'
+            className='object-cover'
           />
 
           {/* Hover Overlay with Stats */}
@@ -100,13 +95,13 @@ function InstructorCard({
                   <span className='text-sm font-semibold'>
                     {instructor.totalCourses && instructor.totalCourses > 0
                       ? `${instructor.totalCourses} Courses`
-                      : instructor.name || "Instructor"}
+                      : instructor.displayName || "Instructor"}
                   </span>
                 </div>
-                {instructor.rating && instructor.rating > 0 && (
+                {instructor.ratingAverage && instructor.ratingAverage > 0 && (
                   <div className='flex items-center gap-1'>
                     <Star className='w-4 h-4 text-yellow-400 fill-yellow-400' />
-                    <span className='text-sm font-semibold'>{instructor.rating}</span>
+                    <span className='text-sm font-semibold'>{instructor.ratingAverage}</span>
                   </div>
                 )}
               </div>
@@ -144,7 +139,9 @@ function InstructorCard({
         <div className='absolute bottom-4 left-4 right-4 bg-white rounded-lg p-2 shadow-lg'>
           <div className='flex items-center justify-between'>
             <div className='flex-1 min-w-0'>
-              <h3 className='text-md font-bold text-gray-900 mb-1 truncate'>{instructor.name}</h3>
+              <h3 className='text-md font-bold text-gray-900 mb-1 truncate'>
+                {instructor.displayName}
+              </h3>
               <p className='text-sm text-gray-600  truncate mb-1'>
                 {instructor?.skills && instructor?.skills.join(", ")}
               </p>

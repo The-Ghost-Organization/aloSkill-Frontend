@@ -5,13 +5,14 @@ import { signIn } from "next-auth/react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
+import Toast from "../../../components/toast/successToast";
 
 export default function SignInPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const callbackUrl =
-    searchParams.get("callbackUrl") || searchParams.get("returnUrl") || "/dashboard";
+  const callbackUrl = searchParams.get("callbackUrl") || searchParams.get("returnUrl") || "/";
 
+  const errorParams = searchParams.get("error");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -60,7 +61,7 @@ export default function SignInPage() {
   };
 
   return (
-    <div className='min-h-screen relative overflow-hidden bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 flex items-center justify-center p-2'>
+    <div className='min-h-screen relative overflow-hidden bg-linear-to-br from-slate-50 via-blue-50 to-indigo-50 flex items-center justify-center p-2'>
       {/* Modern Gradient Background */}
       <div className='absolute inset-0 overflow-hidden pointer-events-none'>
         {/* Top left gradient */}
@@ -115,7 +116,7 @@ export default function SignInPage() {
               <h1 className='text-5xl font-bold text-(--color-text-dark) leading-tight'>
                 Welcome
                 <br />
-                <span className='bg-gradient-to-r from-orange-dark  to-orange bg-clip-text text-transparent'>
+                <span className='bg-linear-to-r from-orange-dark  to-orange bg-clip-text text-transparent'>
                   Back!
                 </span>
               </h1>
@@ -149,14 +150,14 @@ export default function SignInPage() {
             {/* Card with enhanced glassmorphism */}
             <div className='backdrop-blur-2xl bg-white/90 border border-white/40 rounded-3xl shadow-2xl p-8 md:p-10 relative overflow-hidden'>
               {/* Decorative corner elements */}
-              <div className='absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-blue-400/20 to-purple-400/20 rounded-bl-full' />
-              <div className='absolute bottom-0 left-0 w-24 h-24 bg-gradient-to-tr from-indigo-400/20 to-pink-400/20 rounded-tr-full' />
+              <div className='absolute top-0 right-0 w-32 h-32 bg-linear-to-br from-blue-400/20 to-purple-400/20 rounded-bl-full' />
+              <div className='absolute bottom-0 left-0 w-24 h-24 bg-linear-to-tr from-indigo-400/20 to-pink-400/20 rounded-tr-full' />
 
               <div className='relative z-10'>
                 {/* Header */}
                 <div className='mb-8'>
                   <div className='flex items-center justify-between mb-6'>
-                    <h2 className='text-3xl font-bold bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 bg-clip-text text-transparent'>
+                    <h2 className='text-3xl font-bold bg-linear-to-r from-blue-600 via-indigo-600 to-purple-600 bg-clip-text text-transparent'>
                       Sign In
                     </h2>
                     <Link
@@ -173,7 +174,7 @@ export default function SignInPage() {
                 {/* Error Alert */}
                 {error && (
                   <div className='mb-6 p-4 bg-red-50 border-l-4 border-red-500 rounded-xl flex items-start gap-3 shadow-sm'>
-                    <AlertCircle className='w-5 h-5 text-red-600 flex-shrink-0 mt-0.5' />
+                    <AlertCircle className='w-5 h-5 text-red-600 shrink-0 mt-0.5' />
                     <div className='flex-1'>
                       <p className='text-sm text-red-800 font-medium'>{error}</p>
                     </div>
@@ -192,7 +193,7 @@ export default function SignInPage() {
                   disabled={isLoading}
                   className='relative group w-full flex items-center justify-center gap-3 px-6 py-3 bg-white border-2 border-gray-200 rounded-xl hover:border-blue-300 hover:bg-blue-50/50 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed mb-6 shadow-sm hover:shadow-md'
                 >
-                  <div className='w-6 h-6 flex-shrink-0'>
+                  <div className='w-6 h-6 shrink-0'>
                     <svg
                       className='w-full h-full'
                       viewBox='0 0 24 24'
@@ -303,7 +304,7 @@ export default function SignInPage() {
                     type='submit'
                     disabled={isLoading}
                     onClick={handleSubmit}
-                    className='w-full py-3 rounded-lg text-white font-bold bg-gradient-to-r from-orange-dark via-orange to-orange hover:from-orange hover:via-orange hover:to-orange-dark shadow-xl hover:shadow-2xl transition-all duration-300 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-[1.02] active:scale-[0.98]'
+                    className='w-full py-3 rounded-lg text-white font-bold bg-linear-to-r from-orange-dark via-orange to-orange hover:from-orange hover:via-orange hover:to-orange-dark shadow-xl hover:shadow-2xl transition-all duration-300 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-[1.02] active:scale-[0.98]'
                   >
                     {isLoading ? (
                       <span className='flex items-center gap-2'>
@@ -369,6 +370,15 @@ export default function SignInPage() {
           </Link>
         </p>
       </div>
+
+      {/* toast for Error Message */}
+      {errorParams && (
+        <Toast
+          message={errorParams}
+          type='error'
+          onClose={() => router.replace("/auth/signin")}
+        ></Toast>
+      )}
 
       {/* Animation Styles */}
       <style jsx>{`

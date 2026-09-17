@@ -7,7 +7,7 @@ export default function VerificationSentPage() {
   const router = useRouter();
 
   return (
-    <div className='min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center p-4'>
+    <div className='min-h-screen bg-linear-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center p-4'>
       <div className='max-w-md w-full'>
         <div className='bg-white rounded-2xl shadow-xl p-8 text-center'>
           {/* Icon */}
@@ -49,7 +49,7 @@ export default function VerificationSentPage() {
           <div className='space-y-3'>
             <button
               onClick={() => router.push("/auth/resend-verification")}
-              className='w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 rounded-xl font-semibold hover:from-blue-700 hover:to-purple-700 transition-all shadow-lg'
+              className='w-full bg-linear-to-r from-blue-600 to-purple-600 text-white py-3 rounded-xl font-semibold hover:from-blue-700 hover:to-purple-700 transition-all shadow-lg'
             >
               Resend Verification Email
             </button>

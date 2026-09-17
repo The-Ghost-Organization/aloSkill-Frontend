@@ -68,7 +68,7 @@ export default function ErrorPage({
 
       {/* Main content card */}
       <div
-        className={`relative z-10 max-w-2xl w-full transition-all duration-1000 ${
+        className={`relative z-10 max-w-4xl w-full transition-all duration-1000 ${
           mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
         }`}
       >

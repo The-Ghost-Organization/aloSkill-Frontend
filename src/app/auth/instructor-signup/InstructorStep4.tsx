@@ -198,11 +198,11 @@ const InstructorStep4 = ({
               {...register("bio", {
                 required: "Tell us about yourself",
                 pattern: {
-                  value: /^[\p{L}0-9\s\.,'"\-\/\(\)]{10,400}$/u,
-                  message: "Invalid characters found in the input.",
+                  value: /^[^<>]{10,4000}$/,
+                  message: "Angle brackets (< >) are not allowed.",
                 },
                 minLength: 10,
-                maxLength: 400,
+                maxLength: 4000,
               })}
               rows={3}
               defaultValue={instructorData.bio}
