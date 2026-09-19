@@ -117,24 +117,24 @@ const Dashboard = async () => {
   ];
 
   return (
-    <div className='w-full'>
-      <div className='flex flex-col gap-4 overflow-auto'>
+    <div className='w-full space-y-6'>
+      <div className='flex flex-col gap-6'>
         {/* Stats Grid */}
-        <div className='w-full grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3'>
+        <div className='grid w-full grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4'>
           {stats.map((stat, idx) => (
             <div
               key={idx}
-              className='bg-white rounded px-3 py-2 flex items-center gap-3'
+              className='group flex items-center gap-4 rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md'
             >
               <div
-                className={`w-10 h-10 sm:w-12 sm:h-12 ${stat.color} rounded flex items-center justify-center`}
+                className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${stat.color}`} 
               >
-                <stat.icon className={`w-5 h-5 sm:w-6 sm:h-6 ${stat.iconColor}`} />
+                <stat.icon className={`h-5 w-5 ${stat.iconColor}`}  />
               </div>
 
               <div>
-                <div className='text-lg sm:text-xl font-bold text-gray-800'>{stat.value}</div>
-                <div className='text-xs sm:text-sm text-gray-500'>{stat.label}</div>
+                <div className='text-2xl font-bold tracking-tight text-slate-900'>{stat.value}</div>
+                <div className='mt-0.5 text-xs font-medium text-slate-500'>{stat.label}</div>
               </div>
             </div>
           ))}
@@ -181,14 +181,14 @@ const Dashboard = async () => {
         </div> */}
 
         {/* Bottom Section */}
-        <div className='w-full flex flex-col lg:flex-row gap-3'>
+        <div className='grid w-full grid-cols-1 gap-4 xl:grid-cols-12'>
           {/* Recent Activity */}
-          <div className='bg-white rounded w-full lg:w-[30%] max-h-[400px] overflow-y-auto'>
-            <div className='flex items-center justify-between p-4 border-b border-gray-200'>
-              <h4 className='font-semibold text-sm sm:text-base'>Recent Activity</h4>
+          <div className='max-h-[420px] overflow-y-auto rounded-2xl border border-slate-200/80 bg-white shadow-sm xl:col-span-4'>
+            <div className='flex items-center justify-between border-b border-slate-100 p-5'>
+              <h4 className='text-sm font-bold text-slate-900'>Recent Activity</h4>
               <a
                 href='#'
-                className='text-xs sm:text-sm text-orange-500 hover:text-orange-600'
+                className='text-xs font-semibold text-orange-600 hover:text-orange-700'
               >
                 See more →
               </a>
@@ -214,12 +214,12 @@ const Dashboard = async () => {
           </div>
 
           {/* Reviews */}
-          <div className='bg-white rounded flex-1 max-h-[400px] overflow-y-auto'>
-            <div className='flex items-center justify-between p-4 border-b border-gray-200'>
-              <h4 className='font-semibold text-sm sm:text-base'>Reviews</h4>
+          <div className='max-h-[420px] overflow-y-auto rounded-2xl border border-slate-200/80 bg-white shadow-sm xl:col-span-5'>
+            <div className='flex items-center justify-between border-b border-slate-100 p-5'>
+              <h4 className='text-sm font-bold text-slate-900'>Reviews</h4>
               <a
                 href='#'
-                className='text-xs sm:text-sm text-orange-500 hover:text-orange-600'
+                className='text-xs font-semibold text-orange-600 hover:text-orange-700'
               >
                 See more →
               </a>
@@ -227,12 +227,12 @@ const Dashboard = async () => {
           </div>
 
           {/* Profile View */}
-          <div className='bg-white rounded w-full lg:w-[25%] max-h-[400px] overflow-y-auto'>
-            <div className='flex items-center justify-between border-b border-gray-200 p-4'>
-              <h4 className='font-semibold text-sm sm:text-base'>Profile View</h4>
+          <div className='max-h-[420px] overflow-y-auto rounded-2xl border border-slate-200/80 bg-white shadow-sm xl:col-span-3'>
+            <div className='flex items-center justify-between border-b border-slate-100 p-5'>
+              <h4 className='text-sm font-bold text-slate-900'>Profile View</h4>
               <a
                 href='#'
-                className='text-xs sm:text-sm text-orange-500 hover:text-orange-600'
+                className='text-xs font-semibold text-orange-600 hover:text-orange-700'
               >
                 Today →
               </a>
@@ -241,14 +241,14 @@ const Dashboard = async () => {
         </div>
 
         {/* Second Row */}
-        <div className='w-full flex flex-col lg:flex-row gap-3 mb-4'>
+        <div className='grid w-full grid-cols-1 gap-4 xl:grid-cols-12'>
           {/* Ratings */}
-          <div className='bg-white rounded w-full lg:w-[40%] max-h-[400px] overflow-y-auto'>
-            <div className='flex items-center justify-between p-4 border-b border-gray-200'>
-              <h4 className='font-semibold text-sm sm:text-base'>Overall Course Ratings</h4>
+          <div className='max-h-[420px] overflow-y-auto rounded-2xl border border-slate-200/80 bg-white shadow-sm xl:col-span-5'>
+            <div className='flex items-center justify-between border-b border-slate-100 p-5'>
+              <h4 className='text-sm font-bold text-slate-900'>Overall Course Ratings</h4>
               <a
                 href='#'
-                className='text-xs sm:text-sm text-orange-500 hover:text-orange-600'
+                className='text-xs font-semibold text-orange-600 hover:text-orange-700'
               >
                 See more →
               </a>
@@ -258,7 +258,7 @@ const Dashboard = async () => {
               <div className='flex flex-col sm:flex-row items-center gap-4 border-b border-gray-200 pb-4'>
                 <div className='flex flex-col items-center justify-center bg-[#FFF2E5] w-32 sm:w-[40%] aspect-square rounded'>
                   <div className='text-2xl sm:text-3xl font-bold text-gray-800'>4.6</div>
-                  <div className='text-xs sm:text-sm text-gray-500'>Course Rating</div>
+                  <div className='mt-0.5 text-xs font-medium text-slate-500'>Course Rating</div>
                 </div>
 
                 <svg
@@ -310,12 +310,12 @@ const Dashboard = async () => {
           </div>
 
           {/* Course Overview */}
-          <div className='flex-1 bg-white rounded max-h-[400px] overflow-y-auto'>
-            <div className='flex items-center justify-between p-4 border-b border-gray-200'>
-              <h4 className='font-semibold text-sm sm:text-base'>Course Overview</h4>
+          <div className='max-h-[420px] overflow-y-auto rounded-2xl border border-slate-200/80 bg-white shadow-sm xl:col-span-7'>
+            <div className='flex items-center justify-between border-b border-slate-100 p-5'>
+              <h4 className='text-sm font-bold text-slate-900'>Course Overview</h4>
               <a
                 href='#'
-                className='text-xs sm:text-sm text-orange-500 hover:text-orange-600'
+                className='text-xs font-semibold text-orange-600 hover:text-orange-700'
               >
                 See more →
               </a>
