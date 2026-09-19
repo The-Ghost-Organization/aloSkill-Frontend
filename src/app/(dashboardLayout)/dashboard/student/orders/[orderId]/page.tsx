@@ -62,7 +62,7 @@ export default function OrderTrackingPage() {
   if (error || !order) return (
     <div className='rounded-xl border border-red-100 bg-white p-10 text-center'>
       <CircleAlert className='mx-auto h-10 w-10 text-red-400' /><p className='mt-4 text-sm text-gray-600'>{error}</p>
-      <Link href='/dashboard/student/orders' className='mt-5 inline-flex text-sm font-semibold text-orange-600'>Back to my orders</Link>
+      <Link href='/dashboard/student/purchase' className='mt-5 inline-flex text-sm font-semibold text-orange-600'>Back to purchases</Link>
     </div>
   );
 
@@ -72,7 +72,7 @@ export default function OrderTrackingPage() {
 
   return (
     <div className='space-y-5'>
-      <Link href='/dashboard/student/orders' className='inline-flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-orange-600'><ArrowLeft className='h-4 w-4' /> My Orders</Link>
+      <Link href='/dashboard/student/purchase' className='inline-flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-orange-600'><ArrowLeft className='h-4 w-4' /> Purchases & Orders</Link>
 
       {searchParams.get("placed") === "true" && (
         <div className='flex gap-3 rounded-xl border border-green-200 bg-green-50 p-4 text-green-800'>

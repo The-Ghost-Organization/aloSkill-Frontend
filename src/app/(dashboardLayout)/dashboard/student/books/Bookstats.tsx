@@ -24,7 +24,7 @@ export function BookStats({ books }: { books: BookItem[] }) {
       iconColor: "text-orange-600",
     },
     {
-      label: "Out for Delivery",
+      label: "Physical in Transit",
       value: inTransit,
       icon: Truck,
       iconBg: "bg-emerald-50",

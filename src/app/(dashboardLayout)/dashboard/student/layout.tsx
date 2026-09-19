@@ -15,11 +15,10 @@ export default function StudentLayout({ children }: { children: React.ReactNode 
     { name: "Dashboard", path: "/dashboard/student" },
     { name: "Courses", path: "/dashboard/student/courses" },
     { name: "Books", path: "/dashboard/student/books" },
-    { name: "My Orders", path: "/dashboard/student/orders" },
     { name: "Teachers", path: "/dashboard/student/teachers" },
     { name: "Message", path: "/dashboard/student/message" },
     { name: "Wishlist", path: "/dashboard/student/wishlist" },
-    { name: "Purchase History", path: "/dashboard/student/purchase" },
+    { name: "Purchases & Orders", path: "/dashboard/student/purchase" },
     { name: "Settings", path: "/dashboard/student/settings" },
   ];
 

@@ -1,3 +1,5 @@
+import DashboardState from "./components/DashboardState";
+
 export default function DashboardLoading() {
-  return <p>Loading...</p>;
+  return <DashboardState kind='loading' />;
 }
