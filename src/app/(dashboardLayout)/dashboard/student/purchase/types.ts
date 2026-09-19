@@ -1,59 +1,67 @@
-import type { ElementType } from "react";
+export type OrderStatus =
+  | "PENDING" | "CONFIRMED" | "PROCESSING" | "SHIPPED" | "OUT_FOR_DELIVERY"
+  | "DELIVERED" | "PAID" | "FAILED" | "CANCELLED" | "REFUNDED";
 
-// ── Domain literals ────────────────────────────────────────────────────────
-// `(string & {})` keeps autocomplete for known values while allowing future
-// extension without a breaking change to the union.
-export type DiscountType = "PERCENTAGE" | "FIXED";
-export type SortOrder   = "newest" | "oldest";
-
-export type ProductTypeKey =
-  | "COURSE" | "EBOOK" | "PHYSICAL_BOOK" | "DIGITAL_PRODUCT" | "SERVICE"
-  | (string & {});
-
-export type PaymentStatusKey =
-  | "COMPLETED" | "PENDING" | "FAILED" | "REFUNDED"
-  | (string & {});
-
-export type PaymentMethodKey =
-  | "BKASH" | "NAGAD" | "CARD" | "BANK" | "WALLET"
-  | (string & {});
-
-// ── Core entity ────────────────────────────────────────────────────────────
-export interface Purchase {
+export type OrderItem = {
   id: string;
-  transactionId: string;
-  productTitle: string;
-  productType: ProductTypeKey;
-  thumbnail: string;
-  purchaseDate: string;        // ISO-8601 string from the DB
-  paymentMethod: PaymentMethodKey;
-  paymentStatus: PaymentStatusKey;
   quantity: number;
-  originalPrice: number;       // unit price (before discount)
-  discountAmount: number;      // total discount in ৳
-  couponCode: string | null;
-  discountType: DiscountType | null;
-  vatAmount: number;
-  finalAmount: number;         // what the user actually paid
-}
+  format: "PHYSICAL" | "DIGITAL";
+  price: number;
+  status: string;
+  courierName?: string | null;
+  trackingNumber?: string | null;
+  shippedAt?: string | null;
+  deliveredAt?: string | null;
+  book?: { id?: string; title: string; author: string; coverImage: string } | null;
+  course?: { id?: string; title: string; thumbnailUrl: string | null } | null;
+};
 
-// ── Config shapes ──────────────────────────────────────────────────────────
-export interface ProductTypeConfig {
-  label: string;
-  color: string;    // Tailwind badge classes
-  dotColor: string; // Tailwind dot colour class
-  Icon: ElementType;
-}
+export type StudentOrder = {
+  id: string;
+  totalAmount: number;
+  shippingCost: number;
+  totalWeight: number;
+  currency: string;
+  status: OrderStatus;
+  provider: string | null;
+  paymentMethod: "CASH_ON_DELIVERY" | "ONLINE_PAYMENT" | null;
+  providerOrderId?: string | null;
+  createdAt: string;
+  updatedAt?: string;
+  shippingAddress?: {
+    fullName: string;
+    addressLine: string;
+    city: string;
+    postalCode: string;
+    country: string;
+    phone: string;
+    deliveryArea: "INSIDE_DHAKA" | "OUTSIDE_DHAKA" | null;
+  } | null;
+  orderItems: OrderItem[];
+};
 
-export interface PaymentStatusConfig {
-  label: string;
-  color: string;
-  Icon: ElementType;
-}
+export type SortOrder = "newest" | "oldest";
 
-// ── Derived / UI ───────────────────────────────────────────────────────────
-export interface SummaryStats {
+export type SummaryStats = {
   totalOrders: number;
   totalSpent: number;
-  totalSaved: number;
+  inTransit: number;
+};
+
+export const orderStatusLabel: Record<OrderStatus, string> = {
+  PENDING: "Order placed",
+  CONFIRMED: "Confirmed",
+  PROCESSING: "Processing",
+  SHIPPED: "Shipped",
+  OUT_FOR_DELIVERY: "Out for delivery",
+  DELIVERED: "Delivered",
+  PAID: "Paid",
+  FAILED: "Failed",
+  CANCELLED: "Cancelled",
+  REFUNDED: "Refunded",
+};
+
+export function orderItemType(item: OrderItem) {
+  if (item.course) return "Course";
+  return item.format === "PHYSICAL" ? "Physical book" : "eBook";
 }

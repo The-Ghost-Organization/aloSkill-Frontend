@@ -31,8 +31,9 @@ interface BaseBook {
 export interface EbookItem extends BaseBook {
   type: "ebook";
   format: EbookFormat;
-  fileSizeMb: number;
-  downloadUrl: string;
+  fileSizeMb?: number;
+  downloadUrl?: string;
+  readUrl?: string;
 }
 
 export interface PhysicalBookItem extends BaseBook {
@@ -47,7 +48,7 @@ export interface PhysicalBookItem extends BaseBook {
 
 export type BookState = {
   orderItemId: string;
-  createdAt: Date;
+  createdAt: Date | string;
   orderId: string;
   orderStatus: string;
   shippingAddress: {
@@ -58,6 +59,7 @@ export type BookState = {
     postalCode: string;
     country: string;
     phone: string;
+    deliveryArea: string | null;
   } | null;
   book: {
     id: string | undefined;
@@ -65,6 +67,8 @@ export type BookState = {
     coverImage: string | undefined;
     format: string;
     price: number;
+    author: string | undefined;
+    readUrl?: string | null;
   };
   delivery: {
     status: string;
@@ -73,7 +77,8 @@ export type BookState = {
     shippedAt: string | null;
     deliveredAt: string | null;
   } | null;
-  downloadUrls: never[] | null;
+  downloadUrls: Array<string | { url: string; format?: string; action?: "READ" | "DOWNLOAD" }> | null;
+  // downloadUrls: string | null;
 }[];
 
 export type BookItem = EbookItem | PhysicalBookItem;

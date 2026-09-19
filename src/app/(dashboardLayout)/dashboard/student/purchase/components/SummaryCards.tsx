@@ -1,4 +1,4 @@
-import { ShoppingBag, TrendingDown, Wallet } from "lucide-react";
+import { ShoppingBag, Truck, Wallet } from "lucide-react";
 import { memo } from "react";
 import type { SummaryStats } from "../types";
 import { fmt } from "../utils";
@@ -33,12 +33,12 @@ const STAT_CARDS: Array<{
     render: fmt,
   },
   {
-    key: "totalSaved",
-    label: "Total Saved",
-    Icon: TrendingDown,
+    key: "inTransit",
+    label: "In Transit",
+    Icon: Truck,
     bg: "bg-green-50",
     fg: "text-green-600",
-    render: fmt,
+    render: (v) => String(v),
   },
 ];
 

@@ -94,7 +94,7 @@ interface BookCardProps {
     bookId: string;
     quantity: number;
   }[];
-  onAddToCart?: (bookId: string,allFormats: string[], format?: "PHYSICAL" | "EBOOK") => void;
+  onAddToCart?: (bookId: string, allFormats: string[], format?: "PHYSICAL" | "EBOOK") => void;
 }
 
 // ─── Grid Card ────────────────────────────────────────────────────────────────
@@ -112,7 +112,7 @@ function GridCard({ book, index = 0, cartItems, onAddToCart }: BookCardProps) {
   return (
     <Link
       href={`/books/${book.id}`}
-      className='group block'
+      className='group block relative'
     >
       <article className='bg-white rounded-lg border border-gray-100 shadow-sm overflow-hidden transition-all duration-300 ease-out hover:-translate-y-1.5 hover:shadow-xl hover:shadow-gray-200/70 hover:border-gray-200'>
         {/* ── Cover Image ── */}

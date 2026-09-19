@@ -6,17 +6,27 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { getSession } from "next-auth/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { bookDraftStorage } from "@/lib/storage/courseDraftStorage.ts";
 import type { BookResponse } from "../(withoutSidebarLayout)/books/Books.type";
 import BookCard from "../(withoutSidebarLayout)/books/components/BookCard";
+import { useSessionContext } from "../contexts/SessionContext.tsx";
 
 const AUTO_PLAY_DELAY = 4500;
 const INTERACTION_PAUSE_DELAY = 5000;
 const CARD_GAP = 24;
-
+type CartStorageItem = {
+  bookId: string;
+  format: "PHYSICAL" | "EBOOK";
+  quantity: number;
+};
+type FormatKey = "PHYSICAL" | "EBOOK";
 export function DiscoverBooksSectionCarousel() {
+  const { setCartUpdate } = useSessionContext();
   const [books, setBooks] = useState<BookResponse>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isPaused, setIsPaused] = useState(false);
+  const [cartItems, setCartItems] = useState<CartStorageItem[]>([]);
+  const [updateCart, setUpdateCart] = useState(false);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
 
@@ -24,6 +34,82 @@ export function DiscoverBooksSectionCarousel() {
   const resumeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const scrollFrameRef = useRef<number | null>(null);
   const isPausedRef = useRef(false);
+
+  useEffect(() => {
+    const storedCart = bookDraftStorage.get<CartStorageItem[]>() || [];
+
+    setCartItems(storedCart);
+  }, [updateCart]);
+  const bookAddToCartHandler = useCallback(
+    (bookId: string, allFormats: string[], format: "PHYSICAL" | "EBOOK") => {
+      let cartData =
+        bookDraftStorage.get<
+          { bookId: string; format: "PHYSICAL" | "EBOOK"; quantity: number }[]
+        >() || [];
+
+      const hasPhysical = allFormats.includes("HARDCOVER");
+      const hasEbook = allFormats.includes("E_BOOK");
+      // CASE 1: User selects PHYSICAL and book supports BOTH formats
+      // -> Ensure BOTH PHYSICAL and EBOOK are in the cart
+      if (format === "PHYSICAL" && hasPhysical && hasEbook) {
+        const hasPhysicalInCart = cartData.some(
+          item => item.bookId === bookId && item.format === "PHYSICAL"
+        );
+        const hasEbookInCart = cartData.some(
+          item => item.bookId === bookId && item.format === "EBOOK"
+        );
+        // If both are already present, do nothing
+        if (hasPhysicalInCart && hasEbookInCart) return;
+        if (!hasPhysicalInCart) {
+          cartData.push({ bookId, format: "PHYSICAL", quantity: 1 });
+        }
+        if (!hasEbookInCart) {
+          cartData.push({ bookId, format: "EBOOK", quantity: 1 });
+        }
+      }
+      // CASE 2: User selects EBOOK only
+      else if (format === "EBOOK") {
+        const hasPhysicalInCart = cartData.some(
+          item => item.bookId === bookId && item.format === "PHYSICAL"
+        );
+        // If physical book exists from previous selection, filter it out
+        if (hasPhysicalInCart) {
+          cartData = cartData.filter(
+            item => !(item.bookId === bookId && item.format === "PHYSICAL")
+          );
+        }
+        // Ensure EBOOK is present
+        const hasEbookInCart = cartData.some(
+          item => item.bookId === bookId && item.format === "EBOOK"
+        );
+        if (hasEbookInCart && !hasPhysicalInCart) return;
+        if (!hasEbookInCart) {
+          cartData.push({ bookId, format: "EBOOK", quantity: 1 });
+        }
+      }
+      // CASE 3: Single-format physical book
+      else {
+        const existsInCart = cartData.some(
+          item => item.bookId === bookId && item.format === format
+        );
+        if (existsInCart) return;
+        cartData.push({ bookId, format, quantity: 1 });
+      }
+      bookDraftStorage.save(cartData);
+    },
+    []
+  );
+  const handleAddToCart = useCallback(
+    (bookId: string, allFormats: string[], format?: FormatKey) => {
+      if (!format) {
+        return;
+      }
+      bookAddToCartHandler(bookId, allFormats, format);
+      setUpdateCart(previous => !previous);
+      setCartUpdate?.(previous => !previous);
+    },
+    [bookAddToCartHandler, setCartUpdate]
+  );
 
   const clearResumeTimeout = useCallback(() => {
     if (resumeTimeoutRef.current) {
@@ -297,7 +383,8 @@ export function DiscoverBooksSectionCarousel() {
                   <BookCard
                     book={book}
                     index={index}
-                    viewMode='grid'
+                    cartItems={cartItems}
+                    onAddToCart={handleAddToCart}
                   />
                 </div>
               ))}
