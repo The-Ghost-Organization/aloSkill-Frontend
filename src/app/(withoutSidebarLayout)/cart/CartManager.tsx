@@ -24,6 +24,7 @@ type CartResponse = {
     physicalSalePrice: number | null;
     digitalRegularPrice: number | null;
     digitalSalePrice: number | null;
+    stock: number;
   }[];
   courses: {
     category: string | undefined;
