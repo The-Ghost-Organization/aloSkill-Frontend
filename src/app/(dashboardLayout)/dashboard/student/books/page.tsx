@@ -1,8 +1,9 @@
 import { mockBooks } from "./Mockbooks";
 import { MyBooksView } from "./Mybooksview";
-import { getUserBookData } from './userBookAction';
+import { getUserBookData } from "./userBookAction";
 
 const books = await getUserBookData();
+console.log("books in student dashboard : ", books);
 
 export default function BooksPage() {
   return (
