@@ -1,6 +1,14 @@
 export type OrderStatus =
-  | "PENDING" | "CONFIRMED" | "PROCESSING" | "SHIPPED" | "OUT_FOR_DELIVERY"
-  | "DELIVERED" | "PAID" | "FAILED" | "CANCELLED" | "REFUNDED";
+  | "PENDING"
+  | "CONFIRMED"
+  | "PROCESSING"
+  | "SHIPPED"
+  | "OUT_FOR_DELIVERY"
+  | "DELIVERED"
+  | "PAID"
+  | "FAILED"
+  | "CANCELLED"
+  | "REFUNDED";
 
 export type OrderItem = {
   id: string;
@@ -26,6 +34,12 @@ export type StudentOrder = {
   provider: string | null;
   paymentMethod: "CASH_ON_DELIVERY" | "ONLINE_PAYMENT" | null;
   providerOrderId?: string | null;
+  courierName?: "STEADFAST" | string | null;
+  courierConsignmentId?: string | null;
+  courierTrackingCode?: string | null;
+  courierStatus?: string | null;
+  courierStatusUpdatedAt?: string | null;
+  courierLastError?: string | null;
   createdAt: string;
   updatedAt?: string;
   shippingAddress?: {
@@ -35,7 +49,7 @@ export type StudentOrder = {
     postalCode: string;
     country: string;
     phone: string;
-    deliveryArea: "INSIDE_DHAKA" | "OUTSIDE_DHAKA" | null;
+    deliveryArea: "INSIDE_DHAKA" | "DHAKA_SUBURBAN" | "OUTSIDE_DHAKA" | null;
   } | null;
   orderItems: OrderItem[];
 };

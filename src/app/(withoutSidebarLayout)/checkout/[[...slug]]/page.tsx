@@ -22,9 +22,10 @@ import districtsData from "@/lib/bd-division-district/districts.json";
 import divisionsData from "@/lib/bd-division-district/divisions.json";
 import upazilasData from "@/lib/bd-division-district/upazilas.json";
 
-// Dhaka DISTRICT id (not the whole Dhaka division) — used to auto-decide
-// "Inside Dhaka" vs "Outside Dhaka" courier pricing.
+// IDs match the Bangladesh location JSON used by this form. Tejgaon Circle is
+// treated as Dhaka city; other Dhaka-district upazilas use the suburban rate.
 const DHAKA_DISTRICT_ID = "1";
+const TEJGAON_CIRCLE_UPAZILA_ID = "6";
 
 type Division = { id: string; name: string; bn_name: string };
 type District = { id: string; division_id: string; name: string; bn_name: string };
@@ -48,8 +49,7 @@ type OrderSummary = {
       digitalRegularPrice: number | null;
       digitalSalePrice: number | null;
       hasDigital?: boolean;
-      // Stock for the physical format. Rename this to match your API's actual field.
-      stockQuantity?: number | null;
+      stock?: number | null;
     }[];
     courses: {
       id: string;
@@ -110,6 +110,8 @@ export default function CheckoutPage() {
   const [stockIssues, setStockIssues] = useState<StockIssue[]>([]);
   const [isCheckingStock, setIsCheckingStock] = useState(false);
   const [stockCheckError, setStockCheckError] = useState<string | null>(null);
+  const [shippingQuote, setShippingQuote] = useState(0);
+  const [isLoadingShippingQuote, setIsLoadingShippingQuote] = useState(false);
 
   useEffect(() => {
     async function fetchOrderSummary() {
@@ -118,7 +120,51 @@ export default function CheckoutPage() {
         try {
           const storedCheckoutData = checkoutDataStorage.get<OrderSummary>();
           if (storedCheckoutData) {
-            setOrderSummary(storedCheckoutData);
+            const normalizedBooks = storedCheckoutData.items.books.map(book => ({
+              ...book,
+              physicalRegularPrice:
+                book.physicalRegularPrice === null ? null : Number(book.physicalRegularPrice),
+              digitalRegularPrice:
+                book.digitalRegularPrice === null ? null : Number(book.digitalRegularPrice),
+              physicalSalePrice:
+                book.physicalSalePrice === null ? null : Number(book.physicalSalePrice),
+              digitalSalePrice:
+                book.digitalSalePrice === null ? null : Number(book.digitalSalePrice),
+              weight: Number(book.weight),
+              stock: book.stock === undefined || book.stock === null ? null : Number(book.stock),
+            }));
+
+            const normalizedCourses = storedCheckoutData.items.courses.map(course => ({
+              ...course,
+              originalPrice: Number(course.originalPrice),
+              discountPrice:
+                course.discountPrice === undefined ? undefined : Number(course.discountPrice),
+            }));
+
+            const normalizedBookQuantities = storedCheckoutData.quantities.books.map(item => ({
+              ...item,
+              quantity: Number(item.quantity),
+            }));
+
+            const normalizedCourseQuantities = storedCheckoutData.quantities.courses.map(item => ({
+              ...item,
+              quantity: Number(item.quantity),
+            }));
+
+            setOrderSummary(prev => ({
+              ...prev,
+              items: {
+                ...prev.items,
+                books: normalizedBooks,
+                courses: normalizedCourses,
+              },
+              quantities: {
+                ...prev.quantities,
+                books: normalizedBookQuantities,
+                courses: normalizedCourseQuantities,
+              },
+              subtotal: Number(storedCheckoutData.subtotal),
+            }));
           }
         } catch (error) {
           console.error("Failed to retrieve checkout data from storage:", error);
@@ -171,10 +217,8 @@ export default function CheckoutPage() {
                     physicalSalePrice: Number(book.physicalSalePrice),
                     digitalSalePrice: Number(book.digitalSalePrice),
                     weight: Number(book.weight),
-                    stockQuantity:
-                      book.stockQuantity === undefined || book.stockQuantity === null
-                        ? null
-                        : Number(book.stockQuantity),
+                    stock:
+                      book.stock === undefined || book.stock === null ? null : Number(book.stock),
                   },
                 ],
               },
@@ -215,6 +259,8 @@ export default function CheckoutPage() {
   const targetBooks = orderSummary?.quantities?.books || [];
   const hasPhysicalBook = targetBooks.some((book: any) => book.format === "PHYSICAL");
 
+  const extraWeightCharge =
+    hasPhysicalBook && shippingQuote > 0 ? Math.max(0, shippingQuote - 100) : 0;
   // ---- Stock verification ----
   // Re-checks live stock for every physical book in the order. Runs once the
   // order summary is loaded, and again right before final submission so a
@@ -230,13 +276,15 @@ export default function CheckoutPage() {
         physicalEntries.map(async entry => {
           const bookMeta = orderSummary.items.books.find(b => b.id === entry.bookId);
           try {
-            const res = await apiClient.get<{ stockQuantity?: number | null }>(
+            const res = await apiClient.get<{ stock?: number | null }>(
               `/book/user/checkout/${entry.bookId}?format=PHYSICAL`
             );
             const available =
-              res.success && res.data && res.data.stockQuantity !== undefined
-                ? Number(res.data.stockQuantity ?? 0)
+              res.success && res.data && res.data.stock !== undefined
+                ? Number(res.data.stock ?? 0)
                 : null;
+
+            if (available === null) throw new Error("Stock quantity was not returned");
 
             if (available !== null && available < entry.quantity) {
               return {
@@ -249,7 +297,7 @@ export default function CheckoutPage() {
             return null;
           } catch (err) {
             console.error(`Failed to verify stock for book ${entry.bookId}:`, err);
-            return null;
+            throw err;
           }
         })
       );
@@ -260,7 +308,7 @@ export default function CheckoutPage() {
     } catch (error) {
       console.error("Stock verification failed:", error);
       setStockCheckError("Couldn't verify book stock right now. Please try again.");
-      return [];
+      throw error;
     } finally {
       setIsCheckingStock(false);
     }
@@ -269,7 +317,7 @@ export default function CheckoutPage() {
   // Run an initial stock check once we know which physical books are in the order.
   useEffect(() => {
     if (hasPhysicalBook) {
-      verifyPhysicalStock();
+      void verifyPhysicalStock().catch(() => undefined);
     } else {
       setStockIssues([]);
     }
@@ -293,11 +341,14 @@ export default function CheckoutPage() {
   );
 
   // Auto-derived delivery area — no manual toggle needed.
-  const deliveryArea: "" | "INSIDE_DHAKA" | "OUTSIDE_DHAKA" = !shippingDetails.districtId
-    ? ""
-    : shippingDetails.districtId === DHAKA_DISTRICT_ID
-      ? "INSIDE_DHAKA"
-      : "OUTSIDE_DHAKA";
+  const deliveryArea: "" | "INSIDE_DHAKA" | "DHAKA_SUBURBAN" | "OUTSIDE_DHAKA" =
+    !shippingDetails.districtId || !shippingDetails.upazilaId
+      ? ""
+      : shippingDetails.districtId !== DHAKA_DISTRICT_ID
+        ? "OUTSIDE_DHAKA"
+        : shippingDetails.upazilaId === TEJGAON_CIRCLE_UPAZILA_ID
+          ? "INSIDE_DHAKA"
+          : "DHAKA_SUBURBAN";
 
   const totalPhysicalWeight = orderSummary.items.books.reduce((total, book) => {
     const quantityMeta = targetBooks.find(item => item.bookId === book.id);
@@ -305,19 +356,31 @@ export default function CheckoutPage() {
     return total + Number(book.weight || 0) * (quantityMeta.quantity || 1);
   }, 0);
 
-  const baseShippingCost = !hasPhysicalBook
-    ? 0
-    : deliveryArea === "INSIDE_DHAKA"
-      ? 80
-      : deliveryArea === "OUTSIDE_DHAKA"
-        ? 130
-        : 0;
+  useEffect(() => {
+    if (!hasPhysicalBook || !shippingDetails.districtId || !shippingDetails.upazilaId) {
+      setShippingQuote(0);
+      return;
+    }
+    let cancelled = false;
+    setIsLoadingShippingQuote(true);
+    void apiClient
+      .get<{ shippingCost: number }>(
+        `/order/shipping-quote?districtId=${encodeURIComponent(shippingDetails.districtId)}&upazilaId=${encodeURIComponent(shippingDetails.upazilaId)}&weight=${totalPhysicalWeight}`
+      )
+      .then(response => {
+        if (!cancelled && response.success && response.data) {
+          setShippingQuote(Number(response.data.shippingCost));
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoadingShippingQuote(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [hasPhysicalBook, shippingDetails.districtId, shippingDetails.upazilaId, totalPhysicalWeight]);
 
-  const extraWeightCharge = hasPhysicalBook
-    ? Math.ceil(Math.max(0, totalPhysicalWeight - 2)) * 20
-    : 0;
-
-  const shippingCost = baseShippingCost + extraWeightCharge;
+  const shippingCost = shippingQuote;
   const grandTotal = Number(orderSummary.subtotal || 0) + shippingCost;
 
   // Validate form requirements
@@ -331,7 +394,12 @@ export default function CheckoutPage() {
       shippingDetails.districtId !== "" &&
       shippingDetails.upazilaId !== "");
 
-  const canCheckout = isFormValid && stockIssues.length === 0 && !isCheckingStock;
+  const canCheckout =
+    isFormValid &&
+    stockIssues.length === 0 &&
+    !isCheckingStock &&
+    !stockCheckError &&
+    !isLoadingShippingQuote;
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -359,8 +427,10 @@ export default function CheckoutPage() {
     // Final stock guard right before placing the order — closes the race
     // condition where stock changed after the page loaded.
     if (hasPhysicalBook) {
-      const issues = await verifyPhysicalStock();
-      if (issues.length > 0) {
+      try {
+        const issues = await verifyPhysicalStock();
+        if (issues.length > 0) return;
+      } catch {
         return;
       }
     }
@@ -380,7 +450,6 @@ export default function CheckoutPage() {
               phoneNumber: shippingDetails.phoneNumber,
               addressLine: shippingDetails.addressLine,
               postalCode: shippingDetails.postalCode,
-              deliveryArea, // auto-derived
               division: division ? { id: division.id, name: division.name } : null,
               district: district ? { id: district.id, name: district.name } : null,
               upazila: upazila ? { id: upazila.id, name: upazila.name } : null,
@@ -394,7 +463,7 @@ export default function CheckoutPage() {
         orderId: string;
         paymentType: "CASH_ON_DELIVERY" | "ONLINE_PAYMENT";
       }>("/order/create-order-with-UDDOKTAPAY", checkoutPayload);
-
+      console.log("responce :::", response);
       if (response.success) {
         if (response.data?.paymentType === "CASH_ON_DELIVERY") {
           router.replace(`/dashboard/student/orders/${response.data.orderId}?placed=true`);
@@ -712,9 +781,16 @@ export default function CheckoutPage() {
                 {deliveryArea && (
                   <div className='mb-4 flex items-center gap-2 p-3 bg-blue-50 border border-blue-100 text-[#074079] rounded-md text-xs font-medium'>
                     <MapPin className='w-4 h-4 text-[#DA7C36] shrink-0' />
+                    Detected:{" "}
                     {deliveryArea === "INSIDE_DHAKA"
-                      ? "Detected: Inside Dhaka — delivery charge ৳80"
-                      : "Detected: Outside Dhaka — delivery charge ৳130"}
+                      ? "Inside Dhaka"
+                      : deliveryArea === "DHAKA_SUBURBAN"
+                        ? "Dhaka suburban"
+                        : "Outside Dhaka"}{" "}
+                    —{" "}
+                    {isLoadingShippingQuote
+                      ? "calculating delivery charge…"
+                      : `delivery charge ৳${shippingCost.toFixed(2)}`}
                   </div>
                 )}
 
@@ -906,9 +982,11 @@ export default function CheckoutPage() {
                 <div className='flex justify-between text-gray-700'>
                   <span>Shipping</span>
                   <span className='font-semibold'>
-                    {hasPhysicalBook && !deliveryArea
-                      ? "Select location"
-                      : `৳${shippingCost.toFixed(2)}`}
+                    {isLoadingShippingQuote
+                      ? "Calculating…"
+                      : hasPhysicalBook && !deliveryArea
+                        ? "Select location"
+                        : `৳${shippingCost.toFixed(2)}`}
                   </span>
                 </div>
                 {hasPhysicalBook && totalPhysicalWeight > 0 && (

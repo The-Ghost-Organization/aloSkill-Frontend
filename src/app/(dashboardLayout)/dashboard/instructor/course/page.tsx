@@ -44,20 +44,20 @@ const InstructorCoursePage = () => {
 
   if (isLoading) {
     return (
-      <p className='text-md font-semibold text-gray-600 flex items-center gap-2'>
+      <p className='flex items-center gap-2 rounded-xl border border-slate-200 bg-white p-4 text-sm font-semibold text-slate-600 shadow-sm'>
         <Loader className='animate-spin' /> Loading...
       </p>
     );
   }
 
   return (
-    <div className='min-h-screen w-full px-4'>
+    <div className='w-full'>
       {/* Courses Grid */}
       {apiError ? (
-        <p className='text-md font-semibold text-red-400'>{apiError}</p>
+        <div className='rounded-2xl border border-red-200 bg-red-50 p-5 text-sm font-medium text-red-700'>{apiError}</div>
       ) : (
         <>
-          <div className='grid grid-cols-3 gap-3'>
+          <div className='grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3'>
             {courses.map(course => (
               <CourseCard
                 key={course.id}

@@ -14,7 +14,7 @@ type InstructorBook = {
 };
 
 const getBooks = async (instructorId: string): Promise<InstructorBook[]> => {
-  const apiUrl = process.env.API_URL || process.env.NEXT_PUBLIC_API_URL;
+  const apiUrl = process.env["API_URL"] || process.env["NEXT_PUBLIC_API_URL"];
   if (!apiUrl) return [];
 
   try {
