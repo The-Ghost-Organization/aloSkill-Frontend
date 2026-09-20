@@ -1,5 +1,5 @@
 "use client";
-import "@/app/globals.css";
+
 import { apiClient } from "@/lib/api/client.ts";
 import {
   BookOpen,

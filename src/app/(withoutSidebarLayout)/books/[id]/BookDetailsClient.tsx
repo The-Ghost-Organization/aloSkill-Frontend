@@ -29,6 +29,7 @@ import { useSessionContext } from "../../../contexts/SessionContext";
 import type { BookDetailsResponse, BookResponse } from "../Books.type";
 
 import BookCard from "../components/BookCard";
+import PdfPreviewModal from "./PdfPreviewModal";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -315,6 +316,7 @@ export default function BookDetailsClient({ book, relatedBooks }: BookDetailsCli
   const [cartItems, setCartItems] = useState<CartStorageItem[]>([]);
   const [updateCart, setUpdateCart] = useState(false);
   const [activeTab, setActiveTab] = useState<TabKey>("description");
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
   const [selectedFormat, setSelectedFormat] = useState<FormatKey | null>(null);
 
@@ -554,6 +556,11 @@ export default function BookDetailsClient({ book, relatedBooks }: BookDetailsCli
     availableFormats.has(format)
   );
 
+  const previewFile = useMemo(
+    () => book.files?.find(file => file.fileType?.toUpperCase() === "PREVIEW") ?? null,
+    [book.files]
+  );
+
   useEffect(() => {
     setSelectedFormat(previous => {
       if (previous === "PHYSICAL" && hasPhysical) return previous;
@@ -765,6 +772,17 @@ export default function BookDetailsClient({ book, relatedBooks }: BookDetailsCli
 
                 {book.stock > 0 && <p className='text-sm text-slate-500'>{book.stock} available</p>}
               </div>
+
+              {previewFile && (
+                <button
+                  type='button'
+                  onClick={() => setIsPreviewOpen(true)}
+                  className='flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-orange-200 bg-orange-50 px-4 text-sm font-bold text-orange-600 transition-all hover:border-orange-300 hover:bg-orange-100 active:scale-[0.99]'
+                >
+                  <BookOpen className='h-4 w-4' />
+                  একটু পড়ে দেখুন
+                </button>
+              )}
 
               <div className='hidden flex-col gap-2 rounded-xl border border-slate-200 bg-white/80 p-3.5 shadow-sm backdrop-blur-sm sm:flex'>
                 <div className='flex items-center gap-2.5 text-sm text-slate-500'>
@@ -1187,6 +1205,14 @@ export default function BookDetailsClient({ book, relatedBooks }: BookDetailsCli
           </div>
         </div>
       </div>
+
+      {isPreviewOpen && previewFile && (
+        <PdfPreviewModal
+          url={previewFile.url}
+          fileName={previewFile.name || `${book.title} preview.pdf`}
+          onClose={() => setIsPreviewOpen(false)}
+        />
+      )}
     </main>
   );
 }
