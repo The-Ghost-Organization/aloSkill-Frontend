@@ -6,6 +6,14 @@ export type BookState = {
   bookBreakdown: {
     id: string;
     status: string;
+    coverImage: string;
+    viewCount: number;
+    suspendReason: string | null;
+    adminNote: string | null;
+    createdAt: string;
+    updatedAt: string;
+    category: { id: string; name: string } | null;
+    _count: { reviews: number; wishlistedBy: number };
     title: string;
     author: string;
     physicalRegularPrice: number | null;
@@ -17,6 +25,7 @@ export type BookState = {
     orderItem: {
       id: string;
       price: number;
+      quantity: number;
     }[];
     totalEarning: number;
   }[];

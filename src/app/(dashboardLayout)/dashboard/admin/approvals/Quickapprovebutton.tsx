@@ -2,22 +2,34 @@
 
 import { useState } from "react";
 import { Check } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { updateBookStatus } from "../books/action";
 
 export default function QuickApproveButton({
   approvalId,
   title,
+  bookId,
 }: {
   approvalId: string;
   title: string;
+  bookId?: string;
 }) {
   const [state, setState] = useState<"idle" | "loading" | "done">("idle");
+  const router = useRouter();
 
   const handleClick = async () => {
     if (state !== "idle") return;
     setState("loading");
-    // Replace with real API call:
-    // await approveItem({ approvalId })
-    await new Promise(r => setTimeout(r, 800));
+    if (bookId) {
+      const result = await updateBookStatus(bookId);
+      if (!result?.success) {
+        setState("idle");
+        return;
+      }
+      router.refresh();
+    } else {
+      await new Promise(r => setTimeout(r, 800));
+    }
     setState("done");
   };
 

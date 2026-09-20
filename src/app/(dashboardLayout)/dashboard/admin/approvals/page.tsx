@@ -67,7 +67,9 @@ const typeColor: Record<string, string> = {
   "Course Update": "#da7c36",
 };
 
-function ApprovalCard({ item }: { item: (typeof APPROVALS_DETAIL)[0] }) {
+type DisplayApproval = (typeof APPROVALS_DETAIL)[0] & { databaseBook?: boolean };
+
+function ApprovalCard({ item }: { item: DisplayApproval }) {
   return (
     <div
       className='relative overflow-hidden flex items-center gap-4 px-6 py-4 rounded-2xl border transition-all'
@@ -110,7 +112,7 @@ function ApprovalCard({ item }: { item: (typeof APPROVALS_DETAIL)[0] }) {
       </div>
       <div className='flex items-center gap-2 shrink-0 flex-wrap'>
         <Link
-          href={`/dashboard/admin/approvals/${item.id}`}
+          href={item.databaseBook ? `/dashboard/admin/books/upload-books?editBookid=${item.refId}` : `/dashboard/admin/approvals/${item.id}`}
           className='inline-flex items-center gap-1.5 px-4 py-2 rounded-xl font-mono text-[12px] font-semibold transition-all'
           style={{
             background: "rgba(218,124,54,0.1)",
@@ -131,19 +133,38 @@ function ApprovalCard({ item }: { item: (typeof APPROVALS_DETAIL)[0] }) {
         <QuickApproveButton
           approvalId={item.id}
           title={item.title}
+          bookId={item.databaseBook ? item.refId : undefined}
         />
-        <QuickRejectButton approvalId={item.id} />
+        {!item.databaseBook && <QuickRejectButton approvalId={item.id} />}
       </div>
     </div>
   );
 }
 
 export default async function ApprovalsPage() {
-  const highPriority = APPROVALS_DETAIL.filter(a => a.priority === "High");
-  const normal = APPROVALS_DETAIL.filter(a => a.priority === "Normal");
-
   const dataFromDB = await getAllApprovals();
-  console.log("data form db in admin approvals : ", dataFromDB);
+  const pendingBooks = (dataFromDB?.pendingBooks ?? []) as Array<{
+    id: string;
+    title: string;
+    author: string;
+    createdAt: string;
+  }>;
+  const bookApprovals: DisplayApproval[] = pendingBooks.map(book => ({
+    id: `BOOK-${book.id}`,
+    type: "Book Approval",
+    title: book.title,
+    by: book.author,
+    date: new Date(book.createdAt).toLocaleDateString("en-BD", { day: "numeric", month: "short", year: "numeric" }),
+    priority: "Normal",
+    refId: book.id,
+    databaseBook: true,
+  }));
+  const approvals: DisplayApproval[] = [
+    ...APPROVALS_DETAIL.filter(item => item.type !== "Book Approval"),
+    ...bookApprovals,
+  ];
+  const highPriority = approvals.filter(a => a.priority === "High");
+  const normal = approvals.filter(a => a.priority === "Normal");
 
   return (
     <div className='animate-page-enter'>
@@ -156,7 +177,7 @@ export default async function ApprovalsPage() {
             Approval Workflow
           </h1>
           <p className='text-[13px] text-slate-500 mt-1'>
-            {APPROVALS_DETAIL.length} items awaiting review ·{" "}
+            {approvals.length} items awaiting review ·{" "}
             <span className='text-red-400'>{highPriority.length} high priority</span>
           </p>
         </div>

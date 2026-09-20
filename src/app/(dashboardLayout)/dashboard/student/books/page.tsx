@@ -8,7 +8,18 @@ function physicalStatus(value: string): PhysicalStatus {
   const status = value.toLowerCase();
   if (status === "processing" || status === "paid") return "confirmed";
   if (status === "failed") return "cancelled";
-  if (["pending", "confirmed", "shipped", "out_for_delivery", "delivered", "cancelled", "returned"].includes(status)) return status as PhysicalStatus;
+  if (
+    [
+      "pending",
+      "confirmed",
+      "shipped",
+      "out_for_delivery",
+      "delivered",
+      "cancelled",
+      "returned",
+    ].includes(status)
+  )
+    return status as PhysicalStatus;
   return "pending";
 }
 
@@ -52,20 +63,45 @@ function toBookItem(item: BookState[number]): BookItem {
     status,
     trackingId: item.delivery?.trackingNumber ?? undefined,
     courier: item.delivery?.courierName ?? undefined,
-    address: item.shippingAddress ? `${item.shippingAddress.city}, ${item.shippingAddress.country}` : undefined,
+    address: item.shippingAddress
+      ? `${item.shippingAddress.city}, ${item.shippingAddress.country}`
+      : undefined,
     timeline: [
-      { label: "Order confirmed", completed: completedOrder, date: completedOrder ? common.purchaseDate : undefined },
+      {
+        label: "Order confirmed",
+        completed: completedOrder,
+        date: completedOrder ? common.purchaseDate : undefined,
+      },
       { label: "Shipped", completed: completedShip, date: item.delivery?.shippedAt ?? undefined },
       { label: "Out for delivery", completed: ["out_for_delivery", "delivered"].includes(status) },
-      { label: "Delivered", completed: status === "delivered", date: item.delivery?.deliveredAt ?? undefined },
+      {
+        label: "Delivered",
+        completed: status === "delivered",
+        date: item.delivery?.deliveredAt ?? undefined,
+      },
     ],
   };
 }
 
 export default async function BooksPage() {
   const result = await getUserBookData();
+
   if (result.error) {
-    return <DashboardState kind='error' title='Your books could not be loaded' description={result.error} action={<Link href='/dashboard/student/books' className='rounded-lg bg-orange-500 px-5 py-2.5 text-sm font-semibold text-white'>Try again</Link>} />;
+    return (
+      <DashboardState
+        kind='error'
+        title='Your books could not be loaded'
+        description={result.error}
+        action={
+          <Link
+            href='/dashboard/student/books'
+            className='rounded-lg bg-orange-500 px-5 py-2.5 text-sm font-semibold text-white'
+          >
+            Try again
+          </Link>
+        }
+      />
+    );
   }
   return <MyBooksView books={result.data.map(toBookItem)} />;
 }

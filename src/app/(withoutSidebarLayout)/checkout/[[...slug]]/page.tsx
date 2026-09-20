@@ -462,7 +462,7 @@ export default function CheckoutPage() {
         gatewayUrl?: string;
         orderId: string;
         paymentType: "CASH_ON_DELIVERY" | "ONLINE_PAYMENT";
-      }>("/order/create-order-with-UDDOKTAPAY", checkoutPayload);
+      }>("/order/create-order-with-EPS", checkoutPayload);
       console.log("responce :::", response);
       if (response.success) {
         if (response.data?.paymentType === "CASH_ON_DELIVERY") {
@@ -758,7 +758,7 @@ export default function CheckoutPage() {
               </div>
             )}
             {stockCheckError && (
-              <div className='bg-red-50 border border-red-200 rounded-lg p-3 text-xs text-red-600'>
+              <div className='bg-red-50 border border-red-200 rounded p-3 text-xs text-red-600'>
                 {stockCheckError}
               </div>
             )}

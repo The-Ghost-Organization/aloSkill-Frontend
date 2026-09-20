@@ -59,6 +59,7 @@ export type BookState = {
     postalCode: string;
     country: string;
     phone: string;
+    deliveryArea: string | null;
   } | null;
   book: {
     id: string | undefined;
@@ -66,7 +67,7 @@ export type BookState = {
     coverImage: string | undefined;
     format: string;
     price: number;
-    author?: string;
+    author: string | undefined;
     readUrl?: string | null;
   };
   delivery: {
@@ -77,6 +78,7 @@ export type BookState = {
     deliveredAt: string | null;
   } | null;
   downloadUrls: Array<string | { url: string; format?: string; action?: "READ" | "DOWNLOAD" }> | null;
+  // downloadUrls: string | null;
 }[];
 
 export type BookItem = EbookItem | PhysicalBookItem;

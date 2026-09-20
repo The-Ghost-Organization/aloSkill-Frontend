@@ -1,12 +1,13 @@
 import { Plus } from "lucide-react";
 import Link from "next/link";
 import { Badge, SectionHeader } from "../Components";
-import { BookActionButtonApprove, BookActionButtonEditandView } from "./BookComponents";
+import { BookActionButtonEditandView, BookHeaderActions } from "./BookComponents";
 import BulkBookImportModal from "./BulkBookImportModal";
 import { getBookData } from "./action";
 
 export default async function BooksPage() {
   const data = await getBookData();
+  console.log("bookd data : ", data);
   const bookData = data?.data;
 
   return (
@@ -16,6 +17,7 @@ export default async function BooksPage() {
         sub='Manage digital and physical book inventory'
         action={
           <div className='flex flex-wrap items-center gap-2'>
+            <BookHeaderActions />
             <BulkBookImportModal />
             <Link href='/dashboard/admin/books/upload-books'>
               <button className="inline-flex items-center gap-1.5 px-4.5 py-2.5 rounded bg-linear-to-br from-orange to-orange-dark text-white font-['Outfit'] font-semibold text-[13px] shadow shadow-orange-500/25 hover:shadow-orange-500/45 hover:-translate-y-px transition-all cursor-pointer border-none">
@@ -40,7 +42,7 @@ export default async function BooksPage() {
             border: "after:bg-blue-400",
           },
           {
-            l: "Digital Sales",
+            l: "Units Sold",
             v: bookData?.totalSold,
             text: "text-emerald-400",
             border: "after:bg-emerald-400",
@@ -98,12 +100,22 @@ export default async function BooksPage() {
               </tr>
             </thead>
             <tbody className='divide-y divide-slate-800'>
+              {!bookData?.bookBreakdown.length && (
+                <tr>
+                  <td
+                    colSpan={10}
+                    className='px-6 py-16 text-center text-sm text-slate-500'
+                  >
+                    No approved or suspended books found. Pending submissions are available in
+                    Approvals.
+                  </td>
+                </tr>
+              )}
               {bookData?.bookBreakdown.map((b, i) => {
                 const salePrice = b.physicalSalePrice ?? b.physicalRegularPrice ?? 0;
-                const regularPrice = b.physicalRegularPrice ?? b.digitalRegularPrice ?? 0;
                 return (
                   <tr
-                    key={i + b.title.slice(0, 5)}
+                    key={b.id}
                     className='transition-colors hover:bg-slate-800/60'
                   >
                     <td className='p-4 px-4.5 text-[13.5px] text-slate-100 font-semibold'>
@@ -116,14 +128,14 @@ export default async function BooksPage() {
                     <td className='p-4 px-4.5 flex flex-col items-center gap-1'>
                       <Badge
                         fontSize='9'
-                        variant={b.formats.includes("Hardcover") ? "blue" : "orange"}
+                        variant={b.formats.includes("HARDCOVER") ? "blue" : "orange"}
                       >
                         {b.formats[0]}
                       </Badge>
                       {b.formats.length > 1 && (
                         <Badge
                           fontSize='9'
-                          variant={b.formats.includes("Hardcover") ? "blue" : "orange"}
+                          variant={b.formats.includes("HARDCOVER") ? "blue" : "orange"}
                         >
                           {b.formats[1]}
                         </Badge>
@@ -133,10 +145,10 @@ export default async function BooksPage() {
                       ৳ {salePrice}
                     </td>
                     <td className='p-4 px-4.5 text-gray-200 font-mono text-xs!'>
-                      {b.orderItem.length}
+                      {b.orderItem.reduce((sum, item) => sum + item.quantity, 0)}
                     </td>
                     <td className='p-4 px-4.5 text-[13.5px] text-emerald-400 font-mono font-semibold'>
-                      ${b.totalEarning}
+                      ৳ {b.totalEarning}
                     </td>
                     <td
                       className={`p-4 px-4.5 text-[13.5px] font-mono ${
@@ -150,19 +162,21 @@ export default async function BooksPage() {
                       {b.stock === null ? "∞" : b.stock}
                     </td>
                     <td className='p-4 px-4.5'>
-                      <Badge variant={b.status === "APPROVED" ? "green" : "orange"}>
+                      <Badge
+                        variant={
+                          b.status === "APPROVED"
+                            ? "green"
+                            : b.status === "SUSPENDED"
+                              ? "red"
+                              : "orange"
+                        }
+                      >
                         {b.status}
                       </Badge>
                     </td>
                     <td className='p-4 px-4.5'>
                       <div className='flex gap-2'>
-                        <BookActionButtonEditandView bookId={b.id} />
-                        {b.status === "PENDING" && (
-                          <BookActionButtonApprove
-                            bookId={b.id}
-                            bookData={bookData}
-                          />
-                        )}
+                        <BookActionButtonEditandView book={b} />
                       </div>
                     </td>
                   </tr>

@@ -63,7 +63,7 @@ export function BookRow({ book }: { book: BookItem }) {
         <div className='flex shrink-0 flex-col items-start gap-2 sm:items-end'>
           <BookStatusBadge status={book.status} />
           <Link
-            href={`/dashboard/student/orders/${encodeURIComponent(book.orderId)}`}
+            href={`/dashboard/student/purchase/${encodeURIComponent(book.orderId)}`}
             className='inline-flex items-center gap-2 rounded-lg border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 hover:border-orange-300 hover:text-orange-600'
           >
             <Truck className='h-4 w-4' /> Track order <ExternalLink className='h-3.5 w-3.5' />

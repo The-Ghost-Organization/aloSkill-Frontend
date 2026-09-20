@@ -352,7 +352,6 @@ export const authOptions: NextAuthOptions = {
         role: { label: "Role", type: "text" },
       },
       async authorize(credentials): Promise<User | null> {
-        console.log("Credetials : ", credentials);
         if (!credentials?.email || !credentials?.password) {
           throw new Error("Email and password required");
         }
