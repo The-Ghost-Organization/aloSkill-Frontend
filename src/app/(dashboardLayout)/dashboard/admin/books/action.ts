@@ -4,6 +4,12 @@ import { getServerSession } from "next-auth";
 import { apiClient } from "../../../../../lib/api/client";
 import { authOptions } from "../../../../api/auth/[...nextauth]/route";
 import { type BookState } from "./books.types";
+import { revalidatePath } from "next/cache";
+
+const adminHeaders = async () => {
+  const session = await getServerSession(authOptions);
+  return { Authorization: `Bearer ${session?.accessToken}` };
+};
 
 export const getBookData = async () => {
   const session = await getServerSession(authOptions);
@@ -28,5 +34,66 @@ export const updateBookStatus = async (bookId: string) => {
   if (!updateResult.success) {
     return;
   }
+  revalidatePath("/dashboard/admin/approvals");
+  revalidatePath("/dashboard/admin/books");
   return updateResult;
+};
+
+export const updateBookSelling = async (
+  bookId: string,
+  action: "STOP" | "RESUME",
+  note: string
+) => {
+  const result = await apiClient.patch(
+    `/book/admin/books/${bookId}/selling`,
+    { action, note },
+    await adminHeaders()
+  );
+  if (result.success) revalidatePath("/dashboard/admin/books");
+  return result;
+};
+
+export const updateBookStock = async (bookId: string, stock: number, note: string) => {
+  const result = await apiClient.patch(
+    `/book/admin/books/${bookId}/stock`,
+    { stock, note },
+    await adminHeaders()
+  );
+  if (result.success) revalidatePath("/dashboard/admin/books");
+  return result;
+};
+
+export const softDeleteBook = async (bookId: string, note: string) => {
+  const result = await apiClient.patch(
+    `/book/admin/books/${bookId}/delete`,
+    { note },
+    await adminHeaders()
+  );
+  if (result.success) revalidatePath("/dashboard/admin/books");
+  return result;
+};
+
+export const createBookCategory = async (name: string) => {
+  const result = await apiClient.post(
+    "/book/admin/categories",
+    { name },
+    await adminHeaders()
+  );
+  if (result.success) revalidatePath("/dashboard/admin/books");
+  return result;
+};
+
+export const createBookAuthor = async (input: {
+  name: string;
+  bio?: string;
+  photoUrl?: string;
+  websiteUrl?: string;
+}) => {
+  const result = await apiClient.post(
+    "/book/admin/authors",
+    input,
+    await adminHeaders()
+  );
+  if (result.success) revalidatePath("/dashboard/admin/books");
+  return result;
 };

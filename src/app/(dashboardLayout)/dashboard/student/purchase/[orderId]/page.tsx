@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import DashboardState from "../../components/DashboardState";
-import { orderStatusLabel, type OrderStatus, type StudentOrder } from "../types";
+import { orderStatusLabel, type OrderStatus, type StudentOrder } from "../../orders/types";
 
 const trackingSteps: { status: OrderStatus; label: string }[] = [
   { status: "PENDING", label: "Order placed" },
