@@ -40,6 +40,22 @@ const PdfPreviewModal = dynamic(() => import("./PdfPreviewModal.tsx"), {
 
 const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
 
+function getInstructorName(user: unknown): string {
+  if (!user || typeof user !== "object") return "";
+
+  const profile = user as Record<string, unknown>;
+  const directName = [profile["name"], profile["fullName"], profile["displayName"]].find(
+    value => typeof value === "string" && value.trim().length > 0
+  );
+
+  if (typeof directName === "string") return directName.trim();
+
+  const firstName = typeof profile["firstName"] === "string" ? profile["firstName"].trim() : "";
+  const lastName = typeof profile["lastName"] === "string" ? profile["lastName"].trim() : "";
+
+  return [firstName, lastName].filter(Boolean).join(" ");
+}
+
 function extractBunnyUrl(payload: unknown): string {
   const candidates: unknown[] = [payload];
 
@@ -274,6 +290,7 @@ export default function AddBookPage() {
   const [uploadedEbookPreview, setUploadedEbookPdf] = useState<string | null>(null);
 
   const { user } = useSessionContext();
+  const instructorName = getInstructorName(user);
   const router = useRouter();
   const querydata = useSearchParams();
   const editBookId = querydata.get("editBookid");
@@ -296,6 +313,16 @@ export default function AddBookPage() {
   });
 
   useEffect(() => {
+    if (!instructorName) return;
+
+    // Instructor uploads must always be authored by the logged-in instructor.
+    setValue("author", instructorName, {
+      shouldDirty: false,
+      shouldValidate: true,
+    });
+  }, [instructorName, setValue]);
+
+  useEffect(() => {
     const getCategories = async () => {
       const response = await apiClient.get<{ id: string; name: string }[]>("/book/categories");
       if (response.success && response.data) {
@@ -316,7 +343,11 @@ export default function AddBookPage() {
         if (response.success && response.data) {
           const book = response.data;
           setValue("title", book.title);
-          setValue("author", book.author);
+          // Never restore a different author from book data on the instructor dashboard.
+          // The logged-in instructor profile is the source of truth for authorship.
+          if (instructorName) {
+            setValue("author", instructorName, { shouldValidate: true });
+          }
           setValue("translator", book.translator || "");
           setValue("editor", book.editor || "");
           setValue("publisher", book.publisher);
@@ -373,7 +404,7 @@ export default function AddBookPage() {
     } catch (error) {
       setLoadEditDataError("Failed to load book data. Please try again.");
     }
-  }, [editBookId, setValue]);
+  }, [editBookId, instructorName, setValue]);
 
   const selectedFormats = watch("formats");
   const isEbookSelected = selectedFormats.includes("E-Book");
@@ -623,7 +654,19 @@ export default function AddBookPage() {
   };
 
   const onSubmit = async (data: BookFormValues) => {
-    const { ebookPdf, previewPdf, coverImage, ...rest } = data;
+    if (!instructorName) {
+      setUploadError(
+        "Instructor name could not be loaded from your profile. Please complete your instructor profile before uploading a book."
+      );
+      return;
+    }
+
+    const { ebookPdf, previewPdf, coverImage, ...restData } = data;
+    const rest = {
+      ...restData,
+      // Do not trust a client-side field value for instructor authorship.
+      author: instructorName,
+    };
     if (editBookId) {
       const updateResult = await apiClient.put<{ id: string }>(
         `/book/update-book?bookId=${editBookId}`,
@@ -782,14 +825,20 @@ export default function AddBookPage() {
                       <input
                         {...register("author")}
                         type='text'
-                        className={`${getInputClass(!!errors.author)} pl-10`}
-                        placeholder='Author Name'
+                        readOnly
+                        aria-readonly='true'
+                        value={instructorName}
+                        className={`${getInputClass(!!errors.author)} pl-10 cursor-not-allowed bg-slate-50 text-slate-600`}
+                        placeholder='Instructor name from profile'
                       />
                       <User
                         size={16}
                         className='absolute left-3.5 top-3.5 text-slate-400'
                       />
                     </div>
+                    <p className='mt-1.5 text-xs leading-5 text-slate-400'>
+                      Author is fixed to your instructor profile and cannot be changed here.
+                    </p>
                   </Field>
                   <Field
                     label='Publisher *'

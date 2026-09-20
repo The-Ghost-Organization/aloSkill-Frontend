@@ -1039,9 +1039,7 @@ export default function BookDetailsClient({ book, relatedBooks }: BookDetailsCli
                             Written by
                           </p>
 
-                          <h3 className='mt-1 text-xl font-black text-slate-900'>
-                            {book.owner?.instructorProfile?.displayName || book.author}
-                          </h3>
+                          <h3 className='mt-1 text-xl font-black text-slate-900'>{book.author}</h3>
 
                           {book.owner?.instructorProfile?.qualifications && (
                             <p className='mt-1 text-sm font-medium text-slate-500'>
