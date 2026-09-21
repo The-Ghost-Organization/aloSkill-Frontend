@@ -837,7 +837,16 @@ export default function BookDetailsClient({ book, relatedBooks }: BookDetailsCli
               {/* Author */}
 
               <p className='mb-6 text-base leading-relaxed text-slate-500'>
-                by <span className='font-semibold text-slate-800'>{book.author}</span>
+                by {book.authorProfile?.slug ? (
+                  <Link
+                    href={`/authors/${book.authorProfile.slug}`}
+                    className='font-semibold text-slate-800 underline decoration-orange-300 underline-offset-4 hover:text-orange-600'
+                  >
+                    {book.authorProfile.name || book.author}
+                  </Link>
+                ) : (
+                  <span className='font-semibold text-slate-800'>{book.author}</span>
+                )}
                 {book.translator && (
                   <>
                     {" "}
@@ -1036,10 +1045,10 @@ export default function BookDetailsClient({ book, relatedBooks }: BookDetailsCli
                     <div className='p-5 sm:p-6'>
                       <div className='flex flex-col gap-5 sm:flex-row sm:items-start'>
                         <div className='flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl border-2 border-white bg-orange-50 shadow-md ring-1 ring-orange-100'>
-                          {book.owner?.avatarUrl ? (
+                          {book.authorProfile?.photoUrl || book.owner?.avatarUrl ? (
                             <Image
-                              src={book.owner.avatarUrl}
-                              alt={book.owner.instructorProfile?.displayName || book.author}
+                              src={book.authorProfile?.photoUrl || book.owner.avatarUrl!}
+                              alt={book.authorProfile?.name || book.owner.instructorProfile?.displayName || book.author}
                               width={80}
                               height={80}
                               className='h-full w-full object-cover'
@@ -1057,11 +1066,25 @@ export default function BookDetailsClient({ book, relatedBooks }: BookDetailsCli
                             Written by
                           </p>
 
-                          <h3 className='mt-1 text-xl font-black text-slate-900'>{book.author}</h3>
+                          <h3 className='mt-1 text-xl font-black text-slate-900'>
+                            {book.authorProfile?.slug ? (
+                              <Link href={`/authors/${book.authorProfile.slug}`} className='hover:text-orange-600'>
+                                {book.authorProfile.name}
+                              </Link>
+                            ) : (
+                              book.author
+                            )}
+                          </h3>
 
                           {book.owner?.instructorProfile?.qualifications && (
                             <p className='mt-1 text-sm font-medium text-slate-500'>
                               {book.owner.instructorProfile.qualifications}
+                            </p>
+                          )}
+
+                          {book.authorProfile?.bio && (
+                            <p className='mt-3 text-sm leading-relaxed text-slate-600'>
+                              {book.authorProfile.bio}
                             </p>
                           )}
 
@@ -1082,6 +1105,16 @@ export default function BookDetailsClient({ book, relatedBooks }: BookDetailsCli
                               </p>
                             )}
                           </div>
+
+                          {book.authorProfile?.slug && (
+                            <Link
+                              href={`/authors/${book.authorProfile.slug}`}
+                              className='mt-4 inline-flex items-center gap-2 rounded-lg bg-orange-500 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-600'
+                            >
+                              View author profile
+                              <ChevronRight className='h-4 w-4' />
+                            </Link>
+                          )}
                         </div>
                       </div>
                     </div>

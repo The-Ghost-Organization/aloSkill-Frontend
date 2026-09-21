@@ -86,6 +86,7 @@ const bookSchema = z
       .string()
       .min(1, "Author name is required")
       .regex(/^[^<>]*$/, "Author name must not contain any opening or closing HTML tags"),
+    authorProfileId: z.string().uuid().optional(),
     translator: z
       .string()
       .regex(/^[^<>]*$/, "Translator name must not contain any opening or closing HTML tags")
@@ -269,6 +270,7 @@ export default function AddBookPage() {
   const [imageUploadLoading, setImageUploadLoading] = useState<boolean>(false);
   const [uploadError, setUploadError] = useState<string>("");
   const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
+  const [authors, setAuthors] = useState<{ id: string; name: string; slug: string }[]>([]);
   const [uploadedPdfPreview, setUploadedPdfPreview] = useState<string | null>(null);
   const [uploadedEbookPreview, setUploadedEbookPdf] = useState<string | null>(null);
 
@@ -294,13 +296,19 @@ export default function AddBookPage() {
   });
 
   useEffect(() => {
-    const getCategories = async () => {
-      const response = await apiClient.get<{ id: string; name: string }[]>("/book/categories");
-      if (response.success && response.data) {
-        setCategories(response.data);
+    const getReferenceData = async () => {
+      const [categoryResponse, authorResponse] = await Promise.all([
+        apiClient.get<{ id: string; name: string }[]>("/book/categories"),
+        apiClient.get<{ id: string; name: string; slug: string }[]>("/book/authors"),
+      ]);
+      if (categoryResponse.success && categoryResponse.data) {
+        setCategories(categoryResponse.data);
+      }
+      if (authorResponse.success && authorResponse.data) {
+        setAuthors(authorResponse.data);
       }
     };
-    getCategories();
+    void getReferenceData();
   }, []);
 
   useEffect(() => {
@@ -315,6 +323,7 @@ export default function AddBookPage() {
           const book = response.data;
           setValue("title", book.title);
           setValue("author", book.author);
+          if (book.authorProfileId) setValue("authorProfileId", book.authorProfileId);
           setValue("translator", book.translator || "");
           setValue("editor", book.editor || "");
           setValue("publisher", book.publisher);
@@ -762,17 +771,25 @@ export default function AddBookPage() {
                     error={errors.author?.message}
                   >
                     <div className='relative'>
-                      <input
-                        {...register("author")}
-                        type='text'
+                      <select
+                        {...register("authorProfileId")}
                         className={`${getInputClass(!!errors.author)} pl-10`}
-                        placeholder='Author Name'
-                      />
-                      <User
-                        size={16}
-                        className='absolute left-3.5 top-3.5 text-gray-500'
-                      />
+                        defaultValue=''
+                        onChange={event => {
+                          const selected = authors.find(author => author.id === event.target.value);
+                          setValue("authorProfileId", event.target.value || undefined, { shouldValidate: true });
+                          if (selected) setValue("author", selected.name, { shouldValidate: true });
+                        }}
+                      >
+                        <option value=''>Select author profile</option>
+                        {authors.map(author => (
+                          <option key={author.id} value={author.id}>{author.name}</option>
+                        ))}
+                      </select>
+                      <input {...register("author")} type='hidden' />
+                      <User size={16} className='absolute left-3.5 top-3.5 text-gray-500' />
                     </div>
+                    <p className='mt-1.5 text-xs text-gray-500'>Create missing authors from Books → Add Author Profile.</p>
                   </Field>
                   <Field
                     label='Publisher *'

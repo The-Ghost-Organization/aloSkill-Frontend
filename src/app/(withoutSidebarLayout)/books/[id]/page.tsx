@@ -56,6 +56,7 @@ export default async function BookDetailPage({ params }: PageProps) {
    * Get the actual detailed book.
    */
   const book = (await getBook(id)) as BookDetailsResponse | null;
+  console.log("bokk data::",book)
   if (!book) {
     return (
       <div>

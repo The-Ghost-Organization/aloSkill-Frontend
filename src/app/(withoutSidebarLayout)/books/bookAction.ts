@@ -18,9 +18,13 @@ export const getAllBooks = async () => {
 
 export const getBookDetails = async (bookId: string) => {
   const session = await getServerSession(authOptions);
-  const fetchData = await apiClient.get<BookDetailsResponse>(`/book/book-details/${bookId}`, {
-    Authorization: `Bearer ${session?.accessToken}`,
-  });
+  const fetchData = await apiClient.get<BookDetailsResponse>(
+    `/book/public/book-details/${bookId}`,
+    {
+      Authorization: `Bearer ${session?.accessToken}`,
+    }
+  );
+  console.log("fetchData bokk data::", fetchData);
   if (!fetchData.success) {
     return null;
   }

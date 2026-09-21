@@ -3,9 +3,9 @@
 import { Eye, FolderPlus, PackagePlus, PauseCircle, PlayCircle, Trash2, UserPlus, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import type { FormEvent, ReactNode } from "react";
-import { createBookAuthor, createBookCategory, softDeleteBook, updateBookSelling, updateBookStock } from "./action";
+import { createBookAuthor, createBookCategory, getAuthorCandidates, softDeleteBook, updateBookSelling, updateBookStock } from "./action";
 import type { BookState } from "./books.types";
 
 type AdminBook = BookState["bookBreakdown"][number];
@@ -75,19 +75,76 @@ export function BookHeaderActions() {
   const [modal, setModal] = useState<"author" | "category" | null>(null);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState("");
+  const [authorMode, setAuthorMode] = useState<"external" | "instructor">("external");
+  const [instructors, setInstructors] = useState<
+    { id: string; displayName: string; bio: string; website: string | null }[]
+  >([]);
+
+  useEffect(() => {
+    if (modal !== "author") return;
+    void (async () => {
+      const result = await getAuthorCandidates();
+      if (result.success && result.data) {
+        setInstructors(result.data);
+      }
+    })();
+  }, [modal]);
+
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
     startTransition(async () => {
-      const result = modal === "category" ? await createBookCategory(String(data.get("name") ?? "")) : await createBookAuthor({ name: String(data.get("name") ?? ""), bio: String(data.get("bio") ?? ""), photoUrl: String(data.get("photoUrl") ?? ""), websiteUrl: String(data.get("websiteUrl") ?? "") });
+      const result =
+        modal === "category"
+          ? await createBookCategory(String(data.get("name") ?? ""))
+          : await createBookAuthor({
+              name: authorMode === "external" ? String(data.get("name") ?? "") : undefined,
+              instructorProfileId:
+                authorMode === "instructor"
+                  ? String(data.get("instructorProfileId") ?? "") || undefined
+                  : undefined,
+              bio: String(data.get("bio") ?? "") || undefined,
+              photoUrl: String(data.get("photoUrl") ?? "") || undefined,
+              websiteUrl: String(data.get("websiteUrl") ?? "") || undefined,
+            });
       if (!result?.success) return setError(result?.message ?? "Could not save this record.");
       setModal(null);
       setError("");
+      setAuthorMode("external");
     });
   };
+
   return <>
     <button onClick={() => setModal("author")} className='inline-flex items-center gap-1.5 rounded border border-slate-700 px-3.5 py-2.5 text-[13px] font-semibold text-slate-200 hover:border-orange-500/50 hover:text-orange-400'><UserPlus size={14} /> Add Author Profile</button>
     <button onClick={() => setModal("category")} className='inline-flex items-center gap-1.5 rounded border border-slate-700 px-3.5 py-2.5 text-[13px] font-semibold text-slate-200 hover:border-orange-500/50 hover:text-orange-400'><FolderPlus size={14} /> Add Category</button>
-    {modal && <Modal title={modal === "author" ? "Add author profile" : "Add book category"} onClose={() => setModal(null)}><form onSubmit={submit} className='space-y-4'><label className='block text-xs font-semibold text-slate-400'>Name<input name='name' className={fieldClass} required minLength={2} maxLength={120} /></label>{modal === "author" && <><label className='block text-xs font-semibold text-slate-400'>Biography<textarea name='bio' className={`${fieldClass} min-h-28`} maxLength={3000} /></label><label className='block text-xs font-semibold text-slate-400'>Photo URL<input name='photoUrl' type='url' className={fieldClass} /></label><label className='block text-xs font-semibold text-slate-400'>Website URL<input name='websiteUrl' type='url' className={fieldClass} /></label></>}{error && <p className='text-sm text-red-400'>{error}</p>}<div className='flex justify-end gap-2'><button type='button' onClick={() => setModal(null)} className='rounded-lg border border-slate-700 px-4 py-2.5 text-sm text-slate-300'>Cancel</button><button disabled={pending} className={primaryClass}>{pending ? "Saving…" : "Save"}</button></div></form></Modal>}
+    {modal && <Modal title={modal === "author" ? "Add author profile" : "Add book category"} onClose={() => setModal(null)}>
+      <form onSubmit={submit} className='space-y-4'>
+        {modal === "author" ? <>
+          <div className='grid grid-cols-2 gap-2 rounded-lg border border-slate-800 bg-slate-950 p-1'>
+            <button type='button' onClick={() => setAuthorMode("external")} className={`rounded-md px-3 py-2 text-xs font-semibold ${authorMode === "external" ? "bg-orange-500 text-white" : "text-slate-400 hover:text-white"}`}>External author</button>
+            <button type='button' onClick={() => setAuthorMode("instructor")} className={`rounded-md px-3 py-2 text-xs font-semibold ${authorMode === "instructor" ? "bg-orange-500 text-white" : "text-slate-400 hover:text-white"}`}>AloSkill instructor</button>
+          </div>
+          {authorMode === "external" ? (
+            <label className='block text-xs font-semibold text-slate-400'>Name<input name='name' className={fieldClass} required minLength={2} maxLength={120} /></label>
+          ) : (
+            <label className='block text-xs font-semibold text-slate-400'>Instructor
+              <select name='instructorProfileId' className={fieldClass} required defaultValue=''>
+                <option value='' disabled>Select an approved instructor</option>
+                {instructors.map(instructor => <option key={instructor.id} value={instructor.id}>{instructor.displayName}</option>)}
+              </select>
+              <span className='mt-1.5 block text-[11px] font-normal text-slate-500'>Linking an instructor creates one author identity and connects their existing uploaded books.</span>
+            </label>
+          )}
+          <label className='block text-xs font-semibold text-slate-400'>Biography <span className='font-normal text-slate-600'>(optional override)</span><textarea name='bio' className={`${fieldClass} min-h-28`} maxLength={3000} /></label>
+          <label className='block text-xs font-semibold text-slate-400'>Photo URL <span className='font-normal text-slate-600'>(optional override)</span><input name='photoUrl' type='url' className={fieldClass} /></label>
+          <label className='block text-xs font-semibold text-slate-400'>Website URL <span className='font-normal text-slate-600'>(optional override)</span><input name='websiteUrl' type='url' className={fieldClass} /></label>
+        </> : (
+          <label className='block text-xs font-semibold text-slate-400'>Name<input name='name' className={fieldClass} required minLength={2} maxLength={120} /></label>
+        )}
+        {error && <p className='text-sm text-red-400'>{error}</p>}
+        <div className='flex justify-end gap-2'><button type='button' onClick={() => setModal(null)} className='rounded-lg border border-slate-700 px-4 py-2.5 text-sm text-slate-300'>Cancel</button><button disabled={pending} className={primaryClass}>{pending ? "Saving…" : "Save"}</button></div>
+      </form>
+    </Modal>}
   </>;
 }
+

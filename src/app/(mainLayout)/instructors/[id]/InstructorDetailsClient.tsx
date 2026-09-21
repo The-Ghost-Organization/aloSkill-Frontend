@@ -133,6 +133,16 @@ export default function InstructorDetailsClient({ booksTab }: { booksTab: ReactN
                   </h1>
                   <p className='text-gray-600 mb-3'>{instructor.skills.join(", ")}</p>
 
+                  {instructor.authorProfile && (
+                    <Link
+                      href={`/authors/${instructor.authorProfile.slug}`}
+                      className='mb-4 inline-flex items-center gap-2 rounded-full border border-orange-200 bg-orange-50 px-3 py-1.5 text-xs font-bold text-orange-700 hover:bg-orange-100'
+                    >
+                      <BookOpen className='h-3.5 w-3.5' />
+                      Author Profile
+                    </Link>
+                  )}
+
                   {/* Stats */}
                   <div className='flex flex-wrap gap-4 text-sm'>
                     {instructor.ratingAverage > 0 && (

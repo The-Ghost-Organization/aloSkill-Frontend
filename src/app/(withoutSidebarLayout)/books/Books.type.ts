@@ -18,6 +18,7 @@ export type BookResponse = {
   id: string;
   title: string;
   author: string;
+  authorProfile?: { id: string; name: string; slug: string } | null;
 
   physicalRegularPrice: number | null;
   physicalSalePrice: number | null;
@@ -41,6 +42,14 @@ export type BookDetailsResponse = {
   id: string;
   title: string;
   author: string;
+  authorProfile: {
+    id: string;
+    name: string;
+    slug: string;
+    photoUrl: string | null;
+    bio: string | null;
+    instructorProfileId: string | null;
+  } | null;
   translator: string | null;
   editor: string | null;
   publisher: string;

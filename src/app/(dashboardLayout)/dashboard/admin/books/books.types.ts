@@ -35,6 +35,7 @@ export type BookEditData = {
   id: string;
   title: string;
   author: string;
+  authorProfileId: string | null;
   translator: string | null;
   editor: string | null;
   publisher: string;
