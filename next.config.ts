@@ -63,6 +63,11 @@ const nextConfig: NextConfig = {
         hostname: "securepay.sslcommerz.com",
         pathname: "/**",
       },
+      {
+        protocol: "https",
+        hostname: "www.sumaiyaahmed.com",
+        pathname: "/**",
+      },
       { protocol: "https", hostname: "picsum.photos", pathname: "/**" },
     ],
 
@@ -204,7 +209,10 @@ const nextConfig: NextConfig = {
   //   ];
   // },
   async rewrites() {
-    const backendBaseUrl = config.NEXT_PUBLIC_BACKEND_BASE_URL ||"http://localhost:5000"|| "https://alobackendskill.aloskill.com";
+    const backendBaseUrl =
+      config.NEXT_PUBLIC_BACKEND_BASE_URL ||
+      "http://localhost:5000" ||
+      "https://alobackendskill.aloskill.com";
     return [
       {
         source: "/api/v1/:path*",
@@ -216,7 +224,10 @@ const nextConfig: NextConfig = {
   env: {
     APP_VERSION: process.env["npm_package_version"],
     BUILD_TIME: new Date().toISOString(),
-    BACKEND_URL: config.NEXT_PUBLIC_BACKEND_API_URL || "http://localhost:5000/api/v1" || "https://alobackendskill.aloskill.com/api/v1",
+    BACKEND_URL:
+      config.NEXT_PUBLIC_BACKEND_API_URL ||
+      "http://localhost:5000/api/v1" ||
+      "https://alobackendskill.aloskill.com/api/v1",
   },
 
   // === Webpack Optimizations ===

@@ -343,38 +343,51 @@ export interface FilterSectionProps {
 export type DashboardDataType = {
   profile: {
     name: string;
-    overallRating: number | null;
+    avatarUrl: string | null;
+    overallRating: number;
+    ratingCount: number;
   };
   counters: {
     totalCourses: number;
     totalEnrolled: number;
     totalStudents: number;
-    totalOtherInstructors: number;
+    totalRevenue: number;
+    totalViews: number;
   };
   recentActivity: {
     id: string;
-    userId: string;
-    action: string;
-    entityType: string;
-    entityId: string;
-    changesBefore: JSON | null;
-    changesAfter: JSON | null;
-    ipAddress: string | null;
-    userAgent: string | null;
-    timestamp: Date;
-  }[];
-  reviews: {
-    rating: number;
-    body: string | null;
-    createdAt: Date;
-    userDisplayName: string | undefined;
+    type: "ENROLLMENT" | "REVIEW" | "PURCHASE";
+    title: string;
+    detail: string;
+    timestamp: string | Date;
     avatarUrl: string | null;
   }[];
+  reviews: {
+    id: string;
+    rating: number;
+    title: string | null;
+    body: string | null;
+    createdAt: string | Date;
+    courseId?: string;
+    courseTitle?: string;
+    userDisplayName: string;
+    avatarUrl: string | null;
+  }[];
+  ratingDistribution: {
+    star: number;
+    count: number;
+    percentage: number;
+  }[];
   courseOverview: {
+    id: string;
     status: CourseStatus;
-    ratingAverage: number | null;
+    ratingAverage: number;
+    ratingCount: number;
     enrollmentCount: number;
+    views: number;
+    revenue: number;
     title: string;
+    thumbnailUrl: string | null;
   }[];
 };
 

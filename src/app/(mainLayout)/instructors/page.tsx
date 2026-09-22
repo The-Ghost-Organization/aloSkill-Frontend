@@ -6,7 +6,7 @@ import type { Instructor } from "@/types/instructor.types.ts";
 import { Loader2, Users } from "lucide-react";
 import { useEffect, useState } from "react";
 import InstructorCard from "./InstructorCard";
-import "./instructor.css";
+
 
 export default function AllInstructorsPage() {
   const [instructors, setInstructors] = useState<Instructor[]>([]);
