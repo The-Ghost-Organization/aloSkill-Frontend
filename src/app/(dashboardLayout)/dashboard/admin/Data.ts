@@ -97,8 +97,9 @@ export const TRANSACTIONS = [
 
 export const NAV_ITEMS = [
   { id: "dashboard", label: "Dashboard", badge: null },
-  { id: "students", label: "Students", badge: 12 },
+  { id: "users", label: "Users", badge: 12 },
   { id: "instructors", label: "Instructors", badge: 2 },
+  { id: "authors", label: "Authors", badge: 3 },
   { id: "courses", label: "Courses", badge: null },
   { id: "books", label: "Books & Products", badge: null },
   { id: "finance", label: "Financial", badge: null },

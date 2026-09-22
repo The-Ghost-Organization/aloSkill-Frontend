@@ -82,33 +82,3 @@ export const createBookCategory = async (name: string) => {
   if (result.success) revalidatePath("/dashboard/admin/books");
   return result;
 };
-
-export const createBookAuthor = async (input: {
-  name?: string;
-  instructorProfileId?: string;
-  bio?: string;
-  photoUrl?: string;
-  websiteUrl?: string;
-}) => {
-  const result = await apiClient.post(
-    "/book/admin/authors",
-    input,
-    await adminHeaders()
-  );
-  if (result.success) revalidatePath("/dashboard/admin/books");
-  return result;
-};
-
-
-export const getAuthorCandidates = async () => {
-  return await apiClient.get<
-    {
-      id: string;
-      userId: string;
-      displayName: string;
-      bio: string;
-      website: string | null;
-      user: { avatarUrl: string | null };
-    }[]
-  >("/book/admin/author-candidates", await adminHeaders());
-};

@@ -1,191 +1,194 @@
 import { Plus } from "lucide-react";
 import Link from "next/link";
-import { Badge, SectionHeader } from "../Components";
-import { BookActionButtonEditandView, BookHeaderActions } from "./BookComponents";
+import { SectionHeader } from "../Components";
+import { BookHeaderActions } from "./BookComponents";
+import BookInventoryTable from "./BookInventoryTable";
 import BulkBookImportModal from "./BulkBookImportModal";
 import { getBookData } from "./action";
+import type { WeeklyBookMetrics } from "./books.types";
+
+const currency = (amount: number) =>
+  `৳ ${amount.toLocaleString("en-BD", { maximumFractionDigits: 2 })}`;
+
+function Trend({
+  current,
+  previous,
+  values,
+  previousValues,
+}: {
+  current: number;
+  previous: number;
+  values: number[];
+  previousValues: number[];
+}) {
+  const delta = previous ? ((current - previous) / Math.abs(previous)) * 100 : null;
+  const max = Math.max(1, ...values, ...previousValues);
+  const points = (items: number[]) =>
+    items.map((value, index) => `${index * 20},${31 - (value / max) * 27}`).join(" ");
+  return (
+    <div className='mt-3 flex items-center justify-between gap-2'>
+      <span
+        className={`text-[11px] font-semibold ${delta === null ? "text-slate-400" : delta >= 0 ? "text-emerald-400" : "text-red-400"}`}
+      >
+        {delta === null
+          ? current
+            ? "New this week"
+            : "No previous sales"
+          : `${delta >= 0 ? "+" : ""}${delta.toFixed(1)}% vs last week`}
+      </span>
+      <svg
+        viewBox='0 0 120 35'
+        className='h-9 w-24 shrink-0'
+        role='img'
+        aria-label='Daily trend compared with last week'
+      >
+        <polyline
+          fill='none'
+          stroke='#64748b'
+          strokeWidth='1.5'
+          strokeDasharray='3 3'
+          points={points(previousValues)}
+        />
+        <polyline
+          fill='none'
+          stroke={delta !== null && delta < 0 ? "#f87171" : "#34d399"}
+          strokeWidth='2'
+          points={points(values)}
+        />
+      </svg>
+    </div>
+  );
+}
+
+function MetricCard({
+  label,
+  value,
+  color,
+  current,
+  previous,
+  kind,
+}: {
+  label: string;
+  value: string | number;
+  color: string;
+  current?: WeeklyBookMetrics;
+  previous?: WeeklyBookMetrics;
+  kind?: "units" | "sales" | "revenue";
+}) {
+  const dailyKey =
+    kind === "units" ? "dailyUnits" : kind === "sales" ? "dailySales" : "dailyRevenue";
+  return (
+    <div className='min-w-0 rounded border border-slate-800 bg-slate-900 p-4'>
+      <p
+        className={`truncate font-['Syne'] text-xl font-bold ${color}`}
+        title={String(value)}
+      >
+        {value}
+      </p>
+      <p className='mt-1 font-mono text-[10px] uppercase tracking-wide text-slate-500'>{label}</p>
+      {kind && current && previous && (
+        <Trend
+          current={current[kind]}
+          previous={previous[kind]}
+          values={current[dailyKey]}
+          previousValues={previous[dailyKey]}
+        />
+      )}
+    </div>
+  );
+}
 
 export default async function BooksPage() {
-  const data = await getBookData();
-  console.log("bookd data : ", data);
-  const bookData = data?.data;
+  const response = await getBookData();
+  const data = response?.data;
+  const books = data?.bookBreakdown ?? [];
+  const current = data?.salesInsights?.thisWeek;
+  const previous = data?.salesInsights?.previousWeek;
 
   return (
     <div className='animate-slide-up'>
       <SectionHeader
         title='Books & Products'
-        sub='Manage digital and physical book inventory'
+        sub='Paid book sales and physical inventory'
         action={
           <div className='flex flex-wrap items-center gap-2'>
             <BookHeaderActions />
             <BulkBookImportModal />
-            <Link href='/dashboard/admin/books/upload-books'>
-              <button className="inline-flex items-center gap-1.5 px-4.5 py-2.5 rounded bg-linear-to-br from-orange to-orange-dark text-white font-['Outfit'] font-semibold text-[13px] shadow shadow-orange-500/25 hover:shadow-orange-500/45 hover:-translate-y-px transition-all cursor-pointer border-none">
-                <Plus
-                  size={14}
-                  color='white'
-                />
-                Add Book
-              </button>
+            <Link
+              href='/dashboard/admin/books/upload-books'
+              className="inline-flex items-center gap-1.5 rounded bg-linear-to-br from-orange to-orange-dark px-4 py-2.5 font-['Outfit'] text-[13px] font-semibold text-white"
+            >
+              <Plus size={14} /> Add Book
             </Link>
           </div>
         }
       />
-
-      {/* KPI Grid */}
-      <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 mb-6'>
-        {[
-          {
-            l: "Total Books",
-            v: bookData?.totalBooks,
-            text: "text-blue-400",
-            border: "after:bg-blue-400",
-          },
-          {
-            l: "Units Sold",
-            v: bookData?.totalSold,
-            text: "text-emerald-400",
-            border: "after:bg-emerald-400",
-          },
-          {
-            l: "Physical Stock",
-            v: bookData?.totalStock,
-            text: "text-orange-500",
-            border: "after:bg-orange-500",
-          },
-          {
-            l: "Total Revenue",
-            v: bookData?.totalRevenue,
-            text: "text-purple-400",
-            border: "after:bg-purple-400",
-          },
-        ].map(s => (
-          <div
-            key={s.l}
-            className={`group relative bg-slate-900 border border-slate-800 rounded p-3 pl-4 transition-all duration-250 hover:border-slate-700 hover:-translate-y-0.5 hover:shadow-2xl hover:shadow-black/40 overflow-hidden after:content-[''] after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:opacity-40 hover:after:opacity-100 after:transition-opacity ${s.border}`}
-          >
-            <div className={`font-['Syne'] text-[22px] font-bold mb-1 ${s.text}`}>{s.v}</div>
-            <div className='font-mono text-[11px] uppercase tracking-widest text-slate-500'>
-              {s.l}
-            </div>
-          </div>
-        ))}
+      <div className='mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4'>
+        <MetricCard
+          label='Total Books'
+          value={data?.totalBooks ?? 0}
+          color='text-blue-400'
+        />
+        <MetricCard
+          label='Physical Stock'
+          value={data?.totalStock ?? 0}
+          color='text-orange-400'
+        />
+        <MetricCard
+          label='Units Sold This Week'
+          value={current?.units ?? 0}
+          color='text-emerald-400'
+          current={current}
+          previous={previous}
+          kind='units'
+        />
+        <MetricCard
+          label='Units Sold Overall'
+          value={data?.totalSold ?? 0}
+          color='text-emerald-400'
+          current={current}
+          previous={previous}
+          kind='units'
+        />
+        <MetricCard
+          label='Sales This Week'
+          value={currency(current?.sales ?? 0)}
+          color='text-cyan-400'
+          current={current}
+          previous={previous}
+          kind='sales'
+        />
+        <MetricCard
+          label='Sales Overall'
+          value={currency(Number(data?.totalRevenue ?? 0))}
+          color='text-cyan-400'
+          current={current}
+          previous={previous}
+          kind='sales'
+        />
+        <MetricCard
+          label='Revenue This Week'
+          value={currency(current?.revenue ?? 0)}
+          color='text-purple-400'
+          current={current}
+          previous={previous}
+          kind='revenue'
+        />
+        <MetricCard
+          label='Revenue Overall'
+          value={currency(data?.totalProfit ?? 0)}
+          color='text-purple-400'
+          current={current}
+          previous={previous}
+          kind='revenue'
+        />
       </div>
-
-      {/* Table Card */}
-      <div className='border border-slate-800 rounded relative overflow-hidden'>
-        <div className='overflow-x-auto'>
-          <table className='w-full border-collapse'>
-            <thead>
-              <tr className='border-b border-slate-800'>
-                {[
-                  "Sr.",
-                  "Title",
-                  "Author",
-                  "Type",
-                  "Price",
-                  "Sales",
-                  "Revenue",
-                  "Stock",
-                  "Status",
-                  "Actions",
-                ].map(h => (
-                  <th
-                    key={h}
-                    className='bg-slate-900 text-slate-500 text-[11px] font-semibold uppercase tracking-widest p-3.5 px-4.5 text-left font-mono border-b border-slate-800'
-                  >
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className='divide-y divide-slate-800'>
-              {!bookData?.bookBreakdown.length && (
-                <tr>
-                  <td
-                    colSpan={10}
-                    className='px-6 py-16 text-center text-sm text-slate-500'
-                  >
-                    No approved or suspended books found. Pending submissions are available in
-                    Approvals.
-                  </td>
-                </tr>
-              )}
-              {bookData?.bookBreakdown.map((b, i) => {
-                const salePrice = b.physicalSalePrice ?? b.physicalRegularPrice ?? 0;
-                return (
-                  <tr
-                    key={b.id}
-                    className='transition-colors hover:bg-slate-800/60'
-                  >
-                    <td className='p-4 px-4.5 text-[13.5px] text-slate-100 font-semibold'>
-                      {i + 1 + "."}
-                    </td>
-                    <td className='p-4 px-4.5 text-[13.5px] text-slate-100 font-semibold'>
-                      {b.title.length > 20 ? b.title.slice(0, 20) + "..." : b.title}
-                    </td>
-                    <td className='p-4 px-4.5 text-[13.5px] text-slate-400'>{b.author}</td>
-                    <td className='p-4 px-4.5 flex flex-col items-center gap-1'>
-                      <Badge
-                        fontSize='9'
-                        variant={b.formats.includes("HARDCOVER") ? "blue" : "orange"}
-                      >
-                        {b.formats[0]}
-                      </Badge>
-                      {b.formats.length > 1 && (
-                        <Badge
-                          fontSize='9'
-                          variant={b.formats.includes("HARDCOVER") ? "blue" : "orange"}
-                        >
-                          {b.formats[1]}
-                        </Badge>
-                      )}
-                    </td>
-                    <td className='p-4 px-4.5 text-[13.5px] text-slate-100 font-mono font-semibold'>
-                      ৳ {salePrice}
-                    </td>
-                    <td className='p-4 px-4.5 text-gray-200 font-mono text-xs!'>
-                      {b.orderItem.reduce((sum, item) => sum + item.quantity, 0)}
-                    </td>
-                    <td className='p-4 px-4.5 text-[13.5px] text-emerald-400 font-mono font-semibold'>
-                      ৳ {b.totalEarning}
-                    </td>
-                    <td
-                      className={`p-4 px-4.5 text-[13.5px] font-mono ${
-                        b.stock === null
-                          ? "text-slate-600"
-                          : b.stock < 20
-                            ? "text-red-500"
-                            : "text-slate-400"
-                      }`}
-                    >
-                      {b.stock === null ? "∞" : b.stock}
-                    </td>
-                    <td className='p-4 px-4.5'>
-                      <Badge
-                        variant={
-                          b.status === "APPROVED"
-                            ? "green"
-                            : b.status === "SUSPENDED"
-                              ? "red"
-                              : "orange"
-                        }
-                      >
-                        {b.status}
-                      </Badge>
-                    </td>
-                    <td className='p-4 px-4.5'>
-                      <div className='flex gap-2'>
-                        <BookActionButtonEditandView book={b} />
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <p className='mb-5 text-xs text-slate-500'>
+        Sales = paid book item totals. Revenue = sales − purchase cost × units, before fees, tax and
+        shipping. Weeks start Monday in Bangladesh time. Dashed line shows last week; paid orders
+        are dated by order creation because the schema has no payment date.
+      </p>
+      <BookInventoryTable books={books} />
     </div>
   );
 }

@@ -86,7 +86,7 @@ const bookSchema = z
       .string()
       .min(1, "Author name is required")
       .regex(/^[^<>]*$/, "Author name must not contain any opening or closing HTML tags"),
-    authorProfileId: z.string().uuid().optional(),
+    authorProfileId: z.uuid("Select an author profile"),
     translator: z
       .string()
       .regex(/^[^<>]*$/, "Translator name must not contain any opening or closing HTML tags")
@@ -271,6 +271,10 @@ export default function AddBookPage() {
   const [uploadError, setUploadError] = useState<string>("");
   const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
   const [authors, setAuthors] = useState<{ id: string; name: string; slug: string }[]>([]);
+  const [authorSearch, setAuthorSearch] = useState("");
+  const [authorResultsOpen, setAuthorResultsOpen] = useState(false);
+  const [authorsLoading, setAuthorsLoading] = useState(false);
+  const [authorSearchError, setAuthorSearchError] = useState("");
   const [uploadedPdfPreview, setUploadedPdfPreview] = useState<string | null>(null);
   const [uploadedEbookPreview, setUploadedEbookPdf] = useState<string | null>(null);
 
@@ -278,6 +282,7 @@ export default function AddBookPage() {
   const router = useRouter();
   const querydata = useSearchParams();
   const editBookId = querydata.get("editBookid");
+  const [editLoading, setEditLoading] = useState(Boolean(editBookId));
 
   const {
     register,
@@ -297,32 +302,60 @@ export default function AddBookPage() {
 
   useEffect(() => {
     const getReferenceData = async () => {
-      const [categoryResponse, authorResponse] = await Promise.all([
-        apiClient.get<{ id: string; name: string }[]>("/book/categories"),
-        apiClient.get<{ id: string; name: string; slug: string }[]>("/book/authors"),
-      ]);
+      const categoryResponse =
+        await apiClient.get<{ id: string; name: string }[]>("/book/categories");
       if (categoryResponse.success && categoryResponse.data) {
         setCategories(categoryResponse.data);
-      }
-      if (authorResponse.success && authorResponse.data) {
-        setAuthors(authorResponse.data);
       }
     };
     void getReferenceData();
   }, []);
 
   useEffect(() => {
+    if (!authorResultsOpen) return;
+    let active = true;
+    const timeout = window.setTimeout(async () => {
+      setAuthorsLoading(true);
+      setAuthorSearchError("");
+      try {
+        const response = await apiClient.get<{ id: string; name: string; slug: string }[]>(
+          `/book/authors?search=${encodeURIComponent(authorSearch.trim())}`
+        );
+        if (!active) return;
+        if (!response.success || !response.data) throw new Error("Unable to search authors");
+        setAuthors(response.data);
+      } catch {
+        if (active) {
+          setAuthors([]);
+          setAuthorSearchError("Unable to search authors. Please try again.");
+        }
+      } finally {
+        if (active) setAuthorsLoading(false);
+      }
+    }, 300);
+    return () => {
+      active = false;
+      window.clearTimeout(timeout);
+    };
+  }, [authorSearch, authorResultsOpen]);
+
+  useEffect(() => {
     if (!editBookId) return;
-    try {
-      const fetchBookData = async () => {
+    let active = true;
+    setEditLoading(true);
+    setLoadEditDataError("");
+    const fetchBookData = async () => {
+      try {
         const response = await apiClient.get<BookEditData>(
           `/book/admin/books/edit?bookId=${editBookId}`
         );
 
+        if (!active) return;
         if (response.success && response.data) {
           const book = response.data;
           setValue("title", book.title);
           setValue("author", book.author);
+          setAuthorSearch(book.author);
           if (book.authorProfileId) setValue("authorProfileId", book.authorProfileId);
           setValue("translator", book.translator || "");
           setValue("editor", book.editor || "");
@@ -374,11 +407,16 @@ export default function AddBookPage() {
         } else {
           setLoadEditDataError("Failed to load book data. Please try again.");
         }
-      };
-      fetchBookData();
-    } catch (error) {
-      setLoadEditDataError("Failed to load book data. Please try again.");
-    }
+      } catch {
+        if (active) setLoadEditDataError("Failed to load book data. Please try again.");
+      } finally {
+        if (active) setEditLoading(false);
+      }
+    };
+    void fetchBookData();
+    return () => {
+      active = false;
+    };
   }, [editBookId, setValue]);
 
   const selectedFormats = watch("formats");
@@ -652,6 +690,43 @@ export default function AddBookPage() {
     }
   };
 
+  if (editBookId && editLoading) {
+    return (
+      <div
+        className='flex min-h-[60vh] flex-col items-center justify-center gap-4 text-slate-300'
+        role='status'
+        aria-live='polite'
+      >
+        <Loader
+          size={32}
+          className='animate-spin text-orange-500'
+        />
+        <p className='text-sm font-medium'>Loading book details…</p>
+      </div>
+    );
+  }
+
+  if (editBookId && loadEditDataError) {
+    return (
+      <div
+        className='flex min-h-[60vh] flex-col items-center justify-center gap-4 text-slate-300'
+        role='alert'
+      >
+        <AlertCircle
+          size={32}
+          className='text-red-400'
+        />
+        <p>{loadEditDataError}</p>
+        <Link
+          href='/dashboard/admin/books'
+          className='rounded bg-orange-500 px-4 py-2 text-sm font-semibold text-white'
+        >
+          Back to books
+        </Link>
+      </div>
+    );
+  }
+
   return (
     <div className='text-white font-sans'>
       {/* Sticky Top Bar */}
@@ -768,28 +843,82 @@ export default function AddBookPage() {
                 <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
                   <Field
                     label='Main Author *'
-                    error={errors.author?.message}
+                    error={errors.authorProfileId?.message || errors.author?.message}
                   >
                     <div className='relative'>
-                      <select
-                        {...register("authorProfileId")}
-                        className={`${getInputClass(!!errors.author)} pl-10`}
-                        defaultValue=''
+                      <input
+                        type='text'
+                        role='combobox'
+                        aria-expanded={authorResultsOpen}
+                        aria-controls='author-search-results'
+                        aria-autocomplete='list'
+                        autoComplete='off'
+                        value={authorSearch}
+                        onFocus={() => setAuthorResultsOpen(true)}
+                        onBlur={() => window.setTimeout(() => setAuthorResultsOpen(false), 150)}
                         onChange={event => {
-                          const selected = authors.find(author => author.id === event.target.value);
-                          setValue("authorProfileId", event.target.value || undefined, { shouldValidate: true });
-                          if (selected) setValue("author", selected.name, { shouldValidate: true });
+                          setAuthorSearch(event.target.value);
+                          setValue("authorProfileId", "", { shouldValidate: false });
+                          setValue("author", "", { shouldValidate: false });
+                          setAuthorResultsOpen(true);
                         }}
-                      >
-                        <option value=''>Select author profile</option>
-                        {authors.map(author => (
-                          <option key={author.id} value={author.id}>{author.name}</option>
-                        ))}
-                      </select>
-                      <input {...register("author")} type='hidden' />
-                      <User size={16} className='absolute left-3.5 top-3.5 text-gray-500' />
+                        onKeyDown={event => {
+                          if (event.key === "Escape") setAuthorResultsOpen(false);
+                          if (event.key === "Enter" && authorResultsOpen) event.preventDefault();
+                        }}
+                        className={`${getInputClass(!!errors.authorProfileId || !!errors.author)} pl-10`}
+                        placeholder='Search author by name'
+                      />
+                      <input
+                        {...register("authorProfileId")}
+                        type='hidden'
+                      />
+                      <input
+                        {...register("author")}
+                        type='hidden'
+                      />
+                      <User
+                        size={16}
+                        className='absolute left-3.5 top-3.5 text-gray-500'
+                      />
+                      {authorResultsOpen && (
+                        <div
+                          id='author-search-results'
+                          role='listbox'
+                          className='absolute z-50 mt-1 max-h-56 w-full overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-lg'
+                        >
+                          {authorsLoading ? (
+                            <p className='p-3 text-sm text-gray-500'>Searching authors…</p>
+                          ) : authorSearchError ? (
+                            <p className='p-3 text-sm text-red-600'>{authorSearchError}</p>
+                          ) : authors.length ? (
+                            authors.map(author => (
+                              <button
+                                key={author.id}
+                                type='button'
+                                role='option'
+                                aria-selected={watch("authorProfileId") === author.id}
+                                className='block w-full px-3 py-2 text-left text-sm text-gray-800 hover:bg-gray-100 focus:bg-gray-100'
+                                onMouseDown={event => event.preventDefault()}
+                                onClick={() => {
+                                  setValue("authorProfileId", author.id, { shouldValidate: true });
+                                  setValue("author", author.name, { shouldValidate: true });
+                                  setAuthorSearch(author.name);
+                                  setAuthorResultsOpen(false);
+                                }}
+                              >
+                                {author.name}
+                              </button>
+                            ))
+                          ) : (
+                            <p className='p-3 text-sm text-gray-500'>No authors found.</p>
+                          )}
+                        </div>
+                      )}
                     </div>
-                    <p className='mt-1.5 text-xs text-gray-500'>Create missing authors from Books → Add Author Profile.</p>
+                    <p className='mt-1.5 text-xs text-gray-500'>
+                      Create missing authors from the Authors page.
+                    </p>
                   </Field>
                   <Field
                     label='Publisher *'
@@ -976,17 +1105,19 @@ export default function AddBookPage() {
                   </>
                 )}
               </div>
-              <Field
-                label='Stock Quantity'
-                error={errors.stock?.message}
-              >
-                <input
-                  {...register("stock")}
-                  type='number'
-                  min={0}
-                  className={getInputClass(!!errors.stock)}
-                />
-              </Field>
+              {isHardCoverSelected && (
+                <Field
+                  label='Stock Quantity'
+                  error={errors.stock?.message}
+                >
+                  <input
+                    {...register("stock")}
+                    type='number'
+                    min={0}
+                    className={getInputClass(!!errors.stock)}
+                  />
+                </Field>
+              )}
             </Card>
 
             {/* Specifications */}
