@@ -1,8 +1,19 @@
+export type WeeklyBookMetrics = {
+  units: number;
+  sales: number;
+  revenue: number;
+  dailyUnits: number[];
+  dailySales: number[];
+  dailyRevenue: number[];
+};
+
 export type BookState = {
   totalBooks: number;
   totalSold: number;
   totalStock: number;
   totalRevenue: number;
+  totalProfit: number;
+  salesInsights: { thisWeek: WeeklyBookMetrics; previousWeek: WeeklyBookMetrics };
   bookBreakdown: {
     id: string;
     status: string;
