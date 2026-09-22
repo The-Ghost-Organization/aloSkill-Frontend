@@ -28,7 +28,7 @@ import { NAV_ITEMS } from "./Data";
 
 const NAV_ICONS: Record<string, React.ReactNode> = {
   dashboard: <LayoutDashboard size={17} />,
-  students: <Users size={17} />,
+  users: <Users size={17} />,
   instructors: <GraduationCap size={17} />,
   authors: <BookText size={17} />,
   courses: <BookOpen size={17} />,
