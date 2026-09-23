@@ -3,17 +3,28 @@
 import Toast from "@/components/toast/successToast.tsx";
 import { useLogout } from "@/hooks/useLogout.ts";
 import {
+  BarChart3,
   Bell,
   BookOpen,
+  BookPlus,
+  CheckCircle2,
   ChevronDown,
+  CircleDollarSign,
+  GraduationCap,
   Heart,
   LayoutDashboard,
+  LibraryBig,
   Loader2,
   LogOut,
   Menu,
+  MessageSquare,
+  ReceiptText,
   Search,
   Settings,
+  ShoppingBag,
   ShoppingCart,
+  Upload,
+  Users,
 } from "lucide-react";
 // import { useSession } from "next-auth/react";
 import Image from "next/image";
@@ -23,6 +34,92 @@ import { useEffect, useRef, useState } from "react";
 import { useSessionContext } from "../../../app/contexts/SessionContext.tsx";
 import { bookDraftStorage, courseDraftStorage } from "../../../lib/storage/courseDraftStorage.ts";
 import Logo from "./Logo.tsx";
+
+const ROLE_DASHBOARD_PATHS: Record<string, string> = {
+  STUDENT: "/dashboard/student",
+  INSTRUCTOR: "/dashboard/instructor",
+  ADMIN: "/dashboard/admin",
+};
+
+const ROLE_MENU_ITEMS = {
+  STUDENT: [
+    { label: "Dashboard", path: "/dashboard/student", icon: LayoutDashboard },
+    { label: "My Courses", path: "/dashboard/student/courses", icon: BookOpen },
+    { label: "My Books", path: "/dashboard/student/books", icon: LibraryBig },
+    {
+      label: "Purchases & Orders",
+      path: "/dashboard/student/purchase",
+      icon: ReceiptText,
+    },
+    { label: "Wishlist", path: "/dashboard/student/wishlist", icon: Heart },
+    { label: "Teachers", path: "/dashboard/student/teachers", icon: GraduationCap },
+    { label: "Messages", path: "/dashboard/student/message", icon: MessageSquare },
+    { label: "Settings", path: "/dashboard/student/settings", icon: Settings },
+  ],
+  INSTRUCTOR: [
+    { label: "Dashboard", path: "/dashboard/instructor", icon: LayoutDashboard },
+    { label: "My Courses", path: "/dashboard/instructor/course", icon: BookOpen },
+    {
+      label: "Upload Course",
+      path: "/dashboard/instructor/create-course",
+      icon: Upload,
+    },
+    { label: "My Books", path: "/dashboard/instructor/books", icon: LibraryBig },
+    {
+      label: "Upload Book",
+      path: "/dashboard/instructor/books/upload-books",
+      icon: BookPlus,
+    },
+    {
+      label: "Earnings",
+      path: "/dashboard/instructor/earning",
+      icon: CircleDollarSign,
+    },
+    { label: "Messages", path: "/dashboard/instructor/message", icon: MessageSquare },
+    { label: "Settings", path: "/dashboard/instructor/settings", icon: Settings },
+  ],
+  ADMIN: [
+    { label: "Dashboard", path: "/dashboard/admin", icon: LayoutDashboard },
+    { label: "Students", path: "/dashboard/admin/students", icon: Users },
+    {
+      label: "Instructors",
+      path: "/dashboard/admin/instructors",
+      icon: GraduationCap,
+    },
+    { label: "Courses", path: "/dashboard/admin/courses", icon: BookOpen },
+    {
+      label: "Books & Products",
+      path: "/dashboard/admin/books",
+      icon: ShoppingBag,
+    },
+    {
+      label: "Approvals",
+      path: "/dashboard/admin/approvals",
+      icon: CheckCircle2,
+    },
+    {
+      label: "Financial",
+      path: "/dashboard/admin/finance",
+      icon: CircleDollarSign,
+    },
+    { label: "Analytics", path: "/dashboard/admin/analytics", icon: BarChart3 },
+    {
+      label: "Notifications",
+      path: "/dashboard/admin/notifications",
+      icon: Bell,
+    },
+    { label: "Settings", path: "/dashboard/admin/settings", icon: Settings },
+  ],
+} as const;
+
+const getPreferredRole = (roles: string[]) => {
+  if (roles.includes("ADMIN")) return "ADMIN";
+  if (roles.includes("INSTRUCTOR")) return "INSTRUCTOR";
+  if (roles.includes("STUDENT")) return "STUDENT";
+  return roles[0] || "STUDENT";
+};
+
+const getDashboardPathForRole = (role: string) => ROLE_DASHBOARD_PATHS[role] || "/dashboard";
 
 interface HeaderProps {
   onMenuToggle?: () => void;
@@ -57,7 +154,7 @@ export default function NavBar({ onMenuToggle }: HeaderProps) {
       if (savedRole && normalizedRoles.includes(savedRole)) {
         setActiveRole(savedRole);
       } else {
-        const defaultRole = normalizedRoles.includes("INSTRUCTOR") ? "INSTRUCTOR" : "STUDENT";
+        const defaultRole = getPreferredRole(normalizedRoles);
         setActiveRole(defaultRole);
         localStorage.setItem("activeRole", defaultRole);
       }
@@ -111,25 +208,9 @@ export default function NavBar({ onMenuToggle }: HeaderProps) {
     setActiveRole(newRole);
     localStorage.setItem("activeRole", newRole);
 
-    // Navigate to the appropriate dashboard
-    const path = newRole === "INSTRUCTOR" ? "/dashboard/instructor" : "/dashboard/student";
-    router.push(path);
+    // Navigate to the selected role's dashboard
+    router.push(getDashboardPathForRole(newRole));
     setIsDropdownOpen(false);
-  };
-
-  // Get dashboard path based on active role
-  const getDashboardPath = () => {
-    if (!user) return "/dashboard";
-
-    const roles = getUserRoles();
-
-    // If user doesn't have the active role, default to their first role
-    if (!roles.includes(activeRole)) {
-      const defaultRole = roles.includes("INSTRUCTOR") ? "INSTRUCTOR" : "STUDENT";
-      return defaultRole === "INSTRUCTOR" ? "/dashboard/instructor" : "/dashboard/student";
-    }
-
-    return activeRole === "INSTRUCTOR" ? "/dashboard/instructor" : "/dashboard/student";
   };
 
   // Get display role label
@@ -196,6 +277,9 @@ export default function NavBar({ onMenuToggle }: HeaderProps) {
       </div>
     </div>
   );
+
+  const currentRoleMenuItems =
+    ROLE_MENU_ITEMS[activeRole as keyof typeof ROLE_MENU_ITEMS] || ROLE_MENU_ITEMS.STUDENT;
 
   return (
     <>
@@ -313,7 +397,7 @@ export default function NavBar({ onMenuToggle }: HeaderProps) {
                 {/* Dropdown Menu */}
                 {isDropdownOpen && (
                   <div
-                    className='absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50 animate-in fade-in slide-in-from-top-2 duration-200'
+                    className='absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50 animate-in fade-in slide-in-from-top-2 duration-200'
                     role='menu'
                     aria-orientation='vertical'
                   >
@@ -356,66 +440,24 @@ export default function NavBar({ onMenuToggle }: HeaderProps) {
                       </>
                     )}
 
-                    {/* Menu Items */}
-                    <button
-                      onClick={() => handleNavigate(getDashboardPath())}
-                      className='w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors'
-                      role='menuitem'
-                    >
-                      <LayoutDashboard className='w-4 h-4' />
-                      <span>Dashboard</span>
-                    </button>
+                    {/* Role-based Menu Items */}
+                    <div className='max-h-[60vh] overflow-y-auto py-1'>
+                      {currentRoleMenuItems.map(item => {
+                        const Icon = item.icon;
 
-                    {/* Show My Courses based on active role */}
-                    {activeRole === "INSTRUCTOR" && (
-                      <button
-                        onClick={() => handleNavigate("/dashboard/instructor/course")}
-                        className='w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors'
-                        role='menuitem'
-                      >
-                        <BookOpen className='w-4 h-4' />
-                        <span>My Courses</span>
-                      </button>
-                    )}
-
-                    {activeRole === "STUDENT" && (
-                      <button
-                        onClick={() => handleNavigate("/dashboard/student/course")}
-                        className='w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors'
-                        role='menuitem'
-                      >
-                        <BookOpen className='w-4 h-4' />
-                        <span>My Courses</span>
-                      </button>
-                    )}
-
-                    <button
-                      onClick={() => handleNavigate("/dashboard/instructor/settings")}
-                      className='w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors'
-                      role='menuitem'
-                    >
-                      <Settings className='w-4 h-4' />
-                      <span>Settings</span>
-                    </button>
-
-                    <button
-                      onClick={() => handleNavigate("/notifications")}
-                      className='w-full flex items-center justify-between px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors'
-                      role='menuitem'
-                    >
-                      <div className='flex items-center gap-3'>
-                        <Bell className='w-4 h-4' />
-                        <span>Notifications</span>
-                      </div>
-                      {(user as any)?.unreadNotifications &&
-                        (user as any).unreadNotifications > 0 && (
-                          <span className='px-2 py-0.5 bg-red-500 text-white text-xs font-semibold rounded-full'>
-                            {(user as any).unreadNotifications > 99
-                              ? "99+"
-                              : (user as any).unreadNotifications}
-                          </span>
-                        )}
-                    </button>
+                        return (
+                          <button
+                            key={item.path}
+                            onClick={() => handleNavigate(item.path)}
+                            className='w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors'
+                            role='menuitem'
+                          >
+                            <Icon className='w-4 h-4 shrink-0' />
+                            <span>{item.label}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
 
                     <div className='border-t border-gray-100 my-1'></div>
 
