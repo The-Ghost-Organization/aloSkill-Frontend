@@ -279,12 +279,16 @@ export default function CheckoutPage() {
             const res = await apiClient.get<{ stock?: number | null }>(
               `/book/user/checkout/${entry.bookId}?format=PHYSICAL`
             );
+
             const available =
               res.success && res.data && res.data.stock !== undefined
                 ? Number(res.data.stock ?? 0)
                 : null;
 
-            if (available === null) throw new Error("Stock quantity was not returned");
+            if (available === null)
+              setStockCheckError(
+                `${res.message ?? "Stock quantity was not returned"} (Book ID: ${orderSummary.items.books.find(b => b.id === entry.bookId)?.title ?? entry.bookId})`
+              );
 
             if (available !== null && available < entry.quantity) {
               return {

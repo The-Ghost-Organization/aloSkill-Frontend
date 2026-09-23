@@ -1180,17 +1180,19 @@ export default function AddBookPage() {
                   </select>
                 </Field>
               </div>
-              <Field
-                label='Book Weight (KG)'
-                error={errors.weight?.message}
-              >
-                <input
-                  {...register("weight")}
-                  type='number'
-                  className={getInputClass(!!errors.weight)}
-                  placeholder='Book Weight (KG)'
-                />
-              </Field>
+              {isHardCoverSelected && (
+                <Field
+                  label='Book Weight (KG)'
+                  error={errors.weight?.message}
+                >
+                  <input
+                    {...register("weight")}
+                    type='number'
+                    className={getInputClass(!!errors.weight)}
+                    placeholder='Book Weight (KG)'
+                  />
+                </Field>
+              )}
             </Card>
 
             {/* SEO Meta */}
