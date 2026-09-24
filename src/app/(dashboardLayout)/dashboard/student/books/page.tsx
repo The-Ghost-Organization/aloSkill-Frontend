@@ -6,7 +6,7 @@ import { getUserBookData } from "./userBookAction";
 
 function physicalStatus(value: string): PhysicalStatus {
   const status = value.toLowerCase();
-  if (status === "processing" || status === "paid") return "confirmed";
+  if (status === "processing" || status === "paid" || status === "completed") return "confirmed";
   if (status === "failed") return "cancelled";
   if (
     [

@@ -1,68 +1,92 @@
 import { FadeIn } from "@/lib/course/utils.tsx";
-import { Award, BookOpen, Star, Users } from "lucide-react";
+import { Award, BookOpen, GraduationCap, Star, Users } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import type { CourseDetailsPublic } from "../../allCourses.types.ts";
 
 function InstructorTab({ instructors }: { instructors: CourseDetailsPublic["courseInstructors"] }) {
+  if (!instructors.length) {
+    return (
+      <div className='rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center'>
+        <GraduationCap className='mx-auto h-9 w-9 text-slate-400' />
+        <h2 className='mt-3 font-bold text-slate-800'>Instructor information unavailable</h2>
+      </div>
+    );
+  }
+
   return (
-    <div className='space-y-6 sm:space-y-8'>
-      {instructors?.map((instructor, index) => (
-        <FadeIn
-          key={instructor.instructorId + index}
-          delay={index * 100}
-        >
-          <div className='flex flex-col sm:flex-row gap-4 sm:gap-6 p-4 sm:p-6 bg-linear-to-br from-orange-50 to-purple-50 rounded-md sm:rounded-md border-2 border-orange-200 hover:shadow-lg transition-all group'>
-            <div className='relative shrink-0 mx-auto sm:mx-0'>
-              <div className='relative w-24 h-24 sm:w-32 sm:h-32 rounded-md overflow-hidden ring-4 ring-white group-hover:ring-[#da7c36] transition-all'>
-                <Link href={`/instructors/${instructor.userId}`}>
-                  <Image
-                    src={instructor.avatarUrl || ""}
-                    alt={instructor.displayName}
-                    fill
-                    className='object-cover group-hover:scale-110 transition-transform duration-500'
-                  />
+    <div className='space-y-5'>
+      <div>
+        <p className='text-xs font-bold uppercase tracking-[0.18em] text-orange-500'>Meet your instructor</p>
+        <h2 className='mt-1 text-xl font-bold text-slate-900 sm:text-2xl'>Learn from experienced mentors</h2>
+      </div>
+
+      {instructors.map((instructor, index) => (
+        <FadeIn key={`${instructor.instructorId}-${index}`} delay={index * 80}>
+          <article className='rounded-2xl border border-slate-200 bg-white p-5 transition hover:border-orange-200 hover:shadow-md sm:p-6'>
+            <div className='flex flex-col gap-5 sm:flex-row'>
+              <div className='relative mx-auto shrink-0 sm:mx-0'>
+                <Link href={`/instructors/${instructor.userId}`} className='block'>
+                  <div className='relative h-28 w-28 overflow-hidden rounded-2xl bg-slate-100 ring-1 ring-slate-200 sm:h-32 sm:w-32'>
+                    <Image
+                      src={instructor.avatarUrl || "/default-avatar.png"}
+                      alt={instructor.displayName}
+                      fill
+                      sizes='128px'
+                      className='object-cover transition duration-300 hover:scale-105'
+                    />
+                  </div>
                 </Link>
+                <span className='absolute -bottom-2 -right-2 flex h-10 w-10 items-center justify-center rounded-xl border-4 border-white bg-[#074079] text-white'>
+                  <Award className='h-4 w-4' />
+                </span>
               </div>
-              <div className='absolute -bottom-2 -right-2  w-10 h-10  bg-linear-to-br from-[#d15100] to-[#da7c36] rounded-full flex items-center justify-center border-4 border-white group-hover:scale-125 transition-transform'>
-                <Award className='w-5 h-5  text-white' />
+
+              <div className='min-w-0 flex-1 text-center sm:text-left'>
+                {instructor.expertise && (
+                  <span className='inline-flex rounded-full bg-orange-50 px-3 py-1 text-xs font-semibold text-orange-600'>
+                    {instructor.expertise}
+                  </span>
+                )}
+                <Link href={`/instructors/${instructor.userId}`}>
+                  <h3 className='mt-2 text-xl font-bold text-[#074079] transition hover:text-orange-600'>
+                    {instructor.displayName}
+                  </h3>
+                </Link>
+
+                <div className='mt-4 flex flex-wrap justify-center gap-2 sm:justify-start'>
+                  <Stat icon={Users} value={`${instructor.totalStudents}`} label='Students' />
+                  <Stat icon={BookOpen} value={`${instructor.totalCourses}`} label='Courses' />
+                  <Stat icon={Star} value={Number(instructor.rating ?? 0).toFixed(1)} label='Rating' />
+                </div>
+
+                {instructor.bio && (
+                  <p className='mt-4 text-sm leading-7 text-slate-600'>{instructor.bio}</p>
+                )}
               </div>
             </div>
-
-            <div className='flex-1 text-center sm:text-left'>
-              <div className='flex items-center justify-center sm:justify-start gap-2  text-sm text-[#da7c36] font-semibold mb-2'>
-                <Star className='w-3 h-3 sm:w-4 sm:h-4 fill-[#da7c36]' />
-                Expert in {instructor.expertise}
-              </div>
-              <Link href={`/instructors/${instructor.userId}`}>
-                <h3 className='text-lg font-bold text-[#074079] mb-3 group-hover:text-[#da7c36] transition-colors'>
-                  {instructor.displayName}
-                </h3>
-              </Link>
-
-              {/* Stats */}
-              <div className='flex flex-wrap justify-center sm:justify-start gap-3 sm:gap-4 mb-3 sm:mb-4'>
-                <div className='flex items-center gap-2  text-sm'>
-                  <Users className='w-3 h-3 sm:w-4 sm:h-4 text-gray-500' />
-                  <span className='text-gray-700'>{instructor.totalStudents} Students</span>
-                </div>
-                <div className='flex items-center gap-2  text-sm'>
-                  <BookOpen className='w-3 h-3 sm:w-4 sm:h-4 text-gray-500' />
-                  <span className='text-gray-700'>{instructor.totalCourses} Courses</span>
-                </div>
-                <div className='flex items-center gap-2  text-sm'>
-                  <Star className='w-3 h-3 sm:w-4 sm:h-4 text-yellow-500 fill-yellow-500' />
-                  <span className='text-gray-700'>{instructor.rating} Rating</span>
-                </div>
-              </div>
-
-              {/* Bio */}
-              <p className=' text-sm text-gray-700 leading-relaxed'>{instructor.bio}</p>
-            </div>
-          </div>
+          </article>
         </FadeIn>
       ))}
     </div>
   );
 }
+
+function Stat({
+  icon: Icon,
+  value,
+  label,
+}: {
+  icon: typeof Users;
+  value: string;
+  label: string;
+}) {
+  return (
+    <span className='inline-flex items-center gap-2 rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-600'>
+      <Icon className='h-3.5 w-3.5 text-orange-500' />
+      <strong className='text-slate-800'>{value}</strong> {label}
+    </span>
+  );
+}
+
 export default InstructorTab;

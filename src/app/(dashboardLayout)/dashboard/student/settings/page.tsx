@@ -1,314 +1,472 @@
 "use client";
 
-import { useSessionContext } from "@/app/contexts/SessionContext.tsx";
-import { Eye, EyeOff, Upload } from "lucide-react";
+import { apiClient } from "@/lib/api/client";
+import { Eye, EyeOff, Loader2, Save, ShieldCheck, Upload, UserRound } from "lucide-react";
 import Image from "next/image";
-import React, { useState } from "react";
-const SettingsPage = () => {
-  const { user } = useSessionContext();
-  const [profileData, setProfileData] = useState({
-    firstName: "",
-    lastName: "",
-    username: "",
-    email: "",
-    title: "",
-  });
+import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 
-  const [passwordData, setPasswordData] = useState({
-    currentPassword: "",
-    newPassword: "",
-    confirmPassword: "",
-  });
+type Gender = "MALE" | "FEMALE";
 
-  const [showPasswords, setShowPasswords] = useState({
-    current: false,
-    new: false,
-    confirm: false,
-  });
+type StudentSettings = {
+  id: string;
+  email: string;
+  avatarUrl: string | null;
+  displayName: string;
+  phoneNumber: string;
+  gender: Gender;
+  bio: string;
+};
 
-  const [profileImage, setProfileImage] = useState(
-    "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=400&fit=crop"
-  );
-  const [titleLength, setTitleLength] = useState(0);
+type PasswordForm = {
+  currentPassword: string;
+  newPassword: string;
+  confirmPassword: string;
+};
 
-  const handleProfileChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-    if (name === "title") {
-      if (value.length <= 60) {
-        setProfileData(prev => ({ ...prev, [name]: value }));
-        setTitleLength(value.length);
+const emptyProfile: StudentSettings = {
+  id: "",
+  email: "",
+  avatarUrl: null,
+  displayName: "",
+  phoneNumber: "",
+  gender: "MALE",
+  bio: "",
+};
+
+const emptyPasswords: PasswordForm = {
+  currentPassword: "",
+  newPassword: "",
+  confirmPassword: "",
+};
+
+const fieldClass =
+  "w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-800 outline-none transition focus:border-orange-400 focus:ring-2 focus:ring-orange-100 disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-500";
+
+export default function StudentSettingsPage() {
+  const [profile, setProfile] = useState<StudentSettings>(emptyProfile);
+  const [passwords, setPasswords] = useState<PasswordForm>(emptyPasswords);
+  const [showPassword, setShowPassword] = useState({ current: false, next: false, confirm: false });
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [changingPassword, setChangingPassword] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const initials = useMemo(() => {
+    const parts = profile.displayName.trim().split(/\s+/).filter(Boolean);
+    return (
+      parts
+        .slice(0, 2)
+        .map(part => part[0]?.toUpperCase())
+        .join("") || "ST"
+    );
+  }, [profile.displayName]);
+
+  const loadProfile = async () => {
+    setLoading(true);
+    setError("");
+
+    const response = await apiClient.get<StudentSettings>("/user/student/me/settings");
+    if (!response.success || !response.data) {
+      setError(response.message || "Unable to load your profile information.");
+      setLoading(false);
+      return;
+    }
+
+    setProfile(response.data);
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    void loadProfile();
+  }, []);
+
+  const updateProfile = <K extends keyof StudentSettings>(key: K, value: StudentSettings[K]) => {
+    setProfile(previous => ({ ...previous, [key]: value }));
+  };
+
+  const validateImage = (file: File): Promise<string | null> =>
+    new Promise(resolve => {
+      if (!file.type.startsWith("image/")) {
+        resolve("Please select a valid image file.");
+        return;
       }
-    } else {
-      setProfileData(prev => ({ ...prev, [name]: value }));
-    }
-  };
+      if (file.size > 4 * 1024 * 1024) {
+        resolve("Profile image must be smaller than 4MB.");
+        return;
+      }
 
-  const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setPasswordData(prev => ({ ...prev, [name]: value }));
-  };
-
-  const togglePasswordVisibility = (field: "current" | "new" | "confirm") => {
-    setShowPasswords(prev => ({ ...prev, [field]: !prev[field] }));
-  };
-
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = event => {
-        if (event.target?.result) {
-          setProfileImage(event.target.result as string);
+      const image = document.createElement("img");
+      const url = URL.createObjectURL(file);
+      image.onload = () => {
+        URL.revokeObjectURL(url);
+        if (image.naturalWidth !== image.naturalHeight) {
+          resolve("Please use a square (1:1) profile image.");
+          return;
         }
+        resolve(null);
       };
-      reader.readAsDataURL(file);
+      image.onerror = () => {
+        URL.revokeObjectURL(url);
+        resolve("Unable to read the selected image.");
+      };
+      image.src = url;
+    });
+
+  const handleImageUpload = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setMessage("");
+    setError("");
+
+    const validationError = await validateImage(file);
+    if (validationError) {
+      setError(validationError);
+      event.target.value = "";
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const folder = encodeURIComponent(`students/${profile.id}/profile`);
+      const response = await apiClient.postFormData<string>(
+        `/course/file-upload?folder=${folder}`,
+        formData
+      );
+
+      if (!response.success || !response.data) {
+        throw new Error(response.message || "Image upload failed.");
+      }
+
+      updateProfile("avatarUrl", response.data);
+      setMessage("Photo uploaded. Save your profile to apply the change.");
+    } catch (uploadError) {
+      setError(uploadError instanceof Error ? uploadError.message : "Image upload failed.");
+    } finally {
+      setUploading(false);
+      event.target.value = "";
     }
   };
 
-  const handleSaveChanges = () => {
-    alert("Profile changes saved successfully!");
+  const saveProfile = async () => {
+    setMessage("");
+    setError("");
+
+    if (profile.displayName.trim().length < 3) {
+      setError("Display name must be at least 3 characters.");
+      return;
+    }
+    if (profile.phoneNumber.trim().length < 11) {
+      setError("Please enter a valid phone number.");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const response = await apiClient.patch<StudentSettings>("/user/student/me/settings", {
+        displayName: profile.displayName.trim(),
+        phoneNumber: profile.phoneNumber.trim(),
+        gender: profile.gender,
+        bio: profile.bio.trim() || null,
+        avatarUrl: profile.avatarUrl,
+      });
+
+      if (!response.success || !response.data) {
+        throw new Error(response.message || "Unable to update your profile.");
+      }
+
+      setProfile(response.data);
+      setMessage("Your profile has been updated successfully.");
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : "Unable to update your profile.");
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleChangePassword = () => {
-    if (passwordData.newPassword !== passwordData.confirmPassword) {
-      alert("New passwords do not match!");
+  const changePassword = async () => {
+    setMessage("");
+    setError("");
+
+    if (!passwords.currentPassword || !passwords.newPassword || !passwords.confirmPassword) {
+      setError("Please complete all password fields.");
       return;
     }
-    if (!passwordData.currentPassword || !passwordData.newPassword) {
-      alert("Please fill in all password fields!");
+    if (passwords.newPassword !== passwords.confirmPassword) {
+      setError("New password and confirmation do not match.");
       return;
     }
-    alert("Password changed successfully!");
-    setPasswordData({ currentPassword: "", newPassword: "", confirmPassword: "" });
+    if (passwords.newPassword.length < 8) {
+      setError("New password must be at least 8 characters.");
+      return;
+    }
+
+    setChangingPassword(true);
+    try {
+      const response = await apiClient.patch<{ changed: boolean }>("/user/student/me/password", {
+        currentPassword: passwords.currentPassword,
+        newPassword: passwords.newPassword,
+      });
+
+      if (!response.success) {
+        throw new Error(response.message || "Unable to change your password.");
+      }
+
+      setPasswords(emptyPasswords);
+      setMessage("Password changed successfully.");
+    } catch (passwordError) {
+      setError(
+        passwordError instanceof Error ? passwordError.message : "Unable to change your password."
+      );
+    } finally {
+      setChangingPassword(false);
+    }
   };
+
+  if (loading) {
+    return (
+      <div className='flex min-h-[420px] items-center justify-center rounded-xl bg-white'>
+        <Loader2 className='h-7 w-7 animate-spin text-orange-500' />
+      </div>
+    );
+  }
 
   return (
-    <div className='min-h-screen space-y-8'>
-      {/* Account Settings Section */}
-      <div className='rounded shadow overflow-hidden'>
-        <div className='p-8'>
-          <h3 className='font-bold text-gray-800 mb-4'>Account settings</h3>
+    <div className='space-y-6 pb-8'>
+      <div>
+        <h1 className='text-2xl font-bold text-gray-900'>Profile Settings</h1>
+        <p className='mt-1 text-sm text-gray-500'>
+          Update the personal information used across your AloSkill student account.
+        </p>
+      </div>
 
-          <div className='grid grid-cols-1 lg:grid-cols-3 gap-8'>
-            {/* Profile Image Section */}
-            <div className='lg:col-span-1 p-7 bg-white rounded'>
-              <div className='relative group rounded'>
-                <Image
-                  width={400}
-                  height={400}
-                  src={user?.image}
-                  alt='Profile'
-                  className='w-full aspect-square object-cover rounded shadow-md'
-                />
-                <label
-                  htmlFor='profile-upload'
-                  className='absolute inset-0 bg-black bg-opacity-50 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 cursor-pointer'
-                >
-                  <div className='text-center text-white'>
-                    <Upload className='w-8 h-8 mx-auto mb-2' />
-                    <span className='text-sm font-medium'>Upload Photo</span>
-                  </div>
-                </label>
-                <input
-                  id='profile-upload'
-                  type='file'
-                  accept='image/*'
-                  onChange={handleImageUpload}
-                  className='hidden'
-                />
-              </div>
-              <p className='text-xs text-gray-500 text-center mt-3'>
-                Image size should be under 4MB and image ratio needs to be 1:1
-              </p>
+      {(message || error) && (
+        <div
+          className={`rounded-lg border px-4 py-3 text-sm ${
+            error
+              ? "border-red-200 bg-red-50 text-red-700"
+              : "border-emerald-200 bg-emerald-50 text-emerald-700"
+          }`}
+        >
+          {error || message}
+        </div>
+      )}
+
+      <section className='overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm'>
+        <div className='border-b border-gray-100 px-5 py-4 sm:px-6'>
+          <div className='flex items-center gap-3'>
+            <div className='rounded-lg bg-orange-50 p-2 text-orange-600'>
+              <UserRound className='h-5 w-5' />
             </div>
-
-            {/* Form Fields Section */}
-            <div className='lg:col-span-2 space-y-3'>
-              {/* First Name & Last Name */}
-              <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
-                <div>
-                  <label className='block text-sm font-medium text-gray-700 mb-2'>Full name</label>
-                  <input
-                    type='text'
-                    name='firstName'
-                    value={profileData.firstName}
-                    onChange={handleProfileChange}
-                    placeholder='First name'
-                    className='w-full px-3 py-2 bg-white border-0 rounded focus:outline-none focus:ring-1 focus:ring-orange-light transition-all placeholder:text-sm'
-                  />
-                </div>
-                <div>
-                  <label className='block text-sm font-medium text-gray-700 mb-2 opacity-0'>
-                    Last name
-                  </label>
-                  <input
-                    type='text'
-                    name='lastName'
-                    value={profileData.lastName}
-                    onChange={handleProfileChange}
-                    placeholder='Last name'
-                    className='w-full px-3 py-2 bg-white border-0 rounded focus:outline-none focus:ring-1 focus:ring-orange-light transition-all placeholder:text-sm'
-                  />
-                </div>
-              </div>
-
-              {/* Username */}
-              <div>
-                <label className='block text-sm font-medium text-gray-700 mb-2'>Username</label>
-                <input
-                  type='text'
-                  name='userName'
-                  value={profileData.username}
-                  onChange={handleProfileChange}
-                  placeholder='User Name'
-                  className='w-full px-3 py-2 bg-white border-0 rounded focus:outline-none focus:ring-1 focus:ring-orange-light transition-all placeholder:text-sm'
-                />
-              </div>
-
-              {/* Email */}
-              <div>
-                <label className='block text-sm font-medium text-gray-700 mb-2'>Email</label>
-                <input
-                  type='text'
-                  name='email'
-                  value={profileData.email}
-                  onChange={handleProfileChange}
-                  placeholder='Email Address'
-                  className='w-full px-3 py-2 bg-white border-0 rounded focus:outline-none focus:ring-1 focus:ring-orange-light transition-all placeholder:text-sm'
-                />
-              </div>
-
-              {/* Title */}
-              <div>
-                <label className='block text-sm font-medium text-gray-700 mb-2'>Title</label>
-                <div className='relative'>
-                  <textarea
-                    name='title'
-                    value={profileData.title}
-                    onChange={handleProfileChange}
-                    placeholder='Your title, profession or small biography'
-                    rows={3}
-                    maxLength={60}
-                    className='w-full px-3 py-2 bg-white border-0 rounded focus:outline-none focus:ring-1 focus:ring-orange-light transition-all resize-none placeholder:text-sm'
-                  />
-                  <span className='absolute bottom-3 right-3 text-xs text-gray-500'>
-                    {titleLength}/60
-                  </span>
-                </div>
-              </div>
-
-              {/* Save Button */}
-              <div>
-                <button
-                  onClick={handleSaveChanges}
-                  className='px-3 py-2 bg-orange-dark hover:bg-orange-light text-white rounded shadow-md hover:shadow-lg transition-all duration-300 transform hover:-translate-y-0.5'
-                >
-                  Save Changes
-                </button>
-              </div>
+            <div>
+              <h2 className='font-semibold text-gray-900'>Personal information</h2>
+              <p className='text-xs text-gray-500'>
+                Your name, contact number, profile image and bio.
+              </p>
             </div>
           </div>
         </div>
-      </div>
 
-      {/* Change Password Section */}
-      <div className='rounded shadow overflow-hidden'>
-        <div className='p-8'>
-          <h3 className='font-bold text-gray-800 mb-8'>Change password</h3>
-
-          <div className='max-w-xl space-y-5'>
-            {/* Current Password */}
-            <div>
-              <label className='block text-sm font-medium text-gray-700 mb-2'>
-                Current Password
-              </label>
-              <div className='relative'>
-                <input
-                  type={showPasswords.current ? "text" : "password"}
-                  name='currentPassword'
-                  value={passwordData.currentPassword}
-                  onChange={handlePasswordChange}
-                  placeholder='Password'
-                  className='w-full px-3 py-2 bg-white border-0 rounded focus:outline-none focus:ring-1 focus:ring-orange-light transition-all placeholder:text-sm'
+        <div className='grid gap-7 p-5 sm:p-6 lg:grid-cols-[190px_1fr]'>
+          <div>
+            <div className='relative flex h-40 w-40 items-center justify-center overflow-hidden rounded-xl border border-gray-200 bg-orange-50'>
+              {profile.avatarUrl ? (
+                <Image
+                  src={profile.avatarUrl}
+                  alt={profile.displayName || "Student profile"}
+                  fill
+                  sizes='160px'
+                  className='object-cover'
+                  unoptimized={profile.avatarUrl.startsWith("http")}
                 />
-                <button
-                  type='button'
-                  onClick={() => togglePasswordVisibility("current")}
-                  className='absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 transition-colors'
-                >
-                  {showPasswords.current ? (
-                    <EyeOff className='w-5 h-5' />
-                  ) : (
-                    <Eye className='w-5 h-5' />
-                  )}
-                </button>
-              </div>
-            </div>
+              ) : (
+                <span className='text-4xl font-bold text-orange-600'>{initials}</span>
+              )}
 
-            {/* New Password */}
-            <div>
-              <label className='block text-sm font-medium text-gray-700 mb-2'>New Password</label>
-              <div className='relative'>
-                <input
-                  type={showPasswords.new ? "text" : "password"}
-                  name='newPassword'
-                  value={passwordData.newPassword}
-                  onChange={handlePasswordChange}
-                  placeholder='Password'
-                  className='w-full px-3 py-2 bg-white border-0 rounded focus:outline-none focus:ring-1 focus:ring-orange-light transition-all placeholder:text-sm'
-                />
-                <button
-                  type='button'
-                  onClick={() => togglePasswordVisibility("new")}
-                  className='absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 transition-colors'
-                >
-                  {showPasswords.new ? <EyeOff className='w-5 h-5' /> : <Eye className='w-5 h-5' />}
-                </button>
-              </div>
-            </div>
-
-            {/* Confirm Password */}
-            <div>
-              <label className='block text-sm font-medium text-gray-700 mb-2'>
-                Confirm Password
-              </label>
-              <div className='relative'>
-                <input
-                  type={showPasswords.confirm ? "text" : "password"}
-                  name='confirmPassword'
-                  value={passwordData.confirmPassword}
-                  onChange={handlePasswordChange}
-                  placeholder='Confirm new password'
-                  className='w-full px-3 py-2 bg-white border-0 rounded focus:outline-none focus:ring-1 focus:ring-orange-light transition-all placeholder:text-sm'
-                />
-                <button
-                  type='button'
-                  onClick={() => togglePasswordVisibility("confirm")}
-                  className='absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 transition-colors'
-                >
-                  {showPasswords.confirm ? (
-                    <EyeOff className='w-5 h-5' />
-                  ) : (
-                    <Eye className='w-5 h-5' />
-                  )}
-                </button>
-              </div>
-            </div>
-
-            {/* Change Password Button */}
-            <div>
               <button
-                onClick={handleChangePassword}
-                className='px-3 py-2 bg-orange-dark hover:bg-orange-light text-white rounded shadow-md hover:shadow-lg transition-all duration-300 transform hover:-translate-y-0.5'
+                type='button'
+                disabled={uploading}
+                onClick={() => fileInputRef.current?.click()}
+                className='absolute inset-x-0 bottom-0 flex items-center justify-center gap-2 bg-black/60 px-2 py-2 text-xs font-semibold text-white hover:bg-black/70 disabled:cursor-not-allowed'
               >
-                Change Password
+                {uploading ? (
+                  <Loader2 className='h-4 w-4 animate-spin' />
+                ) : (
+                  <Upload className='h-4 w-4' />
+                )}
+                {uploading ? "Uploading..." : "Change Photo"}
+              </button>
+            </div>
+            <input
+              ref={fileInputRef}
+              type='file'
+              accept='image/png,image/jpeg,image/webp'
+              className='hidden'
+              onChange={handleImageUpload}
+            />
+            <p className='mt-2 max-w-40 text-xs leading-5 text-gray-400'>
+              Square JPG, PNG or WEBP. Maximum 4MB.
+            </p>
+          </div>
+
+          <div className='grid gap-4 md:grid-cols-2'>
+            <div className='md:col-span-2'>
+              <label className='mb-1.5 block text-sm font-medium text-gray-700'>Display name</label>
+              <input
+                className={fieldClass}
+                value={profile.displayName}
+                onChange={event => updateProfile("displayName", event.target.value)}
+                placeholder='Your full name'
+              />
+            </div>
+
+            <div>
+              <label className='mb-1.5 block text-sm font-medium text-gray-700'>
+                Email address
+              </label>
+              <input
+                className={fieldClass}
+                value={profile.email}
+                disabled
+              />
+              <p className='mt-1 text-[11px] text-gray-400'>
+                Account email cannot be changed here.
+              </p>
+            </div>
+
+            <div>
+              <label className='mb-1.5 block text-sm font-medium text-gray-700'>Phone number</label>
+              <input
+                className={fieldClass}
+                value={profile.phoneNumber}
+                onChange={event => updateProfile("phoneNumber", event.target.value)}
+                placeholder='01XXXXXXXXX'
+              />
+            </div>
+
+            <div>
+              <label className='mb-1.5 block text-sm font-medium text-gray-700'>Gender</label>
+              <select
+                className={fieldClass}
+                value={profile.gender}
+                onChange={event => updateProfile("gender", event.target.value as Gender)}
+              >
+                <option value='MALE'>Male</option>
+                <option value='FEMALE'>Female</option>
+              </select>
+            </div>
+
+            <div className='md:col-span-2'>
+              <div className='mb-1.5 flex items-center justify-between gap-3'>
+                <label className='text-sm font-medium text-gray-700'>Short bio</label>
+                <span className='text-xs text-gray-400'>{profile.bio.length}/150</span>
+              </div>
+              <textarea
+                className={`${fieldClass} min-h-28 resize-y`}
+                value={profile.bio}
+                maxLength={150}
+                onChange={event => updateProfile("bio", event.target.value)}
+                placeholder='Write a short introduction about yourself.'
+              />
+            </div>
+
+            <div className='md:col-span-2'>
+              <button
+                type='button'
+                disabled={saving || uploading}
+                onClick={() => void saveProfile()}
+                className='inline-flex items-center gap-2 rounded-lg bg-orange-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-60'
+              >
+                {saving ? (
+                  <Loader2 className='h-4 w-4 animate-spin' />
+                ) : (
+                  <Save className='h-4 w-4' />
+                )}
+                {saving ? "Saving..." : "Save Profile"}
               </button>
             </div>
           </div>
         </div>
-      </div>
+      </section>
+
+      <section className='overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm'>
+        <div className='border-b border-gray-100 px-5 py-4 sm:px-6'>
+          <div className='flex items-center gap-3'>
+            <div className='rounded-lg bg-blue-50 p-2 text-blue-600'>
+              <ShieldCheck className='h-5 w-5' />
+            </div>
+            <div>
+              <h2 className='font-semibold text-gray-900'>Change password</h2>
+              <p className='text-xs text-gray-500'>
+                Use your current password before setting a new one.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className='grid gap-4 p-5 sm:p-6 lg:max-w-2xl'>
+          {(
+            [
+              ["currentPassword", "Current password", "current"],
+              ["newPassword", "New password", "next"],
+              ["confirmPassword", "Confirm new password", "confirm"],
+            ] as const
+          ).map(([key, label, visibilityKey]) => (
+            <div key={key}>
+              <label className='mb-1.5 block text-sm font-medium text-gray-700'>{label}</label>
+              <div className='relative'>
+                <input
+                  className={`${fieldClass} pr-10`}
+                  type={showPassword[visibilityKey] ? "text" : "password"}
+                  value={passwords[key]}
+                  onChange={event =>
+                    setPasswords(previous => ({ ...previous, [key]: event.target.value }))
+                  }
+                  autoComplete={key === "currentPassword" ? "current-password" : "new-password"}
+                />
+                <button
+                  type='button'
+                  onClick={() =>
+                    setShowPassword(previous => ({
+                      ...previous,
+                      [visibilityKey]: !previous[visibilityKey],
+                    }))
+                  }
+                  className='absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700'
+                  aria-label={`Toggle ${label.toLowerCase()} visibility`}
+                >
+                  {showPassword[visibilityKey] ? (
+                    <EyeOff className='h-4 w-4' />
+                  ) : (
+                    <Eye className='h-4 w-4' />
+                  )}
+                </button>
+              </div>
+            </div>
+          ))}
+
+          <p className='text-xs leading-5 text-gray-400'>
+            Use at least 8 characters with an uppercase letter, lowercase letter and number.
+          </p>
+
+          <div>
+            <button
+              type='button'
+              disabled={changingPassword}
+              onClick={() => void changePassword()}
+              className='inline-flex items-center gap-2 rounded-lg border border-gray-900 bg-gray-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-60'
+            >
+              {changingPassword && <Loader2 className='h-4 w-4 animate-spin' />}
+              {changingPassword ? "Updating..." : "Update Password"}
+            </button>
+          </div>
+        </div>
+      </section>
     </div>
   );
-};
-
-export default SettingsPage;
+}

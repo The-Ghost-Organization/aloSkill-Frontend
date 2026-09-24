@@ -1,102 +1,114 @@
 import { FadeIn } from "@/lib/course/utils.tsx";
-import { Star } from "lucide-react";
+import { MessageSquareText, Star } from "lucide-react";
 import Image from "next/image";
+import type { CourseDetailsPublic } from "../../allCourses.types.ts";
+
+type Review = CourseDetailsPublic["reviews"][number];
+type RatingBreakdown = CourseDetailsPublic["ratingBreakdown"];
 
 function ReviewsTab({
   reviews,
   ratingAverage,
+  ratingBreakdown,
 }: {
-  reviews: any[] | undefined;
+  reviews: Review[] | undefined;
   ratingAverage: number;
+  ratingBreakdown: RatingBreakdown;
 }) {
-  return (
-    <div className='space-y-4 sm:space-y-6'>
-      {/* Rating Summary */}
-      <FadeIn>
-        <div className='bg-gradient-to-br from-orange-50 to-purple-50 rounded-md sm:rounded-md p-4 sm:p-8 border-2 border-orange-200'>
-          <div className='flex flex-col md:flex-row items-center gap-6 sm:gap-8'>
-            <div className='text-center'>
-              <div className='text-2xl font-black text-[#074079] mb-2'>{ratingAverage}</div>
-              <div className='flex items-center justify-center mb-2'>
-                {[1, 2, 3, 4, 5].map(star => (
-                  <Star
-                    key={star}
-                    className='w-5 h-5 fill-[#fc9759] text-[#fc9759]'
-                  />
-                ))}
-              </div>
-              <p className=' text-sm text-gray-600'>Course Rating</p>
-            </div>
+  const list = reviews ?? [];
+  const breakdownMap = new Map(ratingBreakdown.map(item => [item.star, item]));
 
-            <div className='flex-1 space-y-2 w-full'>
-              {[5, 4, 3, 2, 1].map(star => (
-                <div
+  return (
+    <div className='space-y-6'>
+      <FadeIn>
+        <section className='grid gap-6 rounded-2xl border border-slate-200 bg-slate-50 p-5 sm:grid-cols-[180px_1fr] sm:p-6'>
+          <div className='flex flex-col items-center justify-center rounded-2xl bg-white p-5 text-center shadow-sm'>
+            <span className='text-5xl font-black tracking-tight text-[#074079]'>{ratingAverage.toFixed(1)}</span>
+            <div className='mt-2 flex items-center gap-0.5'>
+              {[1, 2, 3, 4, 5].map(star => (
+                <Star
                   key={star}
-                  className='flex items-center gap-2 sm:gap-3'
-                >
-                  <span className=' text-sm text-gray-600 w-6 sm:w-8'>{star}★</span>
-                  <div className='flex-1 h-2 bg-gray-200 rounded-full overflow-hidden'>
-                    <div
-                      className='h-full bg-gradient-to-r from-[#d15100] to-[#da7c36] transition-all duration-1000'
-                      style={{
-                        width: `${star === 5 ? 75 : star === 4 ? 20 : star === 3 ? 3 : star === 2 ? 1 : 1}%`,
-                      }}
-                    />
-                  </div>
-                  <span className=' text-sm text-gray-600 w-10 sm:w-12'>
-                    {star === 5 ? "75%" : star === 4 ? "20%" : star === 3 ? "3%" : "1%"}
-                  </span>
-                </div>
+                  className={`h-4 w-4 ${star <= Math.round(ratingAverage) ? "fill-orange-400 text-orange-400" : "text-slate-300"}`}
+                />
               ))}
             </div>
+            <span className='mt-2 text-xs font-medium text-slate-500'>{list.length} review{list.length === 1 ? "" : "s"}</span>
           </div>
-        </div>
+
+          <div className='space-y-2.5'>
+            {[5, 4, 3, 2, 1].map(star => {
+              const data = breakdownMap.get(star);
+              const percentage = Number.parseFloat(data?.percentage ?? "0") || 0;
+              return (
+                <div key={star} className='grid grid-cols-[42px_1fr_46px] items-center gap-3'>
+                  <span className='flex items-center gap-1 text-xs font-semibold text-slate-600'>
+                    {star} <Star className='h-3 w-3 fill-orange-400 text-orange-400' />
+                  </span>
+                  <div className='h-2 overflow-hidden rounded-full bg-slate-200'>
+                    <div className='h-full rounded-full bg-orange-500 transition-all' style={{ width: `${Math.min(100, percentage)}%` }} />
+                  </div>
+                  <span className='text-right text-xs text-slate-500'>{Math.round(percentage)}%</span>
+                </div>
+              );
+            })}
+          </div>
+        </section>
       </FadeIn>
 
-      {/* Reviews */}
-      <div className='space-y-3 sm:space-y-4'>
-        {reviews?.map((review, index) => (
-          <FadeIn
-            key={review.id}
-            delay={index * 100}
-          >
-            <div className='border border-gray-200 rounded-lg sm:rounded-md p-4 sm:p-6 hover:shadow-lg transition-all bg-white group'>
-              <div className='flex items-start gap-3 sm:gap-4'>
-                <div className='relative w-10 h-10 sm:w-12 sm:h-12 rounded-full overflow-hidden flex-shrink-0 ring-2 ring-gray-200 group-hover:ring-[#da7c36] transition-all'>
-                  <Image
-                    src={review.avatarUrl}
-                    alt={review.userDisplayName}
-                    fill
-                    className='object-cover'
-                  />
-                </div>
-                <div className='flex-1 min-w-0'>
-                  <div className='flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-0 mb-2'>
-                    <h4 className='font-bold text-sm sm:text-base text-[#074079] group-hover:text-[#da7c36] transition-colors truncate'>
-                      {review.userDisplayName}
-                    </h4>
-                    <span className=' text-gray-500 flex-shrink-0'>
-                      {new Date(review?.createdAt ?? 0).toLocaleDateString()}
-                    </span>
-                  </div>
-                  <div className='flex items-center mb-2 sm:mb-3'>
-                    {[1, 2, 3, 4, 5].map(star => (
-                      <Star
-                        key={star}
-                        className={`w-3 h-3 sm:w-4 sm:h-4 ${
-                          star <= review.rating ? "fill-[#fc9759] text-[#fc9759]" : "text-gray-300"
-                        }`}
+      <section>
+        <div className='mb-4 flex items-center justify-between gap-4'>
+          <div>
+            <p className='text-xs font-bold uppercase tracking-[0.18em] text-orange-500'>Student feedback</p>
+            <h2 className='mt-1 text-xl font-bold text-slate-900'>Course reviews</h2>
+          </div>
+          <span className='rounded-full bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-600'>{list.length} total</span>
+        </div>
+
+        {list.length === 0 ? (
+          <div className='rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center'>
+            <MessageSquareText className='mx-auto h-9 w-9 text-slate-400' />
+            <h3 className='mt-3 font-bold text-slate-800'>No reviews yet</h3>
+            <p className='mt-1 text-sm text-slate-500'>Student feedback will appear here.</p>
+          </div>
+        ) : (
+          <div className='space-y-3'>
+            {list.map((review, index) => (
+              <FadeIn key={`${review.userDisplayName}-${review.createdAt}-${index}`} delay={index * 60}>
+                <article className='rounded-2xl border border-slate-200 bg-white p-4 transition hover:border-orange-200 hover:shadow-sm sm:p-5'>
+                  <div className='flex items-start gap-3.5'>
+                    <div className='relative h-11 w-11 shrink-0 overflow-hidden rounded-full bg-slate-100 ring-1 ring-slate-200'>
+                      <Image
+                        src={review.avatarUrl || "/default-avatar.png"}
+                        alt={review.userDisplayName || "Student"}
+                        fill
+                        sizes='44px'
+                        className='object-cover'
                       />
-                    ))}
+                    </div>
+                    <div className='min-w-0 flex-1'>
+                      <div className='flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between'>
+                        <h3 className='truncate text-sm font-bold text-slate-900'>{review.userDisplayName || "Student"}</h3>
+                        <time className='text-xs text-slate-400'>{new Date(review.createdAt).toLocaleDateString()}</time>
+                      </div>
+                      <div className='mt-1.5 flex items-center gap-0.5'>
+                        {[1, 2, 3, 4, 5].map(star => (
+                          <Star
+                            key={star}
+                            className={`h-3.5 w-3.5 ${star <= review.rating ? "fill-orange-400 text-orange-400" : "text-slate-300"}`}
+                          />
+                        ))}
+                      </div>
+                      {review.body && <p className='mt-3 text-sm leading-6 text-slate-600'>{review.body}</p>}
+                    </div>
                   </div>
-                  <p className=' text-sm text-gray-700 leading-relaxed'>{review.body}</p>
-                </div>
-              </div>
-            </div>
-          </FadeIn>
-        ))}
-      </div>
+                </article>
+              </FadeIn>
+            ))}
+          </div>
+        )}
+      </section>
     </div>
   );
 }
+
 export default ReviewsTab;

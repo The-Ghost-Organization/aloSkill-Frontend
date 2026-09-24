@@ -40,7 +40,7 @@ export type CourseType = {
   createdAt: string;
   createdBy: {
     displayName: string;
-    avatarUrl: string;
+    avatarUrl: string | null;
   };
   category: {
     name: string;
@@ -80,7 +80,7 @@ export type CourseType = {
   }[];
 };
 
-export type CourseStatus = "DRAFT" | "PUBLISHED" | "ARCHIVED";
+export type CourseStatus = "DRAFT" | "PUBLISHED" | "PENDING";
 
 export type CourseCardProps = {
   course: CourseType;
@@ -95,6 +95,7 @@ export type CourseCardProps = {
   isEnrolled?: boolean;
   isOwner?: boolean;
   user?: any;
+  viewMode?: "grid" | "list";
   dashboardActions?: {
     onView?: (courseId: string | number) => void;
     onEdit?: (courseId: string) => void;

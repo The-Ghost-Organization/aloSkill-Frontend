@@ -73,7 +73,7 @@ export default function PurchaseHistoryPage() {
     () => ({
       totalOrders: orders.length,
       totalSpent: orders
-        .filter(order => !["FAILED", "CANCELLED", "REFUNDED"].includes(order.status))
+        .filter(order => ["PAID", "CONFIRMED", "PROCESSING", "SHIPPED", "OUT_FOR_DELIVERY", "DELIVERED"].includes(order.status))
         .reduce((sum, order) => sum + Number(order.totalAmount), 0),
       inTransit: orders.filter(
         order =>
