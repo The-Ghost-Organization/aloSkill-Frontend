@@ -148,10 +148,10 @@ const Dashboard = async () => {
         {stats.map(stat => (
           <div
             key={stat.label}
-            className='group flex items-center gap-4 rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md'
+            className='group flex items-center gap-4 rounded border border-slate-200/80 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md'
           >
             <div
-              className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${stat.iconWrap}`}
+              className={`flex h-12 w-12 shrink-0 items-center justify-center rounded ${stat.iconWrap}`}
             >
               <stat.icon className={`h-5 w-5 ${stat.iconColor}`} />
             </div>
@@ -166,7 +166,7 @@ const Dashboard = async () => {
       </div>
 
       <div className='grid w-full grid-cols-1 gap-4 xl:grid-cols-12'>
-        <section className='overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm xl:col-span-4'>
+        <section className='overflow-hidden rounded border border-slate-200/80 bg-white shadow-sm xl:col-span-4'>
           <div className='flex items-center justify-between border-b border-slate-100 p-5'>
             <div>
               <h2 className='text-sm font-bold text-slate-900'>Recent Activity</h2>
@@ -202,7 +202,7 @@ const Dashboard = async () => {
           )}
         </section>
 
-        <section className='overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm xl:col-span-5'>
+        <section className='overflow-hidden rounded border border-slate-200/80 bg-white shadow-sm xl:col-span-5'>
           <div className='flex items-center justify-between border-b border-slate-100 p-5'>
             <div>
               <h2 className='text-sm font-bold text-slate-900'>Recent Reviews</h2>
@@ -246,16 +246,16 @@ const Dashboard = async () => {
           )}
         </section>
 
-        <section className='overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm xl:col-span-3'>
+        <section className='overflow-hidden rounded border border-slate-200/80 bg-white shadow-sm xl:col-span-3'>
           <div className='border-b border-slate-100 p-5'>
             <h2 className='text-sm font-bold text-slate-900'>Course Performance</h2>
             <p className='mt-1 text-xs text-slate-500'>Combined public engagement</p>
           </div>
 
           <div className='space-y-5 p-5'>
-            <div className='rounded-xl bg-slate-50 p-4'>
+            <div className='rounded bg-slate-50 p-4'>
               <div className='flex items-center gap-3'>
-                <div className='flex h-10 w-10 items-center justify-center rounded-lg bg-white shadow-sm'>
+                <div className='flex h-10 w-10 items-center justify-center rounded bg-white shadow-sm'>
                   <Eye className='h-5 w-5 text-slate-700' />
                 </div>
                 <div>
@@ -267,9 +267,9 @@ const Dashboard = async () => {
               </div>
             </div>
 
-            <div className='rounded-xl bg-orange-50 p-4'>
+            <div className='rounded bg-orange-50 p-4'>
               <div className='flex items-center gap-3'>
-                <div className='flex h-10 w-10 items-center justify-center rounded-lg bg-white shadow-sm'>
+                <div className='flex h-10 w-10 items-center justify-center rounded bg-white shadow-sm'>
                   <Star className='h-5 w-5 fill-orange-400 text-orange-400' />
                 </div>
                 <div>
@@ -285,7 +285,7 @@ const Dashboard = async () => {
 
             <Link
               href='/dashboard/instructor/course'
-              className='block rounded-xl border border-slate-200 px-4 py-3 text-center text-xs font-semibold text-slate-700 transition hover:border-orange-300 hover:text-orange-600'
+              className='block rounded border border-slate-200 px-4 py-3 text-center text-xs font-semibold text-slate-700 transition hover:border-orange-300 hover:text-orange-600'
             >
               Manage courses →
             </Link>
@@ -294,7 +294,7 @@ const Dashboard = async () => {
       </div>
 
       <div className='grid w-full grid-cols-1 gap-4 xl:grid-cols-12'>
-        <section className='overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm xl:col-span-5'>
+        <section className='overflow-hidden rounded border border-slate-200/80 bg-white shadow-sm xl:col-span-5'>
           <div className='border-b border-slate-100 p-5'>
             <h2 className='text-sm font-bold text-slate-900'>Overall Course Ratings</h2>
             <p className='mt-1 text-xs text-slate-500'>
@@ -303,7 +303,7 @@ const Dashboard = async () => {
           </div>
 
           <div className='p-5'>
-            <div className='mb-6 flex items-center gap-5 rounded-xl bg-orange-50 p-4'>
+            <div className='mb-6 flex items-center gap-5 rounded bg-orange-50 p-4'>
               <div className='text-4xl font-bold tracking-tight text-slate-950'>
                 {data.profile.overallRating.toFixed(1)}
               </div>
@@ -349,7 +349,7 @@ const Dashboard = async () => {
           </div>
         </section>
 
-        <section className='overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm xl:col-span-7'>
+        <section className='overflow-hidden rounded border border-slate-200/80 bg-white shadow-sm xl:col-span-7'>
           <div className='flex items-center justify-between border-b border-slate-100 p-5'>
             <div>
               <h2 className='text-sm font-bold text-slate-900'>Course Overview</h2>

@@ -240,10 +240,39 @@ export default function CheckoutPage() {
       // 3. Direct Course Purchase
       if (courseId) {
         try {
-          const response = await apiClient.get<OrderSummary>(`/course/user/checkout/${courseId}`);
+          const response = await apiClient.get<{
+            id: string;
+            title: string;
+            category?: string;
+            discountPrice?: number;
+            originalPrice: number;
+            thumbnailUrl?: string;
+          }>(`/course/user/checkout/${courseId}`);
 
           if (response.success && response.data) {
-            setOrderSummary(response.data);
+            const course = response.data;
+            const coursePrice = Number(course.discountPrice ?? course.originalPrice ?? 0);
+
+            setOrderSummary(prev => ({
+              ...prev,
+              items: {
+                ...prev.items,
+                courses: [
+                  {
+                    ...course,
+                    originalPrice: Number(course.originalPrice),
+                    discountPrice:
+                      course.discountPrice === undefined ? undefined : Number(course.discountPrice),
+                  },
+                ],
+              },
+              quantities: {
+                ...prev.quantities,
+                courses: [{ courseId: course.id, quantity: 1 }],
+                books: [],
+              },
+              subtotal: coursePrice,
+            }));
           } else {
             console.error("Failed to fetch course order summary:", response.errors);
           }

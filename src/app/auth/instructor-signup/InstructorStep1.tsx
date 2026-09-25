@@ -160,7 +160,7 @@ const InstructorStep1 = ({
 
   // ── Shared input style helpers ──────────────────────────────────────────────
   const inputBase =
-    "w-full min-w-0 text-sm px-3 py-2.5 rounded-lg border focus:ring-2 focus:ring-orange-400/30 focus:border-orange-400 focus:outline-none transition-all placeholder:text-gray-400 placeholder:text-sm bg-gray-50 focus:bg-white";
+    "w-full min-w-0 text-sm px-3 py-2.5 rounded border focus:ring-2 focus:ring-orange-400/30 focus:border-orange-400 focus:outline-none transition-all placeholder:text-gray-400 placeholder:text-sm bg-gray-50 focus:bg-white";
   const inputError = "border-red-300 bg-red-50 focus:ring-red-200 focus:border-red-400";
   const inputNormal = "border-gray-200";
 
@@ -187,7 +187,7 @@ const InstructorStep1 = ({
 
         <div className='grid grid-cols-1 gap-4 sm:grid-cols-2'>
           {/* ── Profile Image — full width on all sizes ── */}
-          <div className='col-span-1 sm:col-span-2'>
+          <div className='col-span-2 sm:col-span-2'>
             <label className='mb-2 block text-xs font-semibold uppercase tracking-wide text-gray-500'>
               Profile Image <span className='text-orange-500'>*</span>
             </label>
@@ -196,14 +196,14 @@ const InstructorStep1 = ({
             <div className='w-32 h-32 sm:w-40 sm:h-40'>
               {imageUploadLoading ? (
                 /* Loading state */
-                <div className='flex h-full w-full items-center justify-center rounded-xl border-2 border-dashed border-orange-200 bg-orange-50'>
+                <div className='flex h-full w-full items-center justify-center rounded border-2 border-dashed border-orange-200 bg-orange-50'>
                   <Loader className='h-7 w-7 animate-spin text-orange-400' />
                 </div>
               ) : uploadFile ? (
                 /* Preview state — tap/click to re-upload on mobile */
                 <label
                   htmlFor='imageUpload'
-                  className='group relative block h-full w-full cursor-pointer overflow-hidden rounded-xl border-2 border-orange-300'
+                  className='group relative block h-full w-full cursor-pointer overflow-hidden rounded border-2 border-orange-300'
                 >
                   <Image
                     width={160}
@@ -228,7 +228,7 @@ const InstructorStep1 = ({
                 /* Empty state */
                 <label
                   htmlFor='imageUpload'
-                  className='flex h-full w-full cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-gray-200 bg-gray-50 transition-colors hover:border-orange-300 hover:bg-orange-50'
+                  className='flex h-full w-full cursor-pointer flex-col items-center justify-center gap-2 rounded border-2 border-dashed border-gray-200 bg-gray-50 transition-colors hover:border-orange-300 hover:bg-orange-50'
                 >
                   <div className='flex h-9 w-9 items-center justify-center rounded-full bg-orange-100'>
                     <Upload className='h-4 w-4 text-orange-500' />
@@ -384,7 +384,7 @@ const InstructorStep1 = ({
           </div>
 
           {/* ── Address — full width on all sizes ── */}
-          <div className='col-span-1 min-w-0 sm:col-span-2'>
+          <div className='col-span-2 min-w-0 sm:col-span-2'>
             <label className='mb-1.5 block text-xs font-semibold uppercase tracking-wide text-gray-500'>
               Address <span className='text-orange-500'>*</span>
             </label>

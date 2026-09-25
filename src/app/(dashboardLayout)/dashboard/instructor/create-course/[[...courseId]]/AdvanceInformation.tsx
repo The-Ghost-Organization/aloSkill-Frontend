@@ -185,7 +185,6 @@ const ListSection = ({
   onChange,
   hasBorderBottom = true,
 }: ListSectionProps) => {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const fieldErrors = errors[fieldName] as any;
 
   return (

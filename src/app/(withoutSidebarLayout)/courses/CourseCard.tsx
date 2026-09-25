@@ -385,7 +385,7 @@ const CourseCard = memo(function CourseCard({
                     )}
 
                     <Link
-                      href={`/checkout/${id}`}
+                      href={`/checkout?courseId=${id}`}
                       className='inline-flex h-11 flex-1 items-center justify-center rounded-xl bg-orange-600 px-4 text-sm font-semibold text-white shadow-lg shadow-orange-600/15 transition hover:bg-orange-700'
                     >
                       Enroll Now

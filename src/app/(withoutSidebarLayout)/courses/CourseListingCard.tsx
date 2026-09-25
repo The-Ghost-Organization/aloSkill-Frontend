@@ -218,7 +218,7 @@ export default function CourseListingCard({
                   </button>
                 )}
                 <Link
-                  href={`/checkout/${course.id}`}
+                  href={`/checkout?courseId=${course.id}`}
                   className='inline-flex h-9 flex-1 items-center justify-center rounded-lg bg-amber-400 px-3 text-xs font-bold text-gray-900 transition-colors hover:bg-amber-500'
                 >
                   Enroll Now

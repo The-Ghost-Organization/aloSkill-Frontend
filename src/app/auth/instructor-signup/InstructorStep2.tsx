@@ -47,7 +47,7 @@ const InstructorStep2 = ({
 
   // ── Shared style helpers ────────────────────────────────────────────────────
   const inputBase =
-    "w-full min-w-0 text-sm px-3 py-2.5 rounded-lg border focus:ring-2 focus:ring-orange-400/30 focus:border-orange-400 focus:outline-none transition-all placeholder:text-gray-400 placeholder:text-sm bg-gray-50 focus:bg-white";
+    "w-full min-w-0 text-sm px-3 py-2.5 rounded border focus:ring-2 focus:ring-orange-400/30 focus:border-orange-400 focus:outline-none transition-all placeholder:text-gray-400 placeholder:text-sm bg-gray-50 focus:bg-white";
   const inputError = "border-red-300 bg-red-50 focus:ring-red-200 focus:border-red-400";
   const inputNormal = "border-gray-200";
 
@@ -77,7 +77,7 @@ const InstructorStep2 = ({
         <div className='grid grid-cols-1 gap-4 sm:grid-cols-2'>
           {/* ── Highest Qualification — full width, more room for long text ── */}
           <div className='col-span-1 min-w-0 sm:col-span-2'>
-            <label className='mb-1.5 block text-xs font-semibold uppercase tracking-wide text-gray-500'>
+            <label className='mb-1.5 block text-xs font-semibold uppercase  text-gray-500'>
               Highest Education Qualification <span className='text-orange-500'>*</span>
             </label>
             <input
@@ -162,7 +162,7 @@ const InstructorStep2 = ({
           {/* ── Current Organization ── */}
           <div className='min-w-0'>
             <label className='mb-1.5 block text-xs font-semibold uppercase tracking-wide text-gray-500'>
-              Current Organization
+              Current Organization <span className='text-orange-500'>*</span>
             </label>
             <input
               {...register("currentOrg", {
