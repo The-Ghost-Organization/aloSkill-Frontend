@@ -128,7 +128,7 @@ function addSecurityHeaders(response: NextResponse) {
     "img-src 'self' data: https: blob:",
     "font-src 'self' https://fonts.gstatic.com",
     // Added Google and Railway backend
-    `connect-src 'self' https://alobackendskill.aloskill.com http://localhost:5000 ${envConfig.NEXT_PUBLIC_BACKEND_BASE_URL} https://vitals.vercel-insights.com https://video.bunnycdn.com https://fortunate-kindness-production.up.railway.app https://accounts.google.com https://assets.mediadelivery.net https://sg.storage.bunnycdn.com https://aloskill-pull-zone-7.b-cdn.net alo-pull-zone.b-cdn.net blob: unpkg.com`,
+    `connect-src 'self' https://alobackendskill.aloskill.com wss://alobackendskill.aloskill.com http://localhost:5000 ws://localhost:5000 http://127.0.0.1:5000 ws://127.0.0.1:5000 ${envConfig.NEXT_PUBLIC_BACKEND_BASE_URL} https://vitals.vercel-insights.com https://video.bunnycdn.com https://fortunate-kindness-production.up.railway.app wss://fortunate-kindness-production.up.railway.app https://accounts.google.com https://assets.mediadelivery.net https://sg.storage.bunnycdn.com https://aloskill-pull-zone-7.b-cdn.net alo-pull-zone.b-cdn.net blob: unpkg.com`,
     "media-src 'self' blob: https:",
     "object-src 'none'",
     "base-uri 'self'",

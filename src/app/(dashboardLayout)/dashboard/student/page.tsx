@@ -116,6 +116,7 @@ export default function StudentDashboardPage() {
     setError("");
 
     const response = await apiClient.get<DashboardData>("/user/student/me/dashboard");
+    
     if (!response.success || !response.data) {
       setError(response.message || "Unable to load dashboard data.");
       setLoading(false);

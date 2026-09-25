@@ -110,6 +110,7 @@ export const NAV_ITEMS = [
   { id: "cms", label: "CMS / Content", badge: null },
   { id: "analytics", label: "Analytics", badge: null },
   { id: "notifications", label: "Notifications", badge: null },
+  { id: "messages", label: "Message Search", badge: null },
   { id: "security", label: "Security", badge: null },
   { id: "settings", label: "Settings", badge: null },
   { id: "gamification", label: "Gamification", badge: null },

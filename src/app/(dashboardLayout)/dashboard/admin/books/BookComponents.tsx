@@ -1,25 +1,12 @@
 "use client";
 
-import {
-  Eye,
-  FolderPlus,
-  PackagePlus,
-  PauseCircle,
-  PlayCircle,
-  Trash2,
-  X,
-} from "lucide-react";
+import { Eye, FolderPlus, PackagePlus, PauseCircle, PlayCircle, Trash2, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { FormEvent, ReactNode } from "react";
 import { useEffect, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
-import {
-  createBookCategory,
-  softDeleteBook,
-  updateBookSelling,
-  updateBookStock,
-} from "./action";
+import { createBookCategory, softDeleteBook, updateBookSelling, updateBookStock } from "./action";
 import type { BookState } from "./books.types";
 
 type AdminBook = BookState["bookBreakdown"][number];
@@ -376,16 +363,60 @@ export function BookHeaderActions() {
     });
   };
 
-  return <>
-    <button type='button' onClick={() => setOpen(true)} className='inline-flex items-center gap-1.5 rounded border border-slate-700 px-3.5 py-2.5 text-[13px] font-semibold text-slate-200 hover:border-orange-500/50 hover:text-orange-400'>
-      <FolderPlus size={14} /> Add Category
-    </button>
-    {open && <Modal title='Add book category' onClose={() => setOpen(false)}>
-      <form onSubmit={submit} className='space-y-4'>
-        <label className='block text-xs font-semibold text-slate-400'>Name<input name='name' className={fieldClass} required minLength={2} maxLength={120} /></label>
-        {error && <p role='alert' className='text-sm text-red-400'>{error}</p>}
-        <div className='flex justify-end gap-2'><button type='button' onClick={() => setOpen(false)} className='rounded-lg border border-slate-700 px-4 py-2.5 text-sm text-slate-300'>Cancel</button><button disabled={pending} className={primaryClass}>{pending ? "Saving…" : "Save"}</button></div>
-      </form>
-    </Modal>}
-  </>;
+  return (
+    <>
+      <button
+        type='button'
+        onClick={() => setOpen(true)}
+        className='inline-flex items-center gap-1.5 rounded border border-slate-700 px-3.5 py-2.5 text-[13px] font-semibold text-slate-200 hover:border-orange-500/50 hover:text-orange-400'
+      >
+        <FolderPlus size={14} /> Add Category
+      </button>
+      {open && (
+        <Modal
+          title='Add book category'
+          onClose={() => setOpen(false)}
+        >
+          <form
+            onSubmit={submit}
+            className='space-y-4'
+          >
+            <label className='block text-xs font-semibold text-slate-400'>
+              Name
+              <input
+                name='name'
+                className={fieldClass}
+                required
+                minLength={2}
+                maxLength={120}
+              />
+            </label>
+            {error && (
+              <p
+                role='alert'
+                className='text-sm text-red-400'
+              >
+                {error}
+              </p>
+            )}
+            <div className='flex justify-end gap-2'>
+              <button
+                type='button'
+                onClick={() => setOpen(false)}
+                className='rounded-lg border border-slate-700 px-4 py-2.5 text-sm text-slate-300'
+              >
+                Cancel
+              </button>
+              <button
+                disabled={pending}
+                className={primaryClass}
+              >
+                {pending ? "Saving…" : "Save"}
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
+    </>
+  );
 }

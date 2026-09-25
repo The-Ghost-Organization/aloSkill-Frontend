@@ -1,1629 +1,801 @@
 "use client";
 
-import {
-  AlertTriangle,
-  Award,
-  BookOpen,
-  Check,
-  ChevronDown,
-  Eye,
-  ReceiptText,
-  Search,
-  ShieldCheck,
-  ShieldOff,
-  X,
-} from "lucide-react";
-import Image from "next/image";
-import { useEffect, useMemo, useState } from "react";
-import { apiClient } from "../../../../../lib/api/client";
-import { Avatar, Badge, ProgressBar, SlidePanel } from "../Components";
-import type { StudentForAdmin } from "./student.type";
+import { AlertTriangle, Eye, LoaderCircle, Plus, Search, UserRound, X } from "lucide-react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { type FormEvent, useEffect, useMemo, useState, useTransition } from "react";
+import { createAdminUser, getAdminUserDetails, runAdminUserAction } from "./action";
+import type {
+  AdminUser,
+  AdminUserAction,
+  AdminUserDetails,
+  CreateAdminUserInput,
+  UserRole,
+} from "./student.type";
 
-const badgeVariant: Record<string, string> = { Platinum: "purple", Gold: "gold", None: "gray" };
+const money = (value: number) =>
+  `৳${Number(value).toLocaleString("en-BD", { maximumFractionDigits: 0 })}`;
+const date = (value?: string | null) =>
+  value
+    ? new Date(value).toLocaleDateString("en-BD", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+      })
+    : "Never";
+const PAGE_SIZE = 10;
+const input =
+  "w-full rounded-lg border border-slate-700 bg-[#08162a] px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-orange-500";
+const label = "mb-1.5 block text-[10px] font-semibold uppercase tracking-wider text-slate-500";
 
-// ─── Manual Enroll Modal ────────────────────────────────────────────────────
-function ManualEnrollModal({
-  student,
-  onClose,
+function Pill({
+  children,
+  tone = "slate",
 }: {
-  student: StudentForAdmin[0];
-  onClose: () => void;
+  children: React.ReactNode;
+  tone?: "slate" | "green" | "red" | "orange" | "blue";
 }) {
-  const [search, setSearch] = useState("");
-  const [selected, setSelected] = useState<string | null>(null);
-  const [note, setNote] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [success, setSuccess] = useState(false);
-
-  useEffect(() => {
-    const getCourses = async () => {
-      const courseRes = await apiClient.get("/course/admin/student-view");
-      console.log("cousse resposone : ", courseRes);
-    };
-    getCourses();
-  }, []);
-
-  // Mock course list — replace with real data from props/fetch
-  const courses = [
-    {
-      id: "c1",
-      title: "Full-Stack Web Dev Bootcamp",
-      instructor: "James Carter",
-      price: 29,
-      cat: "Development",
-    },
-    {
-      id: "c2",
-      title: "UI/UX Design Masterclass",
-      instructor: "Sofia Lin",
-      price: 24,
-      cat: "Design",
-    },
-    {
-      id: "c3",
-      title: "Python for Data Science",
-      instructor: "Ravi Patel",
-      price: 19,
-      cat: "Data",
-    },
-    {
-      id: "c4",
-      title: "Digital Marketing Pro",
-      instructor: "Emma Walsh",
-      price: 34,
-      cat: "Marketing",
-    },
-    {
-      id: "c5",
-      title: "React Native for Beginners",
-      instructor: "James Carter",
-      price: 22,
-      cat: "Development",
-    },
-    {
-      id: "c6",
-      title: "Financial Modeling Excel",
-      instructor: "Omar Sheikh",
-      price: 29,
-      cat: "Business",
-    },
-  ];
-
-  const filtered = courses.filter(
-    c =>
-      c.title.toLowerCase().includes(search.toLowerCase()) ||
-      c.instructor.toLowerCase().includes(search.toLowerCase()) ||
-      c.cat.toLowerCase().includes(search.toLowerCase())
-  );
-
-  const selectedCourse = courses.find(c => c.id === selected);
-
-  const handleEnroll = async () => {
-    if (!selected) return;
-    setLoading(true);
-    // Replace with your actual enroll API call:
-    // await enrollStudent({ studentId: student.id, courseId: selected, note })
-    await new Promise(r => setTimeout(r, 1000));
-    setLoading(false);
-    setSuccess(true);
-    setTimeout(onClose, 1500);
+  const colors = {
+    slate: "bg-slate-700/50 text-slate-300",
+    green: "bg-emerald-500/10 text-emerald-400",
+    red: "bg-red-500/10 text-red-400",
+    orange: "bg-orange-500/10 text-orange-400",
+    blue: "bg-blue-500/10 text-blue-400",
   };
+  return (
+    <span
+      className={`inline-flex rounded-full px-2 py-1 text-[10px] font-semibold ${colors[tone]}`}
+    >
+      {children}
+    </span>
+  );
+}
 
+function AddUserModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+  const [role, setRole] = useState<UserRole>("STUDENT");
+  const [busy, startTransition] = useTransition();
+  const [error, setError] = useState("");
+  const submit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setError("");
+    const form = new FormData(event.currentTarget);
+    const base = Object.fromEntries(form.entries()) as Record<string, unknown>;
+    const payload = {
+      ...base,
+      role,
+      isEmailVerified: form.get("isEmailVerified") === "on",
+      experience: Number(form.get("experience") ?? 0),
+      teachingExperience: Number(form.get("teachingExperience") ?? 0),
+      skills: String(form.get("skills") ?? "")
+        .split(",")
+        .map(value => value.trim())
+        .filter(Boolean),
+    } as unknown as CreateAdminUserInput;
+    startTransition(async () => {
+      const result = await createAdminUser(payload);
+      if (!result.success) return setError(result.message ?? "Could not create user.");
+      onCreated();
+      onClose();
+    });
+  };
+  useEffect(() => {
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, []);
   return (
     <div
-      className='fixed inset-0 z-110 flex items-center justify-center'
-      style={{ background: "rgba(5,13,26,0.85)", backdropFilter: "blur(6px)" }}
-      onClick={onClose}
+      className='fixed inset-0 z-[120] grid place-items-center bg-slate-950/85 p-4 backdrop-blur-sm'
+      onMouseDown={onClose}
     >
-      <div
-        className='w-full max-w-lg mx-4 rounded-xl border border-slate-800 overflow-hidden'
-        style={{ background: "#070f1e" }}
-        onClick={e => e.stopPropagation()}
+      <form
+        onSubmit={submit}
+        onMouseDown={event => event.stopPropagation()}
+        className='flex max-h-[92vh] w-full max-w-4xl flex-col overflow-hidden rounded border border-slate-700 bg-[#0d1f3c] shadow-2xl'
       >
-        {/* Header */}
-        <div className='flex items-center justify-between px-6 py-4 border-b border-slate-800'>
-          <div className='flex items-center gap-3'>
-            <div
-              className='w-8 h-8 rounded-lg flex items-center justify-center'
-              style={{ background: "rgba(218,124,54,0.15)" }}
-            >
-              <BookOpen
-                size={15}
-                color='#da7c36'
+        <header className='flex items-center justify-between border-b border-slate-700 px-6 py-4'>
+          <div>
+            <h2 className='font-bold text-slate-100'>Add user</h2>
+            <p className='text-xs text-slate-500'>
+              Create a student or a complete instructor profile.
+            </p>
+          </div>
+          <button
+            type='button'
+            onClick={onClose}
+            className='rounded-lg p-2 text-slate-400 hover:bg-slate-800'
+          >
+            <X size={18} />
+          </button>
+        </header>
+        <div className='overflow-y-auto p-6'>
+          <div className='mb-5 grid grid-cols-2 gap-2 rounded-xl bg-[#08162a] p-1'>
+            {(["STUDENT", "INSTRUCTOR"] as const).map(value => (
+              <button
+                key={value}
+                type='button'
+                onClick={() => setRole(value)}
+                className={`rounded-lg py-2 text-xs font-semibold ${role === value ? "bg-orange-500 text-white" : "text-slate-400"}`}
+              >
+                {value === "STUDENT" ? "User" : "Instructor"}
+              </button>
+            ))}
+          </div>
+          <div className='grid gap-4 sm:grid-cols-2'>
+            <Field
+              name='displayName'
+              title='Full name'
+              required
+            />
+            <Field
+              name='email'
+              title='Email'
+              type='email'
+              required
+            />
+            <Field
+              name='password'
+              title='Temporary password'
+              type='password'
+              minLength={8}
+              required
+            />
+            <Field
+              name='phoneNumber'
+              title='Phone number'
+              required
+            />
+            <Field
+              name='avatarUrl'
+              title='Avatar URL'
+              type='url'
+            />
+            <Select
+              name='gender'
+              title='Gender'
+              values={["MALE", "FEMALE"]}
+            />
+            {role === "INSTRUCTOR" && (
+              <>
+                <Field
+                  name='DOB'
+                  title='Date of birth'
+                  type='date'
+                  required
+                />
+                <Field
+                  name='nationality'
+                  title='Nationality'
+                  required
+                />
+                <Field
+                  name='address'
+                  title='Address'
+                  required
+                />
+                <Field
+                  name='city'
+                  title='City'
+                  required
+                />
+                <Field
+                  name='qualifications'
+                  title='Qualifications'
+                  required
+                />
+                <Field
+                  name='experience'
+                  title='Professional experience (years)'
+                  type='number'
+                  min='0'
+                  defaultValue='0'
+                  required
+                />
+                <Field
+                  name='expertise'
+                  title='Expertise'
+                />
+                <Field
+                  name='currentOrg'
+                  title='Current organization'
+                />
+                <Field
+                  name='proposedCourseCategory'
+                  title='Proposed course category'
+                  required
+                />
+                <Select
+                  name='courseLevel'
+                  title='Course level'
+                  values={["BEGINNER", "INTERMEDIATE", "ADVANCED", "EXPERT"]}
+                />
+                <Select
+                  name='courseType'
+                  title='Course type'
+                  values={["LIVE", "PRE_RECORDED", "HYBRID", "SELF_STUDY"]}
+                />
+                <Field
+                  name='teachingExperience'
+                  title='Teaching experience (years)'
+                  type='number'
+                  min='0'
+                  step='0.5'
+                  defaultValue='0'
+                  required
+                />
+                <Select
+                  name='prevTeachingApproach'
+                  title='Teaching approach'
+                  values={["INTERACTIVE", "VIDEO", "LIVE", "PROJECT_BASED"]}
+                />
+                <Select
+                  name='language'
+                  title='Teaching language'
+                  values={["BANGLA", "ENGLISH"]}
+                />
+                <Field
+                  name='demoVideo'
+                  title='Demo video URL'
+                  type='url'
+                />
+                <Field
+                  name='website'
+                  title='Website URL'
+                  type='url'
+                />
+                <Field
+                  name='skills'
+                  title='Skills (comma separated)'
+                />
+                <Select
+                  name='applicationStatus'
+                  title='Application status'
+                  values={["APPROVED", "PENDING"]}
+                />
+              </>
+            )}
+            <label className='sm:col-span-2'>
+              <span className={label}>Bio {role === "INSTRUCTOR" && "*"}</span>
+              <textarea
+                name='bio'
+                required={role === "INSTRUCTOR"}
+                minLength={role === "INSTRUCTOR" ? 10 : undefined}
+                rows={3}
+                className={input}
               />
-            </div>
-            <div>
-              <div className="font-['Syne'] font-bold text-slate-100 text-[15px]">
-                Manual Enrollment
-              </div>
-              <div className='text-[11px] text-slate-500 font-mono uppercase tracking-wider'>
-                {student.studentProfile?.displayName}
-              </div>
-            </div>
+            </label>
+            <label className='flex items-center gap-2 text-sm text-slate-300 sm:col-span-2'>
+              <input
+                name='isEmailVerified'
+                type='checkbox'
+                defaultChecked
+                className='accent-orange-500'
+              />{" "}
+              Mark email verified and activate account
+            </label>
+          </div>
+          {error && (
+            <p className='mt-4 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-300'>
+              {error}
+            </p>
+          )}
+        </div>
+        <footer className='flex justify-end gap-3 border-t border-slate-700 px-6 py-4'>
+          <button
+            type='button'
+            onClick={onClose}
+            className='rounded-lg border border-slate-700 px-4 py-2 text-sm text-slate-300'
+          >
+            Cancel
+          </button>
+          <button
+            disabled={busy}
+            className='inline-flex items-center gap-2 rounded-lg bg-orange-500 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60'
+          >
+            {busy && (
+              <LoaderCircle
+                size={15}
+                className='animate-spin'
+              />
+            )}
+            Create {role === "STUDENT" ? "user" : "instructor"}
+          </button>
+        </footer>
+      </form>
+    </div>
+  );
+}
+
+function Field(props: React.InputHTMLAttributes<HTMLInputElement> & { title: string }) {
+  const { title, ...rest } = props;
+  return (
+    <label>
+      <span className={label}>{title}</span>
+      <input
+        {...rest}
+        name={rest.name}
+        className={input}
+      />
+    </label>
+  );
+}
+function Select({ name, title, values }: { name: string; title: string; values: string[] }) {
+  return (
+    <label>
+      <span className={label}>{title}</span>
+      <select
+        name={name}
+        className={input}
+      >
+        {values.map(value => (
+          <option
+            key={value}
+            value={value}
+          >
+            {value.replaceAll("_", " ")}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+function UserDrawer({
+  user,
+  onClose,
+  onChanged,
+}: {
+  user: AdminUser;
+  onClose: () => void;
+  onChanged: () => void;
+}) {
+  const [details, setDetails] = useState<AdminUserDetails | null>(null);
+  const [error, setError] = useState("");
+  const [note, setNote] = useState("");
+  const [busy, startTransition] = useTransition();
+  useEffect(() => {
+    document.body.style.overflow = "hidden";
+    getAdminUserDetails(user.id).then(result =>
+      result.success && result.data
+        ? setDetails(result.data)
+        : setError(result.message ?? "Could not load user.")
+    );
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [user.id]);
+  const action = (kind: AdminUserAction) =>
+    startTransition(async () => {
+      setError("");
+      const result = await runAdminUserAction(user.id, kind, note);
+      if (!result.success) return setError(result.message ?? "Action failed.");
+      const refreshed = await getAdminUserDetails(user.id);
+      if (refreshed.success && refreshed.data) setDetails(refreshed.data);
+      setNote("");
+      onChanged();
+    });
+  const current = details ?? user;
+  return (
+    <div
+      className='fixed inset-0 z-[110] bg-slate-950/70 backdrop-blur-[2px]'
+      onMouseDown={onClose}
+    >
+      <aside
+        onMouseDown={event => event.stopPropagation()}
+        className='ml-auto flex h-dvh w-full max-w-2xl flex-col border-l border-slate-700 bg-[#071426] shadow-2xl'
+      >
+        <header className='flex shrink-0 items-center justify-between border-b border-slate-700 px-5 py-4'>
+          <div>
+            <p className='text-[10px] font-semibold uppercase tracking-widest text-orange-400'>
+              User record
+            </p>
+            <h2 className='mt-1 font-bold text-slate-100'>{current.displayName}</h2>
           </div>
           <button
             onClick={onClose}
-            className='w-8 h-8 flex items-center justify-center rounded-lg border border-slate-800 text-slate-500 hover:text-slate-300 hover:border-slate-700 transition-all'
+            className='rounded-lg p-2 text-slate-400 hover:bg-slate-800'
           >
-            <X size={15} />
+            <X size={18} />
           </button>
-        </div>
-
-        <div className='p-6 space-y-4 max-h-[70vh] overflow-y-auto'>
-          {success ? (
-            <div className='flex flex-col items-center justify-center py-8 gap-3'>
-              <div
-                className='w-14 h-14 rounded-full flex items-center justify-center'
-                style={{
-                  background: "rgba(0,229,160,0.1)",
-                  border: "1px solid rgba(0,229,160,0.3)",
-                }}
-              >
-                <Check
-                  size={24}
-                  color='#00e5a0'
-                />
-              </div>
-              <div className="font-['Syne'] font-bold text-slate-100 text-[15px]">
-                Enrolled Successfully
-              </div>
-              <div className='text-[12px] text-slate-500'>
-                {student.studentProfile?.displayName} has been enrolled in {selectedCourse?.title}
-              </div>
+        </header>
+        <div className='flex-1 overflow-y-auto p-5'>
+          {!details && !error && (
+            <div className='grid h-48 place-items-center'>
+              <LoaderCircle className='animate-spin text-orange-400' />
             </div>
-          ) : (
-            <>
-              {/* Search courses */}
-              <div>
-                <label className='font-mono text-[10px] uppercase tracking-widest text-slate-500 mb-2 block'>
-                  Select Course
-                </label>
-                <div className='relative mb-2'>
-                  <Search
-                    size={13}
-                    className='absolute left-3 top-1/2 -translate-y-1/2 text-slate-500'
+          )}
+          {error && (
+            <p className='mb-4 rounded-lg bg-red-500/10 p-3 text-sm text-red-300'>{error}</p>
+          )}
+          {details && (
+            <div className='space-y-5'>
+              {details.status === "SUSPENDED" && (
+                <div className='flex gap-3 rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-red-200'>
+                  <AlertTriangle
+                    className='shrink-0'
+                    size={19}
                   />
-                  <input
-                    className='w-full bg-slate-950 border border-slate-800 rounded-lg py-2.5 pl-8 pr-3 text-[13px] text-slate-100 outline-none focus:border-orange-500 transition-all placeholder:text-slate-600'
-                    placeholder='Search by title, instructor or category...'
-                    value={search}
-                    onChange={e => setSearch(e.target.value)}
-                  />
+                  <div>
+                    <strong className='text-sm'>Account suspended</strong>
+                    <p className='mt-1 text-xs'>{details.suspendReason || "No reason recorded."}</p>
+                  </div>
                 </div>
-                <div
-                  className='rounded-xl border border-slate-800 overflow-hidden divide-y divide-slate-800/60'
-                  style={{ maxHeight: 240, overflowY: "auto" }}
-                >
-                  {filtered.length === 0 ? (
-                    <div className='px-4 py-6 text-center text-[13px] text-slate-500'>
-                      No courses found
-                    </div>
-                  ) : (
-                    filtered.map(c => (
-                      <button
-                        key={c.id}
-                        onClick={() => setSelected(c.id)}
-                        className={`w-full flex items-center justify-between px-4 py-3 text-left transition-all cursor-pointer ${
-                          selected === c.id
-                            ? "bg-orange-500/10 border-l-2 border-orange-500"
-                            : "hover:bg-slate-800/50"
-                        }`}
+              )}
+              <section className='grid grid-cols-2 gap-3 sm:grid-cols-4'>
+                {[
+                  ["Orders", details._count.orders],
+                  [
+                    "Paid total",
+                    money(
+                      details.payments
+                        .filter(p => p.status === "SUCCEEDED")
+                        .reduce((sum, p) => sum + p.amount, 0)
+                    ),
+                  ],
+                  ["Enrollments", details._count.enrollments],
+                  ["Reviews", details._count.reviews],
+                ].map(([key, value]) => (
+                  <div
+                    key={String(key)}
+                    className='rounded-xl border border-slate-800 bg-[#0d1f3c] p-3'
+                  >
+                    <p className='text-[10px] uppercase text-slate-500'>{key}</p>
+                    <p className='mt-1 font-bold text-slate-100'>{value}</p>
+                  </div>
+                ))}
+              </section>
+              <Card title='Account & contact'>
+                <Info
+                  name='Email'
+                  value={details.email}
+                />
+                <Info
+                  name='Phone'
+                  value={details.phoneNumber ?? "Not provided"}
+                />
+                <Info
+                  name='Role'
+                  value={details.roles.join(", ").replaceAll("STUDENT", "USER")}
+                />
+                <Info
+                  name='Status'
+                  value={details.status.replaceAll("_", " ")}
+                />
+                <Info
+                  name='Email verified'
+                  value={details.isEmailVerified ? "Yes" : "No"}
+                />
+                <Info
+                  name='Joined'
+                  value={date(details.createdAt)}
+                />
+                <Info
+                  name='Last login'
+                  value={date(details.lastLogin)}
+                />
+                <Info
+                  name='Last activity'
+                  value={date(details.lastActivityAt)}
+                />
+              </Card>
+              {details.instructorProfile && (
+                <Card title='Instructor profile'>
+                  <Info
+                    name='Application'
+                    value={details.instructorProfile.status}
+                  />
+                  <Info
+                    name='Expertise'
+                    value={details.instructorProfile.expertise ?? "—"}
+                  />
+                  <Info
+                    name='Experience'
+                    value={`${details.instructorProfile.experience} years`}
+                  />
+                  <Info
+                    name='Qualifications'
+                    value={details.instructorProfile.qualifications}
+                  />
+                  <Info
+                    name='Rating'
+                    value={`${details.instructorProfile.ratingAverage.toFixed(1)} (${details.instructorProfile.ratingCount})`}
+                  />
+                  <Info
+                    name='Students'
+                    value={String(details.instructorProfile.totalStudents)}
+                  />
+                  <Info
+                    name='Gross revenue'
+                    value={money(details.instructorProfile.totalRevenueAmount)}
+                  />
+                  <Info
+                    name='Skills'
+                    value={details.instructorProfile.skills.join(", ") || "—"}
+                  />
+                </Card>
+              )}
+              {details.instructorProfile?.ownedCourses.length ? (
+                <Card title='Instructor courses'>
+                  <div className='col-span-2 space-y-2'>
+                    {details.instructorProfile.ownedCourses.map(course => (
+                      <Link
+                        key={course.id}
+                        href={`/dashboard/admin/courses/${course.id}`}
+                        className='flex items-center justify-between rounded-lg border border-slate-800 p-3 hover:border-orange-500/50'
+                      >
+                        <span className='truncate text-sm text-slate-200'>{course.title}</span>
+                        <span className='ml-3 text-xs text-slate-500'>
+                          {course.enrollmentCount} enrolled
+                        </span>
+                      </Link>
+                    ))}
+                  </div>
+                </Card>
+              ) : null}
+              <Card title='Recent orders'>
+                <div className='col-span-2 space-y-2'>
+                  {details.orders.length ? (
+                    details.orders.map(order => (
+                      <div
+                        key={order.id}
+                        className='flex items-center justify-between rounded-lg border border-slate-800 p-3'
                       >
                         <div>
-                          <div
-                            className={`text-[13px] font-semibold ${selected === c.id ? "text-orange-400" : "text-slate-200"}`}
-                          >
-                            {c.title}
-                          </div>
-                          <div className='text-[11px] text-slate-500 mt-0.5'>
-                            {c.instructor} &middot; <span className='text-slate-600'>{c.cat}</span>
-                          </div>
+                          <p className='text-xs text-slate-300'>#{order.id.slice(0, 8)}</p>
+                          <p className='text-[10px] text-slate-500'>
+                            {date(order.createdAt)} · {order._count.orderItems} items
+                          </p>
                         </div>
-                        <div className='flex items-center gap-2 flex-shrink-0 ml-3'>
-                          <span className='font-mono text-[12px] font-bold text-emerald-400'>
-                            ${c.price}
-                          </span>
-                          {selected === c.id && (
-                            <Check
-                              size={14}
-                              color='#da7c36'
-                            />
-                          )}
+                        <div className='text-right'>
+                          <p className='text-xs font-semibold text-slate-200'>
+                            {money(order.totalAmount)}
+                          </p>
+                          <p className='text-[10px] text-slate-500'>{order.status}</p>
                         </div>
-                      </button>
+                      </div>
                     ))
+                  ) : (
+                    <p className='text-sm text-slate-500'>No orders.</p>
                   )}
                 </div>
-              </div>
-
-              {/* Enrollment type */}
-              <div>
-                <label className='font-mono text-[10px] uppercase tracking-widest text-slate-500 mb-2 block'>
-                  Enrollment Type
-                </label>
-                <div className='relative'>
-                  <select className='w-full bg-slate-950 border border-slate-800 rounded-lg py-2.5 pl-3.5 pr-8 text-[13px] text-slate-100 outline-none focus:border-orange-500 transition-all appearance-none cursor-pointer'>
-                    <option value='free'>Free (Admin Override)</option>
-                    <option value='paid'>Paid — Mark as Paid</option>
-                    <option value='scholarship'>Scholarship</option>
-                    <option value='gift'>Gift / Promotional</option>
-                  </select>
-                  <ChevronDown
-                    size={13}
-                    className='absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none'
-                  />
-                </div>
-              </div>
-
-              {/* Access expiry */}
-              <div>
-                <label className='font-mono text-[10px] uppercase tracking-widest text-slate-500 mb-2 block'>
-                  Access Expiry{" "}
-                  <span className='text-slate-600 normal-case tracking-normal'>
-                    (leave blank = lifetime)
-                  </span>
-                </label>
-                <input
-                  type='date'
-                  className='w-full bg-slate-950 border border-slate-800 rounded-lg py-2.5 px-3.5 text-[13px] text-slate-100 outline-none focus:border-orange-500 transition-all'
-                  style={{ colorScheme: "dark" }}
-                />
-              </div>
-
-              {/* Admin note */}
-              <div>
-                <label className='font-mono text-[10px] uppercase tracking-widest text-slate-500 mb-2 block'>
-                  Internal Note{" "}
-                  <span className='text-slate-600 normal-case tracking-normal'>(optional)</span>
-                </label>
+              </Card>
+              <section className='rounded-xl border border-slate-700 bg-[#0d1f3c] p-4'>
+                <h3 className='text-sm font-bold text-slate-100'>Admin actions</h3>
+                <p className='mt-1 text-xs text-slate-500'>
+                  Sensitive actions are audit logged. A reason is required for suspension or
+                  rejection.
+                </p>
                 <textarea
-                  className='w-full bg-slate-950 border border-slate-800 rounded-lg p-3.5 text-[13px] text-slate-100 outline-none focus:border-orange-500 transition-all resize-none placeholder:text-slate-600'
-                  rows={2}
-                  placeholder='Reason for manual enrollment...'
                   value={note}
-                  onChange={e => setNote(e.target.value)}
-                />
-              </div>
-
-              {/* Selected summary */}
-              {selectedCourse && (
-                <div
-                  className='rounded-xl p-3.5 flex items-center gap-3'
-                  style={{
-                    background: "rgba(218,124,54,0.08)",
-                    border: "1px solid rgba(218,124,54,0.2)",
-                  }}
-                >
-                  <BookOpen
-                    size={15}
-                    color='#da7c36'
-                  />
-                  <div className='flex-1 min-w-0'>
-                    <div className='text-[13px] font-semibold text-orange-400 truncate'>
-                      {selectedCourse.title}
-                    </div>
-                    <div className='text-[11px] text-slate-500'>{selectedCourse.instructor}</div>
-                  </div>
-                  <span className='font-mono text-[12px] font-bold text-emerald-400 flex-shrink-0'>
-                    ${selectedCourse.price}
-                  </span>
-                </div>
-              )}
-            </>
-          )}
-        </div>
-
-        {/* Footer */}
-        {!success && (
-          <div className='px-6 py-4 border-t border-slate-800 flex gap-3'>
-            <button
-              onClick={onClose}
-              className='flex-1 py-2.5 rounded-lg border border-slate-800 text-slate-400 text-[13px] font-semibold hover:bg-slate-800 hover:text-slate-100 transition-all'
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleEnroll}
-              disabled={!selected || loading}
-              className='flex-1 py-2.5 rounded-lg text-white text-[13px] font-semibold transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2'
-              style={{
-                background: "linear-gradient(135deg, #da7c36, #d15100)",
-                boxShadow: selected ? "0 4px 14px rgba(218,124,54,0.3)" : "none",
-              }}
-            >
-              {loading ? (
-                <>
-                  <svg
-                    className='animate-spin'
-                    width={14}
-                    height={14}
-                    viewBox='0 0 24 24'
-                    fill='none'
-                  >
-                    <circle
-                      cx='12'
-                      cy='12'
-                      r='10'
-                      stroke='white'
-                      strokeWidth='3'
-                      strokeOpacity='0.3'
-                    />
-                    <path
-                      d='M12 2a10 10 0 0 1 10 10'
-                      stroke='white'
-                      strokeWidth='3'
-                      strokeLinecap='round'
-                    />
-                  </svg>
-                  Enrolling...
-                </>
-              ) : (
-                "Confirm Enrollment"
-              )}
-            </button>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ─── Badge Assignment Modal ─────────────────────────────────────────────────
-const BADGES = [
-  {
-    id: "None",
-    label: "No Badge",
-    color: "#7a9cc4",
-    bg: "rgba(122,156,196,0.08)",
-    border: "rgba(122,156,196,0.15)",
-    icon: "—",
-    criteria: "Default — no badge assigned",
-  },
-  {
-    id: "Gold",
-    label: "Gold",
-    color: "#ffc107",
-    bg: "rgba(255,193,7,0.08)",
-    border: "rgba(255,193,7,0.2)",
-    icon: "🥇",
-    criteria: "Rating ≥ 4.5 · 5+ courses · Completion ≥ 70%",
-  },
-  {
-    id: "Platinum",
-    label: "Platinum",
-    color: "#b47aff",
-    bg: "rgba(180,122,255,0.08)",
-    border: "rgba(180,122,255,0.2)",
-    icon: "💎",
-    criteria: "Rating ≥ 4.8 · 10+ courses · Completion ≥ 85%",
-  },
-  {
-    id: "Premium",
-    label: "Premium",
-    color: "#da7c36",
-    bg: "rgba(218,124,54,0.08)",
-    border: "rgba(218,124,54,0.2)",
-    icon: "⭐",
-    criteria: "Manual admin assignment only",
-  },
-];
-
-function BadgeAssignModal({
-  student,
-  onClose,
-}: {
-  student: StudentForAdmin[0];
-  onClose: () => void;
-}) {
-  const [selected, setSelected] = useState<string>(student.badge ?? "None");
-  const [reason, setReason] = useState("");
-  const [notify, setNotify] = useState(true);
-  const [loading, setLoading] = useState(false);
-  const [success, setSuccess] = useState(false);
-
-  const changed = selected !== (student.badge ?? "None");
-  const selectedBadge = BADGES.find(b => b.id === selected)!;
-
-  const handleAssign = async () => {
-    if (!changed) return;
-    setLoading(true);
-    // Replace with your actual badge API call:
-    // await assignBadge({ studentId: student.id, badge: selected, reason, notify })
-    await new Promise(r => setTimeout(r, 1000));
-    setLoading(false);
-    setSuccess(true);
-    setTimeout(onClose, 1500);
-  };
-
-  return (
-    <div
-      className='fixed inset-0 z-110 flex items-center justify-center'
-      style={{ background: "rgba(5,13,26,0.85)", backdropFilter: "blur(6px)" }}
-      onClick={onClose}
-    >
-      <div
-        className='w-full max-w-md mx-4 h-[calc(100vh-4rem)] rounded-xl border border-slate-800 overflow-hidden overflow-y-auto'
-        style={{ background: "#070f1e" }}
-        onClick={e => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className='flex items-center justify-between px-6 py-4 border-b border-slate-800'>
-          <div className='flex items-center gap-3'>
-            <div
-              className='w-8 h-8 rounded-lg flex items-center justify-center'
-              style={{ background: "rgba(180,122,255,0.15)" }}
-            >
-              <Award
-                size={15}
-                color='#b47aff'
-              />
-            </div>
-            <div>
-              <div className="font-['Syne'] font-bold text-slate-100 text-[15px]">Assign Badge</div>
-              <div className='text-[11px] text-slate-500 font-mono uppercase tracking-wider'>
-                {student.studentProfile?.displayName}
-              </div>
-            </div>
-          </div>
-          <button
-            onClick={onClose}
-            className='w-8 h-8 flex items-center justify-center rounded-lg border border-slate-800 text-slate-500 hover:text-slate-300 hover:border-slate-700 transition-all'
-          >
-            <X size={15} />
-          </button>
-        </div>
-
-        <div className='p-6 space-y-4'>
-          {success ? (
-            <div className='flex flex-col items-center justify-center py-8 gap-3'>
-              <div
-                className='w-14 h-14 rounded-full flex items-center justify-center text-3xl'
-                style={{
-                  background: selectedBadge.bg,
-                  border: `1px solid ${selectedBadge.border}`,
-                }}
-              >
-                {selectedBadge.icon}
-              </div>
-              <div className="font-['Syne'] font-bold text-slate-100 text-[15px]">
-                Badge Updated
-              </div>
-              <div className='text-[12px] text-slate-500'>
-                {student.studentProfile?.displayName} is now{" "}
-                <span style={{ color: selectedBadge.color }}>{selectedBadge.label}</span>
-              </div>
-            </div>
-          ) : (
-            <>
-              {/* Current badge */}
-              <div
-                className='rounded-xl p-3.5 flex items-center justify-between'
-                style={{
-                  background: "rgba(255,255,255,0.02)",
-                  border: "1px solid rgba(255,255,255,0.06)",
-                }}
-              >
-                <div>
-                  <div className='font-mono text-[10px] uppercase tracking-widest text-slate-500 mb-1'>
-                    Current Badge
-                  </div>
-                  <div className='text-[13px] font-semibold text-slate-300'>
-                    {BADGES.find(b => b.id === (student.badge ?? "None"))?.icon}{" "}
-                    {student.badge ?? "No Badge"}
-                  </div>
-                </div>
-                <div className='text-2xl opacity-50'>→</div>
-                <div className='text-right'>
-                  <div className='font-mono text-[10px] uppercase tracking-widest text-slate-500 mb-1'>
-                    New Badge
-                  </div>
-                  <div
-                    className='text-[13px] font-semibold'
-                    style={{ color: selectedBadge.color }}
-                  >
-                    {selectedBadge.icon} {selectedBadge.label}
-                  </div>
-                </div>
-              </div>
-
-              {/* Badge options */}
-              <div>
-                <label className='font-mono text-[10px] uppercase tracking-widest text-slate-500 mb-2 block'>
-                  Select Badge
-                </label>
-                <div className='grid grid-cols-2 gap-2'>
-                  {BADGES.map(b => (
-                    <button
-                      key={b.id}
-                      onClick={() => setSelected(b.id)}
-                      className='rounded-xl p-3.5 text-left transition-all cursor-pointer relative'
-                      style={{
-                        background: selected === b.id ? b.bg : "rgba(255,255,255,0.02)",
-                        border: `1px solid ${selected === b.id ? b.border : "rgba(255,255,255,0.06)"}`,
-                        boxShadow: selected === b.id ? `0 0 16px ${b.bg}` : "none",
-                      }}
-                    >
-                      {selected === b.id && (
-                        <div
-                          className='absolute top-2 right-2 w-4 h-4 rounded-full flex items-center justify-center'
-                          style={{ background: b.border }}
-                        >
-                          <Check
-                            size={10}
-                            color={b.color}
-                          />
-                        </div>
-                      )}
-                      <div className='text-xl mb-1.5'>{b.icon}</div>
-                      <div
-                        className='text-[13px] font-semibold'
-                        style={{ color: selected === b.id ? b.color : "#e8f0fe" }}
-                      >
-                        {b.label}
-                      </div>
-                      <div className='text-[10px] text-slate-500 mt-1 leading-tight'>
-                        {b.criteria}
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Reason */}
-              <div>
-                <label className='font-mono text-[10px] uppercase tracking-widest text-slate-500 mb-2 block'>
-                  Reason for Override{" "}
-                  <span className='text-slate-600 normal-case tracking-normal'>(optional)</span>
-                </label>
-                <textarea
-                  className='w-full bg-slate-950 border border-slate-800 rounded-lg p-3.5 text-[13px] text-slate-100 outline-none focus:border-orange-500 transition-all resize-none placeholder:text-slate-600'
-                  rows={2}
-                  placeholder='e.g. Exceptional contribution to the community...'
-                  value={reason}
-                  onChange={e => setReason(e.target.value)}
-                />
-              </div>
-
-              {/* Notify toggle */}
-              <div
-                className='flex items-center justify-between rounded-xl p-3.5'
-                style={{
-                  background: "rgba(255,255,255,0.02)",
-                  border: "1px solid rgba(255,255,255,0.06)",
-                }}
-              >
-                <div>
-                  <div className='text-[13px] font-semibold text-slate-200'>Notify Student</div>
-                  <div className='text-[11px] text-slate-500 mt-0.5'>
-                    Send email notification about badge change
-                  </div>
-                </div>
-                <button
-                  onClick={() => setNotify(!notify)}
-                  className='w-10 h-[22px] rounded-full relative transition-all flex-shrink-0'
-                  style={{ background: notify ? "#da7c36" : "#1a3158" }}
-                >
-                  <div
-                    className='w-4 h-4 rounded-full bg-white absolute top-[3px] transition-all shadow-md'
-                    style={{ left: notify ? 22 : 3 }}
-                  />
-                </button>
-              </div>
-            </>
-          )}
-        </div>
-
-        {/* Footer */}
-        {!success && (
-          <div className='px-6 py-4 border-t border-slate-800 flex gap-3'>
-            <button
-              onClick={onClose}
-              className='flex-1 py-2.5 rounded-lg border border-slate-800 text-slate-400 text-[13px] font-semibold hover:bg-slate-800 hover:text-slate-100 transition-all'
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleAssign}
-              disabled={!changed || loading}
-              className='flex-1 py-2.5 rounded-lg text-white text-[13px] font-semibold transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2'
-              style={{
-                background: "linear-gradient(135deg, #da7c36, #d15100)",
-                boxShadow: changed ? "0 4px 14px rgba(218,124,54,0.3)" : "none",
-              }}
-            >
-              {loading ? (
-                <>
-                  <svg
-                    className='animate-spin'
-                    width={14}
-                    height={14}
-                    viewBox='0 0 24 24'
-                    fill='none'
-                  >
-                    <circle
-                      cx='12'
-                      cy='12'
-                      r='10'
-                      stroke='white'
-                      strokeWidth='3'
-                      strokeOpacity='0.3'
-                    />
-                    <path
-                      d='M12 2a10 10 0 0 1 10 10'
-                      stroke='white'
-                      strokeWidth='3'
-                      strokeLinecap='round'
-                    />
-                  </svg>
-                  Saving...
-                </>
-              ) : (
-                "Confirm Assignment"
-              )}
-            </button>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ─── Suspend / Activate Modal ───────────────────────────────────────────────
-function SuspendModal({ student, onClose }: { student: StudentForAdmin[0]; onClose: () => void }) {
-  const isSuspended = student.status === "Suspended";
-  const [reason, setReason] = useState("");
-  const [notify, setNotify] = useState(true);
-  const [loading, setLoading] = useState(false);
-  const [success, setSuccess] = useState(false);
-
-  const isActivating = isSuspended;
-  const reasonRequired = !isActivating && reason.trim().length === 0;
-
-  const handleSubmit = async () => {
-    if (reasonRequired) return;
-    setLoading(true);
-    // Replace with your actual API call:
-    // await updateStudentStatus({ studentId: student.id, status: isActivating ? "Active" : "Suspended", reason, notify })
-    await new Promise(r => setTimeout(r, 1000));
-    setLoading(false);
-    setSuccess(true);
-    setTimeout(onClose, 1600);
-  };
-
-  return (
-    <div
-      className='fixed inset-0 z-110 flex items-center justify-center'
-      style={{ background: "rgba(5,13,26,0.85)", backdropFilter: "blur(6px)" }}
-      onClick={onClose}
-    >
-      <div
-        className='w-full max-w-md mx-4 h-[calc(100vh-4rem)] rounded-xl border overflow-hidden overflow-y-auto'
-        style={{
-          background: "#070f1e",
-          borderColor: isActivating ? "rgba(0,229,160,0.2)" : "rgba(255,71,87,0.2)",
-        }}
-        onClick={e => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div
-          className='flex items-center justify-between px-6 py-4 border-b'
-          style={{ borderColor: isActivating ? "rgba(0,229,160,0.12)" : "rgba(255,71,87,0.12)" }}
-        >
-          <div className='flex items-center gap-3'>
-            <div
-              className='w-8 h-8 rounded-lg flex items-center justify-center'
-              style={{
-                background: isActivating ? "rgba(0,229,160,0.12)" : "rgba(255,71,87,0.12)",
-              }}
-            >
-              {isActivating ? (
-                <ShieldCheck
-                  size={15}
-                  color='#00e5a0'
-                />
-              ) : (
-                <ShieldOff
-                  size={15}
-                  color='#ff4757'
-                />
-              )}
-            </div>
-            <div>
-              <div className="font-['Syne'] font-bold text-slate-100 text-[15px]">
-                {isActivating ? "Activate Account" : "Suspend Account"}
-              </div>
-              <div className='text-[11px] text-slate-500 font-mono uppercase tracking-wider'>
-                {student.studentProfile?.displayName}
-              </div>
-            </div>
-          </div>
-          <button
-            onClick={onClose}
-            className='w-8 h-8 flex items-center justify-center rounded-lg border border-slate-800 text-slate-500 hover:text-slate-300 hover:border-slate-700 transition-all'
-          >
-            <X size={15} />
-          </button>
-        </div>
-
-        <div className='p-6 space-y-4'>
-          {success ? (
-            <div className='flex flex-col items-center justify-center py-8 gap-3'>
-              <div
-                className='w-14 h-14 rounded-full flex items-center justify-center'
-                style={{
-                  background: isActivating ? "rgba(0,229,160,0.1)" : "rgba(255,71,87,0.1)",
-                  border: `1px solid ${isActivating ? "rgba(0,229,160,0.3)" : "rgba(255,71,87,0.3)"}`,
-                }}
-              >
-                <Check
-                  size={24}
-                  color={isActivating ? "#00e5a0" : "#ff4757"}
-                />
-              </div>
-              <div className="font-['Syne'] font-bold text-slate-100 text-[15px]">
-                {isActivating ? "Account Activated" : "Account Suspended"}
-              </div>
-              <div className='text-[12px] text-slate-500 text-center'>
-                {student.studentProfile?.displayName}&apos;s account has been{" "}
-                <span style={{ color: isActivating ? "#00e5a0" : "#ff4757" }}>
-                  {isActivating ? "activated" : "suspended"}
-                </span>
-                {notify && " and they have been notified by email."}
-              </div>
-            </div>
-          ) : (
-            <>
-              {/* Warning / info banner */}
-              <div
-                className='rounded-xl p-4 flex gap-3 items-start'
-                style={{
-                  background: isActivating ? "rgba(0,229,160,0.06)" : "rgba(255,71,87,0.06)",
-                  border: `1px solid ${isActivating ? "rgba(0,229,160,0.15)" : "rgba(255,71,87,0.15)"}`,
-                }}
-              >
-                <div className='text-lg leading-none mt-0.5'>{isActivating ? "✅" : "⚠️"}</div>
-                <div>
-                  <div
-                    className='text-[13px] font-semibold mb-1'
-                    style={{ color: isActivating ? "#00e5a0" : "#ff4757" }}
-                  >
-                    {isActivating ? "Restore full access" : "This will block all access"}
-                  </div>
-                  <div className='text-[12px] text-slate-500 leading-relaxed'>
-                    {isActivating
-                      ? "The student will regain access to all their enrolled courses, purchases, and platform features immediately."
-                      : "The student will be logged out and unable to access any courses, content, or make purchases until reactivated."}
-                  </div>
-                </div>
-              </div>
-
-              {/* Student summary */}
-              <div
-                className='rounded-xl p-3.5 flex items-center gap-3'
-                style={{
-                  background: "rgba(255,255,255,0.02)",
-                  border: "1px solid rgba(255,255,255,0.06)",
-                }}
-              >
-                <div className='flex-1 min-w-0 divide-y divide-slate-800/60'>
-                  {[
-                    ["Email", student.email],
-                    ["Current Status", student.status],
-                    ["Enrolled Courses", String(student._count.enrollments)],
-                  ].map(([k, v]) => (
-                    <div
-                      key={k}
-                      className='flex justify-between py-1.5 first:pt-0 last:pb-0'
-                    >
-                      <span className='font-mono text-[10px] uppercase tracking-wider text-slate-500'>
-                        {k}
-                      </span>
-                      <span
-                        className='text-[12px] font-medium'
-                        style={{
-                          color:
-                            k === "Current Status"
-                              ? student.status === "Active"
-                                ? "#00e5a0"
-                                : "#ff4757"
-                              : "#e8f0fe",
-                        }}
-                      >
-                        {v}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Reason textarea — required for suspend, optional for activate */}
-              <div>
-                <label className='font-mono text-[10px] uppercase tracking-widest text-slate-500 mb-2 flex items-center gap-1.5'>
-                  {isActivating ? "Reason for Reactivation" : "Reason for Suspension"}
-                  {!isActivating && (
-                    <span className='text-red-500 normal-case tracking-normal font-sans text-[10px]'>
-                      * required
-                    </span>
-                  )}
-                  {isActivating && (
-                    <span className='text-slate-600 normal-case tracking-normal font-sans text-[10px]'>
-                      (optional)
-                    </span>
-                  )}
-                </label>
-                <textarea
-                  className={`w-full bg-slate-950 border rounded-lg p-3.5 text-[13px] text-slate-100 outline-none transition-all resize-none placeholder:text-slate-600 ${
-                    !isActivating && reason.trim().length === 0
-                      ? "border-slate-800 focus:border-red-500/60"
-                      : "border-slate-800 focus:border-orange-500"
-                  }`}
+                  onChange={event => setNote(event.target.value)}
+                  placeholder='Admin note / reason'
                   rows={3}
-                  placeholder={
-                    isActivating
-                      ? "e.g. Issue resolved, account reinstated after review..."
-                      : "e.g. Violation of terms of service — repeated spam in reviews..."
-                  }
-                  value={reason}
-                  onChange={e => setReason(e.target.value)}
+                  className={`${input} mt-3`}
                 />
-                {!isActivating && reason.trim().length === 0 && (
-                  <p className='text-[11px] text-red-400/70 mt-1.5'>
-                    A reason is required before suspending an account.
-                  </p>
-                )}
-              </div>
-
-              {/* Duration (suspend only) */}
-              {!isActivating && (
-                <div>
-                  <label className='font-mono text-[10px] uppercase tracking-widest text-slate-500 mb-2 block'>
-                    Suspension Duration{" "}
-                    <span className='text-slate-600 normal-case tracking-normal font-sans'>
-                      (leave blank = indefinite)
-                    </span>
-                  </label>
-                  <div className='relative'>
-                    <select className='w-full bg-slate-950 border border-slate-800 rounded-lg py-2.5 pl-3.5 pr-8 text-[13px] text-slate-100 outline-none focus:border-orange-500 transition-all appearance-none cursor-pointer'>
-                      <option value=''>Indefinite</option>
-                      <option value='1d'>1 Day</option>
-                      <option value='3d'>3 Days</option>
-                      <option value='7d'>7 Days</option>
-                      <option value='14d'>14 Days</option>
-                      <option value='30d'>30 Days</option>
-                      <option value='custom'>Custom Date</option>
-                    </select>
-                    <ChevronDown
-                      size={13}
-                      className='absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none'
-                    />
-                  </div>
-                </div>
-              )}
-
-              {/* Notify toggle */}
-              <div
-                className='flex items-center justify-between rounded-xl p-3.5'
-                style={{
-                  background: "rgba(255,255,255,0.02)",
-                  border: "1px solid rgba(255,255,255,0.06)",
-                }}
-              >
-                <div>
-                  <div className='text-[13px] font-semibold text-slate-200'>
-                    Notify Student by Email
-                  </div>
-                  <div className='text-[11px] text-slate-500 mt-0.5'>
-                    {isActivating
-                      ? "Send a reactivation confirmation to the student"
-                      : "Send a suspension notice with the reason to the student"}
-                  </div>
-                </div>
-                <button
-                  onClick={() => setNotify(!notify)}
-                  className='w-10 h-[22px] rounded-full relative transition-all flex-shrink-0 ml-4'
-                  style={{ background: notify ? "#da7c36" : "#1a3158" }}
-                >
-                  <div
-                    className='w-4 h-4 rounded-full bg-white absolute top-[3px] transition-all shadow-md'
-                    style={{ left: notify ? 22 : 3 }}
-                  />
-                </button>
-              </div>
-            </>
-          )}
-        </div>
-
-        {/* Footer */}
-        {!success && (
-          <div
-            className='px-6 py-4 border-t flex gap-3'
-            style={{ borderColor: isActivating ? "rgba(0,229,160,0.12)" : "rgba(255,71,87,0.12)" }}
-          >
-            <button
-              onClick={onClose}
-              className='flex-1 py-2.5 rounded-lg border border-slate-800 text-slate-400 text-[13px] font-semibold hover:bg-slate-800 hover:text-slate-100 transition-all'
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleSubmit}
-              disabled={reasonRequired || loading}
-              className='flex-1 py-2.5 rounded-lg text-white text-[13px] font-semibold transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2'
-              style={{
-                background: isActivating
-                  ? "linear-gradient(135deg, #00e5a0, #00b87a)"
-                  : "linear-gradient(135deg, #ff4757, #c0392b)",
-                boxShadow: !reasonRequired
-                  ? isActivating
-                    ? "0 4px 14px rgba(0,229,160,0.25)"
-                    : "0 4px 14px rgba(255,71,87,0.25)"
-                  : "none",
-              }}
-            >
-              {loading ? (
-                <>
-                  <svg
-                    className='animate-spin'
-                    width={14}
-                    height={14}
-                    viewBox='0 0 24 24'
-                    fill='none'
-                  >
-                    <circle
-                      cx='12'
-                      cy='12'
-                      r='10'
-                      stroke='white'
-                      strokeWidth='3'
-                      strokeOpacity='0.3'
-                    />
-                    <path
-                      d='M12 2a10 10 0 0 1 10 10'
-                      stroke='white'
-                      strokeWidth='3'
-                      strokeLinecap='round'
-                    />
-                  </svg>
-                  {isActivating ? "Activating..." : "Suspending..."}
-                </>
-              ) : (
-                <>
-                  {isActivating ? <ShieldCheck size={14} /> : <ShieldOff size={14} />}
-                  {isActivating ? "Confirm Activation" : "Confirm Suspension"}
-                </>
-              )}
-            </button>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function RefundModal({ student, onClose }: { student: StudentForAdmin[0]; onClose: () => void }) {
-  // Mock orders — replace with real data from student.orders
-  const orders =
-    student.orders.length > 0
-      ? student.orders.map((o: any, i: number) => ({
-          id: o.id ?? `ORD-${i + 1}`,
-          course: o.course?.title ?? o.courseName ?? `Order #${i + 1}`,
-          amount: o.amount ?? o.price ?? 0,
-          date: o.createdAt ? new Date(o.createdAt).toLocaleDateString() : "—",
-          status: o.status ?? "Completed",
-        }))
-      : [
-          {
-            id: "ORD-001",
-            course: "Full-Stack Web Dev Bootcamp",
-            amount: 29,
-            date: "Feb 10, 2025",
-            status: "Completed",
-          },
-          {
-            id: "ORD-002",
-            course: "Python for Data Science",
-            amount: 19,
-            date: "Jan 22, 2025",
-            status: "Completed",
-          },
-          {
-            id: "ORD-003",
-            course: "UI/UX Design Masterclass",
-            amount: 24,
-            date: "Dec 5, 2024",
-            status: "Completed",
-          },
-        ];
-
-  const [selectedOrder, setSelectedOrder] = useState<string | null>(null);
-  const [refundType, setRefundType] = useState<"full" | "partial">("full");
-  const [partialAmount, setPartialAmount] = useState("");
-  const [reason, setReason] = useState("");
-  const [reasonOther, setReasonOther] = useState("");
-  const [notify, setNotify] = useState(true);
-  const [loading, setLoading] = useState(false);
-  const [success, setSuccess] = useState(false);
-  const [step, setStep] = useState<1 | 2>(1);
-
-  const REASONS = [
-    "Content quality not as expected",
-    "Accidentally purchased wrong course",
-    "Technical issues preventing access",
-    "Duplicate purchase",
-    "Course not delivered as described",
-    "Other",
-  ];
-
-  const order = orders.find(o => o.id === selectedOrder);
-  const refundAmount =
-    refundType === "full" ? (order?.amount ?? 0) : parseFloat(partialAmount) || 0;
-
-  const canProceedStep1 = selectedOrder !== null;
-  const canConfirm =
-    reason.trim().length > 0 &&
-    (reason !== "Other" || reasonOther.trim().length > 0) &&
-    (refundType === "full" ||
-      (parseFloat(partialAmount) > 0 && parseFloat(partialAmount) <= (order?.amount ?? 0)));
-
-  const handleSubmit = async () => {
-    if (!canConfirm) return;
-    setLoading(true);
-    // Replace with your actual refund API call:
-    // await triggerRefund({ studentId: student.id, orderId: selectedOrder, amount: refundAmount, reason: reason === "Other" ? reasonOther : reason, notify })
-    await new Promise(r => setTimeout(r, 1200));
-    setLoading(false);
-    setSuccess(true);
-    setTimeout(onClose, 1800);
-  };
-
-  return (
-    <div
-      className='fixed inset-0 z-110 flex items-center justify-center'
-      style={{ background: "rgba(5,13,26,0.85)", backdropFilter: "blur(6px)" }}
-      onClick={onClose}
-    >
-      <div
-        className='w-full max-w-md h-[calc(100vh-4rem)] mx-4 rounded-2xl border border-slate-800 overflow-hidden overflow-y-auto'
-        style={{ background: "#070f1e" }}
-        onClick={e => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className='flex items-center justify-between px-6 py-4 border-b border-slate-800'>
-          <div className='flex items-center gap-3'>
-            <div
-              className='w-8 h-8 rounded-lg flex items-center justify-center'
-              style={{ background: "rgba(74,158,255,0.12)" }}
-            >
-              <ReceiptText
-                size={15}
-                color='#4a9eff'
-              />
-            </div>
-            <div>
-              <div className="font-['Syne'] font-bold text-slate-100 text-[15px]">
-                Trigger Refund
-              </div>
-              <div className='text-[11px] text-slate-500 font-mono uppercase tracking-wider'>
-                {student.studentProfile?.displayName}
-              </div>
-            </div>
-          </div>
-          <div className='flex items-center gap-3'>
-            {/* Step indicator */}
-            <div className='flex items-center gap-1.5'>
-              {[1, 2].map(s => (
-                <div
-                  key={s}
-                  className='transition-all'
-                  style={{
-                    width: step === s ? 20 : 6,
-                    height: 6,
-                    borderRadius: 3,
-                    background: step >= s ? "#4a9eff" : "#1a3158",
-                  }}
-                />
-              ))}
-            </div>
-            <button
-              onClick={onClose}
-              className='w-8 h-8 flex items-center justify-center rounded-lg border border-slate-800 text-slate-500 hover:text-slate-300 hover:border-slate-700 transition-all'
-            >
-              <X size={15} />
-            </button>
-          </div>
-        </div>
-
-        <div className='p-6 space-y-4 max-h-[72vh] overflow-y-auto'>
-          {success ? (
-            /* ── Success state ── */
-            <div className='flex flex-col items-center justify-center py-8 gap-3'>
-              <div
-                className='w-14 h-14 rounded-full flex items-center justify-center'
-                style={{
-                  background: "rgba(0,229,160,0.1)",
-                  border: "1px solid rgba(0,229,160,0.3)",
-                }}
-              >
-                <Check
-                  size={24}
-                  color='#00e5a0'
-                />
-              </div>
-              <div className="font-['Syne'] font-bold text-slate-100 text-[15px]">
-                Refund Initiated
-              </div>
-              <div className='text-[12px] text-slate-500 text-center leading-relaxed'>
-                <span className='text-emerald-400 font-semibold'>${refundAmount.toFixed(2)}</span>{" "}
-                refund for <span className='text-slate-300'>{order?.course}</span> has been
-                submitted.
-                {notify && " Student will be notified by email."}
-              </div>
-            </div>
-          ) : step === 1 ? (
-            /* ── Step 1: Select order ── */
-            <>
-              <div>
-                <label className='font-mono text-[10px] uppercase tracking-widest text-slate-500 mb-2 block'>
-                  Select Order to Refund
-                </label>
-                {orders.length === 0 ? (
-                  <div
-                    className='rounded-xl p-6 flex flex-col items-center gap-2 text-center'
-                    style={{
-                      background: "rgba(255,255,255,0.02)",
-                      border: "1px solid rgba(255,255,255,0.06)",
-                    }}
-                  >
-                    <AlertTriangle
-                      size={20}
-                      color='#3d5a80'
-                    />
-                    <div className='text-[13px] text-slate-500'>
-                      No orders found for this student
-                    </div>
-                  </div>
-                ) : (
-                  <div className='rounded-xl border border-slate-800 overflow-hidden divide-y divide-slate-800/60'>
-                    {orders.map(o => (
-                      <button
-                        key={o.id}
-                        onClick={() => setSelectedOrder(o.id)}
-                        className={`w-full flex items-center justify-between px-4 py-3.5 text-left transition-all cursor-pointer ${
-                          selectedOrder === o.id
-                            ? "bg-blue-500/10 border-l-2 border-blue-500"
-                            : "hover:bg-slate-800/50"
-                        }`}
+                <div className='mt-3 flex flex-wrap gap-2'>
+                  {!details.isEmailVerified && (
+                    <ActionButton
+                      onClick={() => action("VERIFY_EMAIL")}
+                      disabled={busy}
+                    >
+                      Verify email
+                    </ActionButton>
+                  )}
+                  {details.status === "SUSPENDED" || details.status === "INACTIVE" ? (
+                    <ActionButton
+                      onClick={() => action("REACTIVATE")}
+                      disabled={busy}
+                    >
+                      Reactivate
+                    </ActionButton>
+                  ) : (
+                    <ActionButton
+                      danger
+                      onClick={() => action("SUSPEND")}
+                      disabled={busy || note.trim().length < 5}
+                    >
+                      Suspend
+                    </ActionButton>
+                  )}
+                  {details.instructorProfile?.status === "PENDING" && (
+                    <>
+                      <ActionButton
+                        onClick={() => action("APPROVE_INSTRUCTOR")}
+                        disabled={busy}
                       >
-                        <div className='flex-1 min-w-0'>
-                          <div
-                            className={`text-[13px] font-semibold truncate ${
-                              selectedOrder === o.id ? "text-blue-400" : "text-slate-200"
-                            }`}
-                          >
-                            {o.course}
-                          </div>
-                          <div className='flex items-center gap-2 mt-0.5'>
-                            <span className='font-mono text-[10px] text-slate-600'>{o.id}</span>
-                            <span className='text-slate-700'>·</span>
-                            <span className='text-[11px] text-slate-500'>{o.date}</span>
-                          </div>
-                        </div>
-                        <div className='flex items-center gap-2 ml-3 flex-shrink-0'>
-                          <span className='font-mono text-[13px] font-bold text-emerald-400'>
-                            ${o.amount}
-                          </span>
-                          {selectedOrder === o.id && (
-                            <Check
-                              size={14}
-                              color='#4a9eff'
-                            />
-                          )}
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Refund type */}
-              {selectedOrder && (
-                <div>
-                  <label className='font-mono text-[10px] uppercase tracking-widest text-slate-500 mb-2 block'>
-                    Refund Type
-                  </label>
-                  <div className='grid grid-cols-2 gap-2'>
-                    {(["full", "partial"] as const).map(t => (
-                      <button
-                        key={t}
-                        onClick={() => setRefundType(t)}
-                        className='rounded-xl p-3.5 text-left transition-all cursor-pointer'
-                        style={{
-                          background:
-                            refundType === t ? "rgba(74,158,255,0.08)" : "rgba(255,255,255,0.02)",
-                          border: `1px solid ${refundType === t ? "rgba(74,158,255,0.25)" : "rgba(255,255,255,0.06)"}`,
-                        }}
+                        Approve instructor
+                      </ActionButton>
+                      <ActionButton
+                        danger
+                        onClick={() => action("REJECT_INSTRUCTOR")}
+                        disabled={busy || note.trim().length < 5}
                       >
-                        <div className='flex items-center justify-between mb-1'>
-                          <span
-                            className='text-[13px] font-semibold capitalize'
-                            style={{ color: refundType === t ? "#4a9eff" : "#e8f0fe" }}
-                          >
-                            {t} Refund
-                          </span>
-                          {refundType === t && (
-                            <Check
-                              size={13}
-                              color='#4a9eff'
-                            />
-                          )}
-                        </div>
-                        <div className='text-[11px] text-slate-500'>
-                          {t === "full"
-                            ? `Full $${order?.amount} returned`
-                            : "Specify a custom amount"}
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-
-                  {refundType === "partial" && (
-                    <div className='mt-2'>
-                      <label className='font-mono text-[10px] uppercase tracking-widest text-slate-500 mb-2 block'>
-                        Partial Amount (max ${order?.amount})
-                      </label>
-                      <div className='relative'>
-                        <span className='absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 text-[13px] font-mono'>
-                          $
-                        </span>
-                        <input
-                          type='number'
-                          min='0.01'
-                          max={order?.amount}
-                          step='0.01'
-                          className='w-full bg-slate-950 border border-slate-800 rounded-lg py-2.5 pl-7 pr-3.5 text-[13px] text-slate-100 outline-none focus:border-blue-500 transition-all placeholder:text-slate-600'
-                          placeholder={`0.00 – ${order?.amount}.00`}
-                          value={partialAmount}
-                          onChange={e => setPartialAmount(e.target.value)}
-                        />
-                      </div>
-                      {partialAmount && parseFloat(partialAmount) > (order?.amount ?? 0) && (
-                        <p className='text-[11px] text-red-400/70 mt-1.5'>
-                          Amount cannot exceed the original order value (${order?.amount}).
-                        </p>
-                      )}
-                    </div>
+                        Reject instructor
+                      </ActionButton>
+                    </>
                   )}
                 </div>
-              )}
-            </>
-          ) : (
-            /* ── Step 2: Reason & confirm ── */
-            <>
-              {/* Order summary */}
-              <div
-                className='rounded-xl p-3.5'
-                style={{
-                  background: "rgba(74,158,255,0.06)",
-                  border: "1px solid rgba(74,158,255,0.15)",
-                }}
-              >
-                <div className='flex justify-between items-start'>
-                  <div>
-                    <div className='text-[12px] font-semibold text-blue-400'>{order?.course}</div>
-                    <div className='font-mono text-[10px] text-slate-500 mt-0.5'>
-                      {order?.id} · {order?.date}
-                    </div>
-                  </div>
-                  <div className='text-right'>
-                    <div className='font-mono text-[13px] font-bold text-emerald-400'>
-                      ${refundAmount.toFixed(2)}
-                    </div>
-                    <div className='text-[10px] text-slate-500 capitalize'>{refundType} refund</div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Reason */}
-              <div>
-                <label className='font-mono text-[10px] uppercase tracking-widest text-slate-500 mb-2 block'>
-                  Reason for Refund <span className='text-red-500'>*</span>
-                </label>
-                <div className='grid grid-cols-1 gap-1.5 mb-2'>
-                  {REASONS.map(r => (
-                    <button
-                      key={r}
-                      onClick={() => setReason(r)}
-                      className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-lg text-left text-[13px] transition-all cursor-pointer ${
-                        reason === r
-                          ? "bg-blue-500/10 text-blue-400 border border-blue-500/25"
-                          : "text-slate-400 border border-slate-800/60 hover:border-slate-700 hover:text-slate-200"
-                      }`}
-                    >
-                      {r}
-                      {reason === r && (
-                        <Check
-                          size={13}
-                          color='#4a9eff'
-                        />
-                      )}
-                    </button>
-                  ))}
-                </div>
-                {reason === "Other" && (
-                  <textarea
-                    className='w-full bg-slate-950 border border-slate-800 rounded-lg p-3.5 text-[13px] text-slate-100 outline-none focus:border-blue-500 transition-all resize-none placeholder:text-slate-600 mt-1'
-                    rows={2}
-                    placeholder='Describe the reason...'
-                    value={reasonOther}
-                    onChange={e => setReasonOther(e.target.value)}
-                    autoFocus
-                  />
-                )}
-              </div>
-
-              {/* Notify toggle */}
-              <div
-                className='flex items-center justify-between rounded-xl p-3.5'
-                style={{
-                  background: "rgba(255,255,255,0.02)",
-                  border: "1px solid rgba(255,255,255,0.06)",
-                }}
-              >
-                <div>
-                  <div className='text-[13px] font-semibold text-slate-200'>
-                    Notify Student by Email
-                  </div>
-                  <div className='text-[11px] text-slate-500 mt-0.5'>
-                    Send a refund confirmation with transaction details
-                  </div>
-                </div>
-                <button
-                  onClick={() => setNotify(!notify)}
-                  className='w-10 h-[22px] rounded-full relative transition-all flex-shrink-0 ml-4'
-                  style={{ background: notify ? "#da7c36" : "#1a3158" }}
-                >
-                  <div
-                    className='w-4 h-4 rounded-full bg-white absolute top-[3px] transition-all shadow-md'
-                    style={{ left: notify ? 22 : 3 }}
-                  />
-                </button>
-              </div>
-
-              {/* Warning */}
-              <div
-                className='rounded-xl p-3.5 flex gap-2.5 items-start'
-                style={{
-                  background: "rgba(255,193,7,0.06)",
-                  border: "1px solid rgba(255,193,7,0.15)",
-                }}
-              >
-                <AlertTriangle
-                  size={14}
-                  color='#ffc107'
-                  className='flex-shrink-0 mt-0.5'
-                />
-                <div className='text-[11px] text-yellow-600/90 leading-relaxed'>
-                  Refunds are irreversible. The student will lose access to the course once the
-                  refund is processed.
-                </div>
-              </div>
-            </>
+              </section>
+            </div>
           )}
         </div>
-
-        {/* Footer */}
-        {!success && (
-          <div className='px-6 py-4 border-t border-slate-800 flex gap-3'>
-            <button
-              onClick={() => {
-                if (step === 2) setStep(1);
-                else onClose();
-              }}
-              className='flex-1 py-2.5 rounded-lg border border-slate-800 text-slate-400 text-[13px] font-semibold hover:bg-slate-800 hover:text-slate-100 transition-all'
-            >
-              {step === 2 ? "← Back" : "Cancel"}
-            </button>
-            {step === 1 ? (
-              <button
-                onClick={() => setStep(2)}
-                disabled={!canProceedStep1 || orders.length === 0}
-                className='flex-1 py-2.5 rounded-lg text-white text-[13px] font-semibold transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2'
-                style={{
-                  background: "linear-gradient(135deg, #4a9eff, #1a6fd4)",
-                  boxShadow: canProceedStep1 ? "0 4px 14px rgba(74,158,255,0.25)" : "none",
-                }}
-              >
-                Next → Review
-              </button>
-            ) : (
-              <button
-                onClick={handleSubmit}
-                disabled={!canConfirm || loading}
-                className='flex-1 py-2.5 rounded-lg text-white text-[13px] font-semibold transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2'
-                style={{
-                  background: "linear-gradient(135deg, #4a9eff, #1a6fd4)",
-                  boxShadow: canConfirm ? "0 4px 14px rgba(74,158,255,0.25)" : "none",
-                }}
-              >
-                {loading ? (
-                  <>
-                    <svg
-                      className='animate-spin'
-                      width={14}
-                      height={14}
-                      viewBox='0 0 24 24'
-                      fill='none'
-                    >
-                      <circle
-                        cx='12'
-                        cy='12'
-                        r='10'
-                        stroke='white'
-                        strokeWidth='3'
-                        strokeOpacity='0.3'
-                      />
-                      <path
-                        d='M12 2a10 10 0 0 1 10 10'
-                        stroke='white'
-                        strokeWidth='3'
-                        strokeLinecap='round'
-                      />
-                    </svg>
-                    Processing...
-                  </>
-                ) : (
-                  <>
-                    <ReceiptText size={14} />
-                    Confirm Refund ${refundAmount.toFixed(2)}
-                  </>
-                )}
-              </button>
-            )}
-          </div>
-        )}
-      </div>
+      </aside>
     </div>
   );
 }
 
-// ─── Main Component ─────────────────────────────────────────────────────────
-export default function StudentsTableClient({
-  initialStudents,
-}: {
-  initialStudents: StudentForAdmin;
-}) {
-  const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState("all");
-  const [panel, setPanel] = useState<StudentForAdmin[0] | null>(null);
-  const [enrollModal, setEnrollModal] = useState(false);
-  const [badgeModal, setBadgeModal] = useState(false);
-  const [suspendModal, setSuspendModal] = useState(false);
-  const [refundModal, setRefundModal] = useState(false);
-
-  const filtered = useMemo(() => {
-    return initialStudents.filter(s => {
-      const matchesSearch =
-        s.studentProfile?.displayName.toLowerCase().includes(search.toLowerCase()) ||
-        s.email.toLowerCase().includes(search.toLowerCase()) ||
-        s.studentProfile?.encryptedPhone.toLowerCase().includes(search.toLowerCase());
-
-      if (filter === "active") return matchesSearch && s.status === "ACTIVE";
-      if (filter === "suspended") return matchesSearch && s.status === "SUSPENDED";
-      return matchesSearch;
-    });
-  }, [search, filter, initialStudents]);
-
+function Card({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <>
-      {/* Filters */}
-      <div className='flex gap-3 mb-5 items-center flex-wrap'>
-        <div className='relative flex-1 max-w-90'>
-          <Search
-            size={14}
-            className='absolute left-3 top-1/2 -translate-y-1/2 text-slate-500'
-          />
-          <input
-            className='w-full bg-slate-950 border border-slate-800 rounded-lg py-2.5 pl-9 pr-3.5 text-[13.5px] text-slate-100 outline-none focus:border-orange-500'
-            placeholder='Search students...'
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-          />
-        </div>
+    <section className='rounded-xl border border-slate-800 bg-[#0d1f3c] p-4'>
+      <h3 className='mb-3 text-sm font-bold text-slate-100'>{title}</h3>
+      <div className='grid grid-cols-2 gap-x-5 gap-y-3'>{children}</div>
+    </section>
+  );
+}
+function Info({ name, value }: { name: string; value: string }) {
+  return (
+    <div className='min-w-0'>
+      <p className='text-[10px] uppercase text-slate-500'>{name}</p>
+      <p className='mt-0.5 break-words text-xs text-slate-200'>{value}</p>
+    </div>
+  );
+}
+function ActionButton({
+  danger,
+  ...props
+}: React.ButtonHTMLAttributes<HTMLButtonElement> & { danger?: boolean }) {
+  return (
+    <button
+      {...props}
+      className={`rounded-lg px-3 py-2 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-40 ${danger ? "border border-red-500/30 bg-red-500/10 text-red-300" : "bg-orange-500 text-white"}`}
+    />
+  );
+}
 
-        <div className='flex gap-0.5 bg-slate-950 rounded-lg p-1 border border-slate-800 overflow-x-auto'>
-          {["all", "active", "suspended"].map(f => (
-            <button
-              key={f}
-              className={`px-4.5 py-2 rounded-lg text-[13px] font-semibold cursor-pointer ${
-                filter === f
-                  ? "bg-slate-900 text-orange-400 border border-orange-500/25"
-                  : "text-slate-500 hover:text-slate-300"
-              }`}
-              onClick={() => setFilter(f)}
-            >
-              {f.charAt(0).toUpperCase() + f.slice(1)}
-            </button>
-          ))}
+export default function StudentsTableClient({ initialUsers }: { initialUsers: AdminUser[] }) {
+  const router = useRouter();
+  const [tab, setTab] = useState<"ALL" | UserRole>("ALL");
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [selected, setSelected] = useState<AdminUser | null>(null);
+  const [adding, setAdding] = useState(false);
+  const users = useMemo(
+    () =>
+      initialUsers.filter(
+        user =>
+          (tab === "ALL" || user.roles.includes(tab)) &&
+          `${user.displayName} ${user.email}`.toLowerCase().includes(search.toLowerCase())
+      ),
+    [initialUsers, search, tab]
+  );
+  const pages = Math.max(1, Math.ceil(users.length / PAGE_SIZE));
+  const visible = users.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  useEffect(() => setPage(1), [tab, search]);
+  const refresh = () => router.refresh();
+  return (
+    <div className='animate-[pageEnter_0.3s_ease-out] space-y-5'>
+      <header className='flex flex-wrap items-end justify-between gap-4'>
+        <div>
+          <h1 className='text-2xl font-bold text-slate-100'>User management</h1>
+          <p className='mt-1 text-sm text-slate-500'>{initialUsers.length} non-admin accounts</p>
         </div>
-      </div>
-
-      {/* Table Content */}
-      <div className='bg-slate-900 border border-slate-800 rounded-lg overflow-hidden'>
-        <div className='overflow-x-auto'>
-          <table className='w-full border-collapse'>
-            <thead>
-              <tr className='border-bottom border-slate-800'>
-                {[
-                  "Student",
-                  "Phone",
-                  "Courses",
-                  "Spend",
-                  "Status",
-                  "Joined",
-                  "Actions",
-                ].map(h => (
-                  <th
-                    key={h}
-                    className='bg-slate-950/50 text-slate-500 text-[11px] font-semibold uppercase p-3.5 px-4 text-left border-b border-slate-800'
-                  >
-                    {h}
-                  </th>
-                ))}
+        <button
+          onClick={() => setAdding(true)}
+          className='inline-flex items-center gap-2 rounded-lg bg-orange-500 px-4 py-2.5 text-sm font-semibold text-white'
+        >
+          <Plus size={16} />
+          Add user
+        </button>
+      </header>
+      <section className='overflow-hidden rounded border border-slate-800 bg-[#0d1f3c]'>
+        <div className='flex flex-wrap items-center gap-3 border-b border-slate-800 p-4'>
+          <div className='flex rounded-lg bg-[#08162a] p-1'>
+            {(["ALL", "STUDENT", "INSTRUCTOR"] as const).map(value => (
+              <button
+                key={value}
+                onClick={() => setTab(value)}
+                className={`rounded-md px-3 py-2 text-xs font-semibold ${tab === value ? "bg-orange-500 text-white" : "text-slate-400"}`}
+              >
+                {value === "ALL" ? "All" : value === "STUDENT" ? "Users" : "Instructors"} (
+                {value === "ALL"
+                  ? initialUsers.length
+                  : initialUsers.filter(user => user.roles.includes(value)).length}
+                )
+              </button>
+            ))}
+          </div>
+          <label className='relative ml-auto w-full sm:w-72'>
+            <Search
+              className='absolute left-3 top-1/2 -translate-y-1/2 text-slate-500'
+              size={15}
+            />
+            <input
+              value={search}
+              onChange={event => setSearch(event.target.value)}
+              placeholder='Search name or email…'
+              className={`${input} pl-9`}
+            />
+          </label>
+        </div>
+        <div className='hidden overflow-hidden lg:block'>
+          <table className='w-full table-fixed text-left'>
+            <colgroup>
+              <col className='w-[6%]' />
+              <col className='w-[27%]' />
+              <col className='w-[12%]' />
+              <col className='w-[13%]' />
+              <col className='w-[10%]' />
+              <col className='w-[12%]' />
+              <col className='w-[14%]' />
+              <col className='w-[6%]' />
+            </colgroup>
+            <thead className='bg-[#08162a] text-[10px] uppercase tracking-wider text-slate-500'>
+              <tr>
+                {["SL", "User", "Role", "Status", "Orders", "Paid total", "Joined", ""].map(
+                  item => (
+                    <th
+                      key={item}
+                      className='px-3 py-3'
+                    >
+                      {item}
+                    </th>
+                  )
+                )}
               </tr>
             </thead>
-            <tbody className='divide-y divide-slate-800/50'>
-              {filtered.map((s, i) => (
+            <tbody className='divide-y divide-slate-800'>
+              {visible.map((user, index) => (
                 <tr
-                  key={i}
-                  className='transition-colors hover:bg-slate-800/40'
+                  key={user.id}
+                  className='hover:bg-slate-800/30'
                 >
-                  <td className='p-4 px-4.5'>
-                    <div className='flex items-center gap-3'>
-                      {/* <Avatar
-                        name={s.studentProfile?.displayName as string}
-                        size={34}
-                      /> */}
-                      {s.avatarUrl ? (
-                        <Image
-                          width={40}
-                          height={40}
-                          src={s.avatarUrl as string}
-                          alt={"this is an avater image"}
-                          className='w-10 h-10 rounded-full object-cover'
-                        />
-                      ) : (
-                        <Avatar
-                          name={s.studentProfile?.displayName as string}
-                          size={34}
-                        />
-                      )}
-                      <div>
-                        <div className='font-semibold text-slate-100'>
-                          {s.studentProfile?.displayName}
-                        </div>
-                        <div className='text-xs text-slate-500'>{s.email}</div>
-                      </div>
-                    </div>
+                  <td className='px-3 py-3 text-xs text-slate-500'>
+                    {(page - 1) * PAGE_SIZE + index + 1}
                   </td>
-                  <td className='p-4 px-4.5 text-xs text-slate-400'>
-                    {s.studentProfile?.encryptedPhone}
-                  </td>
-                  <td className='p-4 px-4.5'>
-                    <Badge variant='blue'>{s._count.enrollments}</Badge>
-                  </td>
-                  <td className='p-4 px-4.5 text-emerald-400 font-semibold'>{s.orders.length}</td>
-                  <td className='p-4 px-4.5'>
-                    <Badge variant={s.status === "Active" ? "green" : "red"}>{s.status}</Badge>
-                  </td>
-                  <td className='p-4 px-4.5 text-slate-500'>
-                    {new Date(s.createdAt).toLocaleDateString()}
-                  </td>
-                  <td className='p-4 px-4.5'>
-                    <button
-                      onClick={() => setPanel(s)}
-                      className='p-1.5 rounded-lg border border-slate-800 hover:bg-slate-800 text-slate-400'
+                  <td className='min-w-0 px-3 py-3'>
+                    <p
+                      className='truncate text-sm font-semibold text-slate-200'
+                      title={user.displayName}
                     >
-                      <Eye size={13} />
+                      {user.displayName}
+                    </p>
+                    <p
+                      className='truncate text-xs text-slate-500'
+                      title={user.email}
+                    >
+                      {user.email}
+                    </p>
+                  </td>
+                  <td className='px-3 py-3'>
+                    <Pill tone={user.roles.includes("INSTRUCTOR") ? "blue" : "slate"}>
+                      {user.roles.includes("INSTRUCTOR") ? "INSTRUCTOR" : "USER"}
+                    </Pill>
+                  </td>
+                  <td className='px-3 py-3'>
+                    <Pill
+                      tone={
+                        user.status === "ACTIVE"
+                          ? "green"
+                          : user.status === "SUSPENDED"
+                            ? "red"
+                            : "orange"
+                      }
+                    >
+                      {user.status.replaceAll("_", " ")}
+                    </Pill>
+                  </td>
+                  <td className='px-3 py-3 text-xs text-slate-300'>{user._count.orders}</td>
+                  <td className='px-3 py-3 text-xs text-emerald-400'>{money(user.totalSpent)}</td>
+                  <td className='px-3 py-3 text-xs text-slate-400'>{date(user.createdAt)}</td>
+                  <td className='px-3 py-3'>
+                    <button
+                      title='View user'
+                      aria-label={`View ${user.displayName}`}
+                      onClick={() => setSelected(user)}
+                      className='grid h-8 w-8 place-items-center rounded-lg border border-slate-700 text-slate-400 hover:border-orange-500 hover:text-orange-400'
+                    >
+                      <Eye size={15} />
                     </button>
                   </td>
                 </tr>
@@ -1631,146 +803,107 @@ export default function StudentsTableClient({
             </tbody>
           </table>
         </div>
-      </div>
-
-      {/* Slide Panel */}
-      {panel && (
-        <SlidePanel
-          onClose={() => setPanel(null)}
-          title='Student Profile'
-        >
-          <div className='flex gap-4 mb-6'>
-            {panel.avatarUrl ? (
-              <Image
-                width={40}
-                height={40}
-                src={panel.avatarUrl as string}
-                alt={"this is an avater image"}
-                className='w-10 h-10 rounded-full object-cover'
-              />
-            ) : (
-              <Avatar
-                name={panel.studentProfile?.displayName as string}
-                size={34}
-              />
-            )}
-            <div>
-              <div className="font-bold text-lg text-slate-100 font-['Syne']">
-                {panel.studentProfile?.displayName}
-              </div>
-              <div className='text-[13px] text-slate-500'>{panel.email}</div>
-              <div className='flex gap-2 mt-2'>
-                <Badge variant={panel.status === "Active" ? "green" : "red"}>{panel.status}</Badge>
-              </div>
-            </div>
-          </div>
-
-          <div className='grid grid-cols-3 gap-2.5 mb-5'>
-            {[
-              { l: "Courses", v: panel._count.enrollments },
-              { l: "Total Spend", v: panel.orders.length },
-              { l: "Completion", v: `${10}%` },
-            ].map(s => (
-              <div
-                key={s.l}
-                className='bg-slate-900 border border-slate-800 rounded-xl p-3.5 text-center'
-              >
-                <div className="font-['Syne'] text-xl font-bold text-orange-500">{s.v}</div>
-                <div className='font-mono text-[10px] uppercase tracking-wider text-slate-500 mt-1'>
-                  {s.l}
+        <div className='divide-y divide-slate-800 lg:hidden'>
+          {visible.map((user, index) => (
+            <article
+              key={user.id}
+              className='p-4'
+            >
+              <div className='flex items-start justify-between gap-3'>
+                <div className='min-w-0'>
+                  <p className='truncate text-sm font-semibold text-slate-200'>
+                    <span className='mr-2 text-slate-500'>
+                      #{(page - 1) * PAGE_SIZE + index + 1}
+                    </span>
+                    {user.displayName}
+                  </p>
+                  <p className='truncate text-xs text-slate-500'>{user.email}</p>
+                  <div className='mt-2 flex gap-2'>
+                    <Pill tone={user.roles.includes("INSTRUCTOR") ? "blue" : "slate"}>
+                      {user.roles.includes("INSTRUCTOR") ? "INSTRUCTOR" : "USER"}
+                    </Pill>
+                    <Pill
+                      tone={
+                        user.status === "ACTIVE"
+                          ? "green"
+                          : user.status === "SUSPENDED"
+                            ? "red"
+                            : "orange"
+                      }
+                    >
+                      {user.status}
+                    </Pill>
+                  </div>
                 </div>
+                <button
+                  onClick={() => setSelected(user)}
+                  className='grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-slate-700 text-slate-400'
+                >
+                  <Eye size={15} />
+                </button>
               </div>
-            ))}
-          </div>
-
-          <div className='bg-slate-900 rounded-xl border border-slate-800 p-4 mb-5 divide-y divide-slate-800'>
-            {[
-              ["Phone", panel.studentProfile?.encryptedPhone || "N/A"],
-              ["Joined", panel.createdAt.slice(0, 10)],
-            ].map(([k, v]) => (
-              <div
-                key={k}
-                className='flex justify-between py-2 first:pt-0 last:pb-0'
-              >
-                <span className='font-mono text-[11px] uppercase tracking-wider text-slate-500'>
-                  {k}
-                </span>
-                <span className='text-[13px] text-slate-100 font-medium'>{v}</span>
+              <div className='mt-3 grid grid-cols-3 text-xs'>
+                <Info
+                  name='Orders'
+                  value={String(user._count.orders)}
+                />
+                <Info
+                  name='Paid'
+                  value={money(user.totalSpent)}
+                />
+                <Info
+                  name='Joined'
+                  value={date(user.createdAt)}
+                />
               </div>
-            ))}
+            </article>
+          ))}
+        </div>
+        {!visible.length && (
+          <div className='p-12 text-center'>
+            <UserRound className='mx-auto text-slate-700' />
+            <p className='mt-3 text-sm text-slate-500'>No matching users.</p>
           </div>
-
-          <div className='grid grid-cols-2 gap-2 mb-3'>
+        )}
+        <footer className='flex items-center justify-between border-t border-slate-800 px-4 py-3 text-xs text-slate-500'>
+          <span>
+            Showing {visible.length ? (page - 1) * PAGE_SIZE + 1 : 0}–
+            {Math.min(page * PAGE_SIZE, users.length)} of {users.length}
+          </span>
+          <div className='flex gap-2'>
             <button
-              onClick={() => setEnrollModal(true)}
-              className="flex justify-center items-center gap-1.5 px-4 py-2.5 rounded-lg bg-linear-to-br from-orange-500 to-orange-700 text-white font-['Outfit'] font-semibold text-[13px] shadow-lg shadow-orange-500/25 hover:shadow-orange-500/40 transition-all cursor-pointer"
+              disabled={page === 1}
+              onClick={() => setPage(value => value - 1)}
+              className='rounded border border-slate-700 px-3 py-1.5 disabled:opacity-40'
             >
-              <BookOpen size={13} />
-              Manual Enroll
+              Previous
             </button>
+            <span className='px-2 py-1.5'>
+              {page} / {pages}
+            </span>
             <button
-              onClick={() => setBadgeModal(true)}
-              className='flex justify-center items-center gap-1.5 px-4 py-2.5 rounded-lg bg-transparent text-slate-400 border border-slate-800 hover:bg-slate-900 hover:text-slate-100 transition-all cursor-pointer'
+              disabled={page === pages}
+              onClick={() => setPage(value => value + 1)}
+              className='rounded border border-slate-700 px-3 py-1.5 disabled:opacity-40'
             >
-              <Award size={13} />
-              Assign Badge
-            </button>
-            <button
-              onClick={() => setSuspendModal(true)}
-              className='flex justify-center items-center gap-1.5 px-4 py-2.5 rounded-lg bg-red-500/10 text-red-500 border border-red-500/20 hover:bg-red-500/20 transition-all cursor-pointer'
-            >
-              {panel.status === "ACTIVE" ? "Suspend Account" : "Activate Account"}
-            </button>
-            <button
-              onClick={() => setRefundModal(true)}
-              className='flex justify-center items-center gap-1.5 px-4 py-2.5 rounded-lg bg-transparent text-slate-400 border border-slate-800 hover:bg-slate-900 hover:text-slate-100 transition-all cursor-pointer'
-            >
-              <ReceiptText size={13} />
-              Trigger Refund
-            </button>
-          </div>
-
-          <div className='mt-5'>
-            <div className='font-mono text-[11px] uppercase tracking-widest text-slate-500 mb-2'>
-              Admin Note (Private)
-            </div>
-            <textarea
-              className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3.5 text-[13.5px] text-slate-100 font-['Outfit'] outline-none focus:border-orange-500 transition-all resize-none"
-              rows={3}
-              placeholder='Add internal note...'
-            />
-            <button className="w-full mt-2 inline-flex items-center justify-center px-4 py-2.5 rounded-lg bg-linear-to-br from-orange-500 to-orange-700 text-white font-['Outfit'] font-semibold text-[13px] shadow-lg shadow-orange-500/25 hover:shadow-orange-500/40 transition-all cursor-pointer">
-              Save Note
+              Next
             </button>
           </div>
-        </SlidePanel>
-      )}
-
-      {/* Modals — rendered outside SlidePanel so they sit above it */}
-      {panel && enrollModal && (
-        <ManualEnrollModal
-          student={panel}
-          onClose={() => setEnrollModal(false)}
+        </footer>
+      </section>
+      {adding && (
+        <AddUserModal
+          onClose={() => setAdding(false)}
+          onCreated={refresh}
+        />
+      )}{" "}
+      {selected && (
+        <UserDrawer
+          user={selected}
+          onClose={() => setSelected(null)}
+          onChanged={refresh}
         />
       )}
-      {panel && badgeModal && (
-        <BadgeAssignModal
-          student={panel}
-          onClose={() => setBadgeModal(false)}
-        />
-      )}
-      {panel && suspendModal && (
-        <SuspendModal
-          student={panel}
-          onClose={() => setSuspendModal(false)}
-        />
-      )}
-      {panel && refundModal && (
-        <RefundModal
-          student={panel}
-          onClose={() => setRefundModal(false)}
-        />
-      )}
-    </>
+    </div>
   );
 }

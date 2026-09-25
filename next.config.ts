@@ -305,7 +305,7 @@ const securityHeaders = [
     style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
     img-src 'self' data: https: blob:;
     font-src 'self' https://fonts.gstatic.com;
-    connect-src 'self' https://alobackendskill.aloskill.com http://localhost:5000 ${config.NEXT_PUBLIC_BACKEND_BASE_URL} https://vitals.vercel-insights.com https://video.bunnycdn.com https://fortunate-kindness-production.up.railway.app http://assets.mediadelivery.net alo-pull-zone.b-cdn.net https://sg.storage.bunnycdn.com https://aloskill-pull-zone-7.b-cdn.net;
+    connect-src 'self' https://alobackendskill.aloskill.com wss://alobackendskill.aloskill.com http://localhost:5000 ws://localhost:5000 http://127.0.0.1:5000 ws://127.0.0.1:5000 ${config.NEXT_PUBLIC_BACKEND_BASE_URL} https://vitals.vercel-insights.com https://video.bunnycdn.com https://fortunate-kindness-production.up.railway.app wss://fortunate-kindness-production.up.railway.app http://assets.mediadelivery.net alo-pull-zone.b-cdn.net https://sg.storage.bunnycdn.com https://aloskill-pull-zone-7.b-cdn.net;
     frame-ancestors 'self';
     frame-src https://iframe.mediadelivery.net blob:;
     object-src 'none';
@@ -352,7 +352,7 @@ if (config.NODE_ENV === "production") {
 const apiSecurityHeaders = [
   {
     key: "Content-Security-Policy",
-    value: `default-src 'self'; connect-src 'self' ${config.NEXT_PUBLIC_BACKEND_BASE_URL} https://alobackendskill.aloskill.com http://localhost:5000 https://vitals.vercel-insights.com https://video.bunnycdn.com;`,
+    value: `default-src 'self'; connect-src 'self' ${config.NEXT_PUBLIC_BACKEND_BASE_URL} https://alobackendskill.aloskill.com wss://alobackendskill.aloskill.com http://localhost:5000 ws://localhost:5000 http://127.0.0.1:5000 ws://127.0.0.1:5000 https://vitals.vercel-insights.com https://video.bunnycdn.com;`,
   },
   {
     key: "X-Content-Type-Options",

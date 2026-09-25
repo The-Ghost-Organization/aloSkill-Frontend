@@ -18,6 +18,7 @@ export default function StudentLayout({ children }: { children: React.ReactNode 
     { name: "Instructors", path: "/dashboard/student/teachers" },
     { name: "Wishlist", path: "/dashboard/student/wishlist" },
     { name: "Purchases & Orders", path: "/dashboard/student/purchase" },
+    { name: "Messages", path: "/dashboard/student/message" },
     { name: "Settings", path: "/dashboard/student/settings" },
   ];
 

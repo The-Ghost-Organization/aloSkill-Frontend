@@ -39,7 +39,7 @@ export default function DashboardCharts({ data }: { data: AdminDashboardData }) 
 
   return (
     <div className='grid gap-4 xl:grid-cols-[1.7fr_1fr]'>
-      <section className='rounded-2xl border border-[#1a3158] bg-[#0d1f3c] p-5 sm:p-6'>
+      <section className='rounded border border-[#1a3158] bg-[#0d1f3c] p-5 sm:p-6'>
         <div className='mb-6 flex flex-wrap items-end justify-between gap-3'>
           <div>
             <h2 className='text-base font-bold text-slate-100'>Revenue momentum</h2>
@@ -122,7 +122,7 @@ export default function DashboardCharts({ data }: { data: AdminDashboardData }) 
         </div>
       </section>
 
-      <section className='rounded-2xl border border-[#1a3158] bg-[#0d1f3c] p-5 sm:p-6'>
+      <section className='rounded border border-[#1a3158] bg-[#0d1f3c] p-5 sm:p-6'>
         <h2 className='text-base font-bold text-slate-100'>Product revenue</h2>
         <p className='mt-1 text-xs uppercase tracking-wider text-slate-500'>Books vs courses</p>
         <div className='relative h-48'>
@@ -158,7 +158,7 @@ export default function DashboardCharts({ data }: { data: AdminDashboardData }) 
           {data.revenueSplit.map((item, index) => (
             <div
               key={item.name}
-              className='rounded-xl border border-[#1a3158] bg-[#08162a] p-3'
+              className='rounded border border-[#1a3158] bg-[#08162a] p-3'
             >
               <div className='flex items-center gap-2 text-xs text-slate-400'>
                 <span
@@ -175,7 +175,7 @@ export default function DashboardCharts({ data }: { data: AdminDashboardData }) 
         </div>
       </section>
 
-      <section className='rounded-2xl border border-[#1a3158] bg-[#0d1f3c] p-5 sm:p-6 xl:col-span-2'>
+      <section className='rounded border border-[#1a3158] bg-[#0d1f3c] p-5 sm:p-6 xl:col-span-2'>
         <h2 className='text-base font-bold text-slate-100'>Revenue by payment provider</h2>
         <p className='mt-1 text-xs uppercase tracking-wider text-slate-500'>
           Successful purchase transactions

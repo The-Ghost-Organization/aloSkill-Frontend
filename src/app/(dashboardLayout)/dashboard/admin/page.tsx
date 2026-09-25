@@ -29,7 +29,7 @@ const money = (value: number) =>
 const number = (value: number) => Number(value).toLocaleString("en-BD");
 const percent = (value: number) => `${Number(value).toFixed(1)}%`;
 
-const panel = "rounded-2xl border border-[#1a3158] bg-[#0d1f3c]";
+const panel = "rounded border border-[#1a3158] bg-[#0d1f3c]";
 
 function Trend({ value, label = "vs previous 7 days" }: { value: number; label?: string }) {
   const up = value >= 0;
@@ -63,26 +63,26 @@ function Kpi({
   color: string;
 }) {
   return (
-    <div className={`${panel} relative overflow-hidden p-5`}>
+    <div className={`${panel} relative overflow-hidden px-5 py-3`}>
       <div
         className='absolute inset-x-0 bottom-0 h-0.5 opacity-70'
         style={{ background: color }}
       />
-      <div className='flex items-start justify-between gap-3'>
+      <div className='flex items-start justify-between'>
         <div>
           <p className='text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-500'>
             {label}
           </p>
-          <p className='mt-2 text-2xl font-extrabold tracking-tight text-slate-100'>{value}</p>
+          <p className='mt-1 text-2xl font-extrabold tracking-tight text-slate-100'>{value}</p>
         </div>
         <span
-          className='grid h-10 w-10 shrink-0 place-items-center rounded-xl'
+          className='grid h-10 w-10 shrink-0 place-items-center rounded'
           style={{ background: `${color}18`, color }}
         >
           {icon}
         </span>
       </div>
-      {detail && <p className='mt-2 text-xs text-slate-500'>{detail}</p>}
+      {detail && <p className='mt-1 text-xs text-slate-500'>{detail}</p>}
       {trend !== undefined && <Trend value={trend} />}
     </div>
   );
@@ -107,7 +107,7 @@ function ProductList({
       </div>
       <div className='space-y-4'>
         {!items.length && (
-          <p className='rounded-xl border border-dashed border-[#284367] p-6 text-center text-sm text-slate-500'>
+          <p className='rounded border border-dashed border-[#284367] p-6 text-center text-sm text-slate-500'>
             {empty}
           </p>
         )}
@@ -149,7 +149,7 @@ export default async function AdminDashboardPage() {
       <div className='grid min-h-[60vh] place-items-center'>
         <div className={`${panel} max-w-lg p-8 text-center`}>
           <CircleGauge className='mx-auto h-10 w-10 text-orange-400' />
-          <h1 className='mt-4 text-xl font-bold text-slate-100'>Dashboard data is unavailable</h1>
+          <h1 className='mt-4 text-xl font-bold text-slate-100'></h1>
           <p className='mt-2 text-sm leading-6 text-slate-500'>
             The layout is ready, but the server could not retrieve the admin statistics. Refresh
             after checking the API connection and admin session.
@@ -324,7 +324,7 @@ export default async function AdminDashboardPage() {
           <div className='mt-5 grid grid-cols-3 gap-2 text-center'>
             <Link
               href='/dashboard/admin/books'
-              className='rounded-xl border border-rose-500/20 bg-rose-500/5 p-3 hover:bg-rose-500/10'
+              className='rounded border border-rose-500/20 bg-rose-500/5 p-3 hover:bg-rose-500/10'
             >
               <strong className='block text-xl text-rose-400'>
                 {data.catalog.outOfStockCount}
@@ -333,14 +333,14 @@ export default async function AdminDashboardPage() {
             </Link>
             <Link
               href='/dashboard/admin/books'
-              className='rounded-xl border border-amber-500/20 bg-amber-500/5 p-3 hover:bg-amber-500/10'
+              className='rounded border border-amber-500/20 bg-amber-500/5 p-3 hover:bg-amber-500/10'
             >
               <strong className='block text-xl text-amber-400'>{data.catalog.lowStockCount}</strong>
               <span className='mt-1 block text-[10px] uppercase text-slate-500'>Low</span>
             </Link>
             <Link
               href='/dashboard/admin/approvals'
-              className='rounded-xl border border-blue-500/20 bg-blue-500/5 p-3 hover:bg-blue-500/10'
+              className='rounded border border-blue-500/20 bg-blue-500/5 p-3 hover:bg-blue-500/10'
             >
               <strong className='block text-xl text-blue-400'>
                 {data.catalog.pendingApprovals}

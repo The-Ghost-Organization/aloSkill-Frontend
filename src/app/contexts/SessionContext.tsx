@@ -3,6 +3,8 @@
 import { SessionProvider as NextAuthSessionProvider, useSession } from "next-auth/react";
 import { createContext, useContext, useEffect, useState } from "react";
 import { apiClient } from "../../lib/api/client";
+import { RealtimeProvider } from "@/components/realtime/RealtimeProvider";
+import NotificationCenter from "@/components/realtime/NotificationCenter";
 
 interface SessionType {
   user: any;
@@ -31,7 +33,10 @@ const SessionContext = createContext<SessionContextType | undefined>(undefined);
 export function SessionProvider({ children }: { children: React.ReactNode }) {
   return (
     <NextAuthSessionProvider>
-      <SessionContextProvider>{children}</SessionContextProvider>
+      <RealtimeProvider>
+        <SessionContextProvider>{children}</SessionContextProvider>
+        <NotificationCenter />
+      </RealtimeProvider>
     </NextAuthSessionProvider>
   );
 }
