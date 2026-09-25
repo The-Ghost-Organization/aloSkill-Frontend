@@ -1,7 +1,7 @@
 import type { BookResponse } from "@/app/(withoutSidebarLayout)/books/Books.type";
-import BookCard from "@/app/(withoutSidebarLayout)/books/components/BookCard";
 import { config } from "@/config/env";
 import { BookOpen } from "lucide-react";
+import InstructorBooksGrid from "./InstructorBooksGrid.tsx";
 
 const getBooks = async (instructorId: string): Promise<BookResponse> => {
   try {
@@ -53,15 +53,5 @@ export async function BooksTab({ instructorId }: { instructorId: string }) {
     );
   }
 
-  return (
-    <div className='grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4'>
-      {books.map((book, index) => (
-        <BookCard
-          key={book.id}
-          book={book}
-          index={index}
-        />
-      ))}
-    </div>
-  );
+  return <InstructorBooksGrid books={books} />;
 }

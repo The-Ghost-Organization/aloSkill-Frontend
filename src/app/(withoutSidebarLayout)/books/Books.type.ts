@@ -74,6 +74,8 @@ export type BookDetailsResponse = {
   digitalRegularPrice: number | null;
   digitalSalePrice: number | null;
   coverImage: string;
+  ratings: number;
+  reviewCount: number;
   owner: {
     status: string;
     avatarUrl: string | null;
@@ -83,4 +85,54 @@ export type BookDetailsResponse = {
       expertise: string | null;
     } | null;
   };
+};
+
+
+export type BookReview = {
+  id: string;
+  rating: number;
+  title: string | null;
+  body: string | null;
+  createdAt: string;
+  reviewer: {
+    displayName: string;
+    avatarUrl: string | null;
+  };
+  verifiedPurchase: boolean;
+};
+
+export type BookReviewsResponse = {
+  items: BookReview[];
+  summary: {
+    average: number;
+    count: number;
+  };
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    hasMore: boolean;
+  };
+};
+
+export type BookReviewStatusResponse = {
+  canReview: boolean;
+  hasPurchased: boolean;
+  existingReview: {
+    id: string;
+    rating: number;
+    title: string | null;
+    body: string | null;
+    createdAt: string;
+    flagged: boolean;
+  } | null;
+};
+
+export type SubmitBookReviewResponse = {
+  review: BookReview;
+  summary: {
+    average: number;
+    count: number;
+  };
+  updated: boolean;
 };

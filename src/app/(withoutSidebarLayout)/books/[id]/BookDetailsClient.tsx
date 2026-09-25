@@ -14,6 +14,7 @@ import {
   Languages,
   ShieldCheck,
   ShoppingCart,
+  Star,
   Tag,
   Truck,
   User,
@@ -29,6 +30,8 @@ import { useSessionContext } from "../../../contexts/SessionContext";
 import type { BookDetailsResponse, BookResponse } from "../Books.type";
 
 import BookCard from "../components/BookCard";
+
+import BookReviews from "./BookReviews.tsx";
 import PdfPreviewModal from "./PdfPreviewModal";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -317,6 +320,10 @@ export default function BookDetailsClient({ book, relatedBooks }: BookDetailsCli
   const [updateCart, setUpdateCart] = useState(false);
   const [activeTab, setActiveTab] = useState<TabKey>("description");
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [reviewSummary, setReviewSummary] = useState({
+    average: Number(book.ratings ?? 0),
+    count: book.reviewCount ?? 0,
+  });
 
   const [selectedFormat, setSelectedFormat] = useState<FormatKey | null>(null);
 
@@ -837,7 +844,8 @@ export default function BookDetailsClient({ book, relatedBooks }: BookDetailsCli
               {/* Author */}
 
               <p className='mb-6 text-base leading-relaxed text-slate-500'>
-                by {book.authorProfile?.slug ? (
+                by{" "}
+                {book.authorProfile?.slug ? (
                   <Link
                     href={`/authors/${book.authorProfile.slug}`}
                     className='font-semibold text-slate-800 underline decoration-orange-300 underline-offset-4 hover:text-orange-600'
@@ -868,6 +876,22 @@ export default function BookDetailsClient({ book, relatedBooks }: BookDetailsCli
                   </>
                 )}
               </p>
+
+              <div className='mb-6 flex flex-wrap items-center gap-2 text-sm'>
+                <div className='flex items-center gap-1'>
+                  <Star className='h-4 w-4 fill-amber-400 text-amber-400' />
+                  <span className='font-black text-slate-900'>
+                    {reviewSummary.average.toFixed(1)}
+                  </span>
+                </div>
+                <span className='text-slate-300'>•</span>
+                <a
+                  href='#book-reviews'
+                  className='font-semibold text-slate-500 hover:text-orange-600'
+                >
+                  {reviewSummary.count} {reviewSummary.count === 1 ? "review" : "reviews"}
+                </a>
+              </div>
 
               {/* Quick stats */}
 
@@ -1048,7 +1072,11 @@ export default function BookDetailsClient({ book, relatedBooks }: BookDetailsCli
                           {book.authorProfile?.photoUrl || book.owner?.avatarUrl ? (
                             <Image
                               src={book.authorProfile?.photoUrl || book.owner.avatarUrl!}
-                              alt={book.authorProfile?.name || book.owner.instructorProfile?.displayName || book.author}
+                              alt={
+                                book.authorProfile?.name ||
+                                book.owner.instructorProfile?.displayName ||
+                                book.author
+                              }
                               width={80}
                               height={80}
                               className='h-full w-full object-cover'
@@ -1068,7 +1096,10 @@ export default function BookDetailsClient({ book, relatedBooks }: BookDetailsCli
 
                           <h3 className='mt-1 text-xl font-black text-slate-900'>
                             {book.authorProfile?.slug ? (
-                              <Link href={`/authors/${book.authorProfile.slug}`} className='hover:text-orange-600'>
+                              <Link
+                                href={`/authors/${book.authorProfile.slug}`}
+                                className='hover:text-orange-600'
+                              >
                                 {book.authorProfile.name}
                               </Link>
                             ) : (
@@ -1162,6 +1193,15 @@ export default function BookDetailsClient({ book, relatedBooks }: BookDetailsCli
             </div>
           </div>
         </section>
+
+        <div id='book-reviews'>
+          <BookReviews
+            bookId={book.id}
+            initialRating={Number(book.ratings ?? 0)}
+            initialReviewCount={book.reviewCount ?? 0}
+            onSummaryChange={setReviewSummary}
+          />
+        </div>
 
         {/* ═════════════════════════════════════════════════════════════════════
             Related Books
