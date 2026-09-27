@@ -1,6 +1,6 @@
 "use client";
 
-import { apiClient } from "@/lib/api/client";
+import { API_ENDPOINTS, apiClient } from "@/lib/api/client";
 import {
   BookOpen,
   BookText,
@@ -115,7 +115,7 @@ export default function StudentDashboardPage() {
     setLoading(true);
     setError("");
 
-    const response = await apiClient.get<DashboardData>("/user/student/me/dashboard");
+    const response = await apiClient.get<DashboardData>(API_ENDPOINTS.STUDENT.DASHBOARD);
     
     if (!response.success || !response.data) {
       setError(response.message || "Unable to load dashboard data.");

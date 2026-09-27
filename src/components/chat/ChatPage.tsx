@@ -42,24 +42,47 @@ export default function ChatPage() {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const targetHandledRef = useRef(false);
   const myId = session?.user?.id;
 
   const loadConversations = async () => {
     const response = await apiClient.get<Conversation[]>("/chat/conversations");
     if (response.success && response.data) {
-      const data = response.data;
+      let data = response.data;
       setConversations(data);
-      const requested =
-        typeof window !== "undefined"
-          ? new URLSearchParams(window.location.search).get("conversation")
+
+      const params =
+        !targetHandledRef.current && typeof window !== "undefined"
+          ? new URLSearchParams(window.location.search)
           : null;
-      setSelectedId(
-        current =>
-          current ??
-          (requested && data.some(item => item.id === requested)
-            ? requested
-            : (data[0]?.id ?? null))
-      );
+      const requestedConversation = params?.get("conversation") ?? null;
+      const requestedParticipant = params?.get("participant") ?? null;
+      targetHandledRef.current = true;
+
+      if (requestedConversation && data.some(item => item.id === requestedConversation)) {
+        setSelectedId(requestedConversation);
+      } else if (requestedParticipant) {
+        const existing = data.find(item => item.participant?.id === requestedParticipant);
+        if (existing) {
+          setSelectedId(existing.id);
+        } else {
+          const created = await apiClient.post<{ id: string }>("/chat/conversations", {
+            participantId: requestedParticipant,
+          });
+          if (created.success && created.data) {
+            const refreshed = await apiClient.get<Conversation[]>("/chat/conversations");
+            if (refreshed.success && refreshed.data) {
+              data = refreshed.data;
+              setConversations(data);
+            }
+            setSelectedId(created.data.id);
+          } else {
+            setSelectedId(current => current ?? data[0]?.id ?? null);
+          }
+        }
+      } else {
+        setSelectedId(current => current ?? data[0]?.id ?? null);
+      }
     }
     setLoading(false);
   };
@@ -188,29 +211,36 @@ export default function ChatPage() {
               <p className='mb-2 text-[10px] font-semibold uppercase tracking-wider text-slate-400'>
                 Start a conversation
               </p>
-              <select
-                defaultValue=''
-                onChange={event => {
-                  if (event.target.value) void startConversation(event.target.value);
-                  event.currentTarget.value = "";
-                }}
-                className='w-full rounded border border-slate-200 bg-white px-3 py-2 text-xs'
-              >
-                <option
-                  value=''
-                  disabled
+              <div className='relative'>
+                <Plus
+                  size={14}
+                  className='pointer-events-none absolute left-3 top-1/2 z-10 -translate-y-1/2 text-slate-400'
+                  aria-hidden='true'
+                />
+                <select
+                  defaultValue=''
+                  onChange={event => {
+                    if (event.target.value) void startConversation(event.target.value);
+                    event.currentTarget.value = "";
+                  }}
+                  className='w-full rounded border border-slate-200 bg-white py-2 pl-9 pr-3 text-xs'
                 >
-                  <Plus size={12} /> Select eligible contact
-                </option>
-                {unusedContacts.map(contact => (
                   <option
-                    key={contact.id}
-                    value={contact.id}
+                    value=''
+                    disabled
                   >
-                    {contact.displayName} · {contact.email}
+                    Select eligible contact
                   </option>
-                ))}
-              </select>
+                  {unusedContacts.map(contact => (
+                    <option
+                      key={contact.id}
+                      value={contact.id}
+                    >
+                      {contact.displayName} · {contact.email}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
           )}
           <div className='flex-1 overflow-y-auto'>

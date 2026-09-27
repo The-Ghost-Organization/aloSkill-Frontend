@@ -12,7 +12,7 @@ export default function StudentLayout({ children }: { children: React.ReactNode 
   const { user } = useSessionContext();
 
   const navItems = [
-    { name: "Dashboard", path: "/dashboard/student" },
+    { name: "Dashboard", path: "/dashboard/student", exact: true },
     { name: "Courses", path: "/dashboard/student/courses" },
     { name: "Books", path: "/dashboard/student/books" },
     { name: "Instructors", path: "/dashboard/student/teachers" },
@@ -75,22 +75,29 @@ export default function StudentLayout({ children }: { children: React.ReactNode 
             {/* Navigation */}
             <nav className='border-t pt-2 sm:pt-4'>
               <div className='flex gap-4 sm:gap-6 overflow-x-auto px-2 sm:px-6 md:px-10 scrollbar-hide'>
-                {navItems.map(item => (
-                  <Link
-                    key={item.path}
-                    href={item.path}
-                    className={`whitespace-nowrap pb-2 font-medium text-sm sm:text-base transition-colors relative ${
-                      pathname === item.path || pathname.startsWith(`${item.path}/`)
-                        ? "text-orange-500"
-                        : "text-gray-600 hover:text-gray-900"
-                    }`}
-                  >
-                    {item.name}
-                    {(pathname === item.path || pathname.startsWith(`${item.path}/`)) && (
-                      <span className='absolute bottom-0 left-0 right-0 h-0.5 bg-orange-500'></span>
-                    )}
-                  </Link>
-                ))}
+                {navItems.map(item => {
+                  const isActive = item.exact
+                    ? pathname === item.path
+                    : pathname === item.path || pathname.startsWith(`${item.path}/`);
+
+                  return (
+                    <Link
+                      key={item.path}
+                      href={item.path}
+                      aria-current={isActive ? "page" : undefined}
+                      className={`relative whitespace-nowrap rounded-t-md px-2 pb-3 pt-1 text-sm font-semibold transition-colors sm:text-base ${
+                        isActive
+                          ? "bg-orange-50 text-orange-600"
+                          : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                      }`}
+                    >
+                      {item.name}
+                      {isActive && (
+                        <span className='absolute bottom-0 left-2 right-2 h-0.5 rounded-full bg-orange-500' />
+                      )}
+                    </Link>
+                  );
+                })}
               </div>
             </nav>
           </div>

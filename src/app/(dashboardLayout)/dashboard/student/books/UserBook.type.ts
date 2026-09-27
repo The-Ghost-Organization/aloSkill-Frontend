@@ -13,7 +13,7 @@ export type EbookFormat = "PDF" | "EPUB" | "MOBI";
 
 export interface TimelineStep {
   label: string;
-  date?: string; // ISO date, undefined if not reached yet
+  date?: string;
   completed: boolean;
 }
 
@@ -23,14 +23,15 @@ interface BaseBook {
   author: string;
   coverUrl?: string;
   orderId: string;
-  purchaseDate: string; // ISO date
+  purchaseDate: string;
   price: number;
-  currency?: string; // defaults to "৳"
+  currency?: string;
 }
 
 export interface EbookItem extends BaseBook {
   type: "ebook";
   format: EbookFormat;
+  fileName?: string;
   fileSizeMb?: number;
   downloadUrl?: string;
   readUrl?: string;
@@ -41,7 +42,7 @@ export interface PhysicalBookItem extends BaseBook {
   status: PhysicalStatus;
   trackingId?: string;
   courier?: string;
-  estimatedDelivery?: string; // ISO date
+  estimatedDelivery?: string;
   address?: string;
   timeline: TimelineStep[];
 }
@@ -68,7 +69,10 @@ export type BookState = {
     format: string;
     price: number;
     author: string | undefined;
-    readUrl?: string | null;
+    ebookAccess?: {
+      available: boolean;
+      fileName: string | null;
+    } | null;
   };
   delivery: {
     status: string;
@@ -77,8 +81,6 @@ export type BookState = {
     shippedAt: string | null;
     deliveredAt: string | null;
   } | null;
-  downloadUrls: Array<string | { url: string; format?: string; action?: "READ" | "DOWNLOAD" }> | null;
-  // downloadUrls: string | null;
 }[];
 
 export type BookItem = EbookItem | PhysicalBookItem;

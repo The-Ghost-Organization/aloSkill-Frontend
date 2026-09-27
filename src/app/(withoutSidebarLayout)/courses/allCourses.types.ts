@@ -40,7 +40,12 @@ export type CourseType = {
   createdAt: string;
   createdBy: {
     displayName: string;
-    avatarUrl: string | null;
+    avatarUrl?: string | null;
+    userId?: string;
+    user?: {
+      id?: string;
+      avatarUrl: string | null;
+    };
   };
   category: {
     name: string;
@@ -50,6 +55,7 @@ export type CourseType = {
     role: string | null;
     displayName: string;
     avatarUrl: string | null;
+    userId?: string;
   }[];
 
   modules: {
@@ -131,6 +137,7 @@ export type CourseDetails = {
     role: string | null;
     displayName: string;
     avatarUrl: string | null;
+    userId?: string;
   }[];
   reviews: {
     rating: number;
@@ -354,6 +361,7 @@ export type DashboardDataType = {
     totalStudents: number;
     totalRevenue: number;
     totalViews: number;
+    totalBooksSold: number;
   };
   recentActivity: {
     id: string;

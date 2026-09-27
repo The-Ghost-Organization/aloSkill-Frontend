@@ -1,4 +1,5 @@
 import {
+  BookMarked,
   BookOpen,
   Eye,
   GraduationCap,
@@ -12,7 +13,7 @@ import {
 import { getServerSession } from "next-auth";
 import Link from "next/link";
 import type { DashboardDataType } from "../../../(withoutSidebarLayout)/courses/allCourses.types";
-import { apiClient } from "../../../../lib/api/client";
+import { API_ENDPOINTS, apiClient } from "../../../../lib/api/client";
 import { authOptions } from "../../../api/auth/[...nextauth]/route";
 
 const formatNumber = (value: number) => new Intl.NumberFormat("en-US").format(value ?? 0);
@@ -67,6 +68,7 @@ const Dashboard = async () => {
       totalEnrolled: 0,
       totalRevenue: 0,
       totalViews: 0,
+      totalBooksSold: 0,
     },
     recentActivity: [],
     reviews: [],
@@ -81,19 +83,22 @@ const Dashboard = async () => {
   } as DashboardDataType;
 
   let data: DashboardDataType = fallbackData;
+  let loadError: string | null = null;
 
-  try {
-    const response = await apiClient.get<DashboardDataType>("/course/instructorDashboard", {
-      Authorization: `Bearer ${session?.accessToken}`,
-    });
+  if (!session?.accessToken) {
+    loadError = "Instructor session token is unavailable. Please sign in again.";
+  } else {
+    const dashboardResponse = await apiClient.get<DashboardDataType>(
+      API_ENDPOINTS.COURSE.INSTRUCTOR_DASHBOARD,
+      { Authorization: `Bearer ${session.accessToken}` }
+    );
 
-    if (response.success && response.data) {
-      data = response.data;
+    if (dashboardResponse.success && dashboardResponse.data) {
+      data = dashboardResponse.data;
     } else {
-      console.error("Instructor dashboard returned no data:", response);
+      loadError = dashboardResponse.message || "Unable to load instructor dashboard data.";
+      console.error("Failed to load live instructor dashboard data:", dashboardResponse);
     }
-  } catch (error) {
-    console.error("Failed to load instructor dashboard:", error);
   }
 
   const stats = [
@@ -117,6 +122,13 @@ const Dashboard = async () => {
       icon: UserCheck,
       iconWrap: "bg-emerald-50",
       iconColor: "text-emerald-600",
+    },
+    {
+      label: "Books Sold",
+      value: formatNumber(data.counters.totalBooksSold),
+      icon: BookMarked,
+      iconWrap: "bg-rose-50",
+      iconColor: "text-rose-600",
     },
     {
       label: "Gross Revenue",
@@ -144,7 +156,14 @@ const Dashboard = async () => {
         </p>
       </div>
 
-      <div className='grid w-full grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4'>
+      {loadError ? (
+        <div className='rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800'>
+          Live dashboard data could not be loaded. The dashboard layout is still available with
+          zero-value fallbacks. <span className='font-medium'>{loadError}</span>
+        </div>
+      ) : null}
+
+      <div className='grid w-full grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5'>
         {stats.map(stat => (
           <div
             key={stat.label}

@@ -23,12 +23,10 @@ function physicalStatus(value: string): PhysicalStatus {
   return "pending";
 }
 
-function urlFor(entries: BookState[number]["downloadUrls"], action: "READ" | "DOWNLOAD") {
-  const match = entries?.find(entry => typeof entry === "object" && entry.action === action);
-  if (match && typeof match === "object") return match.url;
-  const first = entries?.[0];
-  if (typeof first === "string") return action === "DOWNLOAD" ? first : undefined;
-  return action === "DOWNLOAD" ? first?.url : undefined;
+function getEbookFormat(fileName?: string | null): EbookFormat {
+  const extension = fileName?.split(".").pop()?.toUpperCase();
+  if (extension === "EPUB" || extension === "MOBI") return extension;
+  return "PDF";
 }
 
 function toBookItem(item: BookState[number]): BookItem {
@@ -44,13 +42,16 @@ function toBookItem(item: BookState[number]): BookItem {
   };
 
   if (format !== "PHYSICAL") {
-    const ebookFormat = (["PDF", "EPUB", "MOBI"].includes(format) ? format : "PDF") as EbookFormat;
+    const hasEbook = Boolean(item.book.ebookAccess?.available);
+    const accessBase = `/api/student-books/${encodeURIComponent(item.orderItemId)}`;
+
     return {
       ...common,
       type: "ebook",
-      format: ebookFormat,
-      readUrl: item.book.readUrl ?? urlFor(item.downloadUrls, "READ"),
-      downloadUrl: urlFor(item.downloadUrls, "DOWNLOAD"),
+      format: getEbookFormat(item.book.ebookAccess?.fileName),
+      fileName: item.book.ebookAccess?.fileName ?? undefined,
+      readUrl: hasEbook ? `${accessBase}?mode=read` : undefined,
+      downloadUrl: hasEbook ? `${accessBase}?mode=download` : undefined,
     };
   }
 

@@ -2,15 +2,33 @@
 
 import GradientButton from "@/components/buttons/GradientButton";
 import { PageHeading } from "@/components/shared/PageHeading";
-import type { ContactFormData } from "@/lib/schema-validations/contact.schema.ts";
-import { contactFormSchema } from "@/lib/schema-validations/contact.schema.ts";
+import { API_ENDPOINTS, apiClient } from "@/lib/api/client";
+import type { ContactFormData } from "@/lib/schema-validations/contact.schema";
+import { contactFormSchema } from "@/lib/schema-validations/contact.schema";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { AlertCircle, CheckCircle2, MessageCircle, Phone, Send, Sparkles } from "lucide-react";
+import {
+  AlertCircle,
+  CheckCircle2,
+  Clock3,
+  Mail,
+  MessageCircle,
+  Phone,
+  Send,
+  ShieldCheck,
+  Sparkles,
+} from "lucide-react";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 
+const SUPPORT_EMAIL = "info@aloskill.com";
+const SUPPORT_PHONE_DISPLAY = "+880 1658-654528";
+const SUPPORT_PHONE_HREF = "tel:+8801658654528";
+
+type ContactFormValues = Omit<ContactFormData, "website"> & {
+  website: string;
+};
+
 export default function ContactSection() {
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitStatus, setSubmitStatus] = useState<{
     type: "success" | "error" | null;
     message: string;
@@ -19,371 +37,361 @@ export default function ContactSection() {
   const {
     register,
     handleSubmit,
-    formState: { errors },
+    formState: { errors, isSubmitting },
     reset,
-  } = useForm<ContactFormData>({
-    resolver: zodResolver(contactFormSchema),
-    mode: "onBlur", // Validate on blur for better UX
+  } = useForm<ContactFormValues>({
+    resolver: zodResolver(contactFormSchema) as any,
+    mode: "onBlur",
+    defaultValues: {
+      firstName: "",
+      lastName: "",
+      email: "",
+      subject: "",
+      message: "",
+      website: "",
+    },
   });
 
-  const onSubmit = async (data: ContactFormData) => {
-    setIsSubmitting(true);
+  const onSubmit = async (data: ContactFormValues) => {
     setSubmitStatus({ type: null, message: "" });
 
-    try {
-      const response = await fetch("/api/contact", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(data),
-      });
+    const response = await apiClient.post(API_ENDPOINTS.CONTACT.SUBMIT, data);
 
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.error || "Failed to send message");
-      }
-
-      // Success
-      setSubmitStatus({
-        type: "success",
-        message: "Message sent successfully! We'll get back to you within 24 hours.",
-      });
-      reset(); // Clear form
-
-      // Auto-hide success message after 5 seconds
-      setTimeout(() => {
-        setSubmitStatus({ type: null, message: "" });
-      }, 5000);
-    } catch (error) {
-      // console.error("Form submission error:", error);
+    if (!response.success) {
       setSubmitStatus({
         type: "error",
-        message: error instanceof Error ? error.message : "Something went wrong. Please try again.",
+        message:
+          response.message ||
+          "We could not send your message right now. Please try again or contact us directly.",
       });
-    } finally {
-      setIsSubmitting(false);
+      return;
     }
+
+    setSubmitStatus({
+      type: "success",
+      message: "Thanks! Your message has been received. Our team will get back to you soon.",
+    });
+    reset();
   };
 
+  const inputClass = (hasError: boolean) =>
+    `w-full rounded-xl border bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 disabled:cursor-not-allowed disabled:bg-slate-50 ${
+      hasError
+        ? "border-red-300 focus:border-red-500 focus:ring-4 focus:ring-red-100"
+        : "border-slate-200 focus:border-orange-500 focus:ring-4 focus:ring-orange-100"
+    }`;
+
   return (
-    <section className='relative py-20 md:py-32 overflow-hidden'>
-      {/* Gradient Background */}
+    <section
+      id='contact'
+      className='relative overflow-hidden py-16 md:py-24'
+      aria-labelledby='contact-heading'
+    >
       <div
-        className='absolute inset-0 opacity-40'
+        className='absolute inset-0 opacity-60'
+        aria-hidden='true'
         style={{
-          background: `linear-gradient(135deg, rgba(91, 97, 255, 0.2) 0%, rgba(255, 187, 248, 0.5) 30%, rgba(250, 255, 189, 0.3) 60%, rgba(234, 255, 255, 1) 100%)`,
+          background:
+            "linear-gradient(135deg, rgba(255,247,237,.9) 0%, rgba(255,255,255,1) 48%, rgba(254,242,242,.7) 100%)",
         }}
       />
+      <div
+        className='absolute -right-20 top-16 h-80 w-80 rounded-full bg-orange-200/30 blur-3xl'
+        aria-hidden='true'
+      />
+      <div
+        className='absolute -left-24 bottom-10 h-72 w-72 rounded-full bg-amber-100/40 blur-3xl'
+        aria-hidden='true'
+      />
 
-      {/* Decorative Elements */}
-      <div className='absolute top-20 right-10 w-72 h-72 bg-orange-200 rounded-full blur-3xl opacity-20' />
-      <div className='absolute bottom-20 left-10 w-96 h-96 bg-purple-200 rounded-full blur-3xl opacity-20' />
-
-      <div className='relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'>
-        {/* Header with Floating Badge */}
-        <div className='text-center mb-16'>
+      <div className='relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8'>
+        <div
+          id='contact-heading'
+          className='mb-12 text-center'
+        >
           <PageHeading
-            badge='Lets Connect'
+            badge='Contact AloSkill'
             badgeIcon={Sparkles}
-            title='Get Your Free Consultation'
-            titleHighlight='Today'
-            subtitle='Transform your HR processes with our innovative solutions. Lets discuss how we can help your team thrive.'
+            title='How Can We Help'
+            titleHighlight='You?'
+            subtitle='Questions about a course, book order, instructor account, partnership, or anything else? Send us a message and our team will point you in the right direction.'
           />
         </div>
 
-        {/* New Layout: Bento Grid Style */}
-        <div className='grid grid-cols-1 lg:grid-cols-3 gap-6'>
-          {/* Large Form Card - Spans 2 columns */}
-          <div className='lg:col-span-2 bg-white rounded-lg p-8 md:p-10 shadow-2xl border border-gray-100'>
-            <div className='flex items-center gap-3 mb-8'>
-              <div
-                className='w-10 h-10 rounded-lg flex items-center justify-center shadow-lg'
-                style={{ backgroundColor: "#da7c36" }}
-              >
-                <MessageCircle className='w-4 h-4 text-white' />
+        <div className='grid gap-6 lg:grid-cols-[minmax(0,1.65fr)_minmax(300px,.8fr)]'>
+          <div className='rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xl shadow-slate-200/40 sm:p-8 lg:p-10'>
+            <div className='mb-8 flex items-start gap-4'>
+              <div className='flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#DA7C36] text-white shadow-lg shadow-orange-200'>
+                <MessageCircle className='h-5 w-5' />
               </div>
               <div>
-                <h3 className='text-xl font-bold'>Drop us a message</h3>
-                <p className='text-sm md:text-md text-gray-500'>
-                  We will get back to you within 24 hours
+                <h3 className='text-xl font-bold text-slate-950'>Send us a message</h3>
+                <p className='mt-1 text-sm leading-6 text-slate-500'>
+                  Share enough detail for us to route your request to the right person.
                 </p>
               </div>
             </div>
 
-            {/* Status Messages */}
             {submitStatus.type && (
               <div
-                className={`mb-6 p-4 rounded-lg flex items-start gap-3 ${
+                role={submitStatus.type === "error" ? "alert" : "status"}
+                aria-live='polite'
+                className={`mb-6 flex items-start gap-3 rounded-xl border p-4 ${
                   submitStatus.type === "success"
-                    ? "bg-green-50 border-2 border-green-200"
-                    : "bg-red-50 border-2 border-red-200"
+                    ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                    : "border-red-200 bg-red-50 text-red-800"
                 }`}
               >
                 {submitStatus.type === "success" ? (
-                  <CheckCircle2 className='w-5 h-5 text-green-600 shrink-0 mt-0.5' />
+                  <CheckCircle2 className='mt-0.5 h-5 w-5 shrink-0' />
                 ) : (
-                  <AlertCircle className='w-5 h-5 text-red-600 shrink-0 mt-0.5' />
+                  <AlertCircle className='mt-0.5 h-5 w-5 shrink-0' />
                 )}
-                <p
-                  className={`text-sm font-medium ${
-                    submitStatus.type === "success" ? "text-green-800" : "text-red-800"
-                  }`}
-                >
-                  {submitStatus.message}
-                </p>
+                <p className='text-sm font-medium leading-6'>{submitStatus.message}</p>
               </div>
             )}
 
-            <div className='space-y-6'>
-              {/* Name Fields */}
-              <div className='grid grid-cols-1 sm:grid-cols-2 gap-4'>
-                <div className='group'>
+            <form
+              onSubmit={handleSubmit(onSubmit)}
+              className='space-y-5'
+              noValidate
+            >
+              <div
+                className='absolute left-[-9999px] top-auto h-px w-px overflow-hidden'
+                aria-hidden='true'
+              >
+                <label htmlFor='contact-website'>Website</label>
+                <input
+                  id='contact-website'
+                  type='text'
+                  tabIndex={-1}
+                  autoComplete='off'
+                  {...register("website")}
+                />
+              </div>
+
+              <div className='grid gap-4 sm:grid-cols-2'>
+                <div>
                   <label
                     htmlFor='firstName'
-                    className='block text-sm font-semibold text-gray-700 mb-2'
+                    className='mb-2 block text-sm font-semibold text-slate-700'
                   >
-                    First Name <span className='text-red-500'>*</span>
+                    First name <span className='text-red-500'>*</span>
                   </label>
                   <input
-                    type='text'
                     id='firstName'
-                    {...register("firstName")}
-                    placeholder='John'
-                    className={`w-full px-5 py-2 bg-gray-50 border-2 rounded-lg focus:outline-none focus:bg-white transition-all duration-300 ${
-                      errors.firstName
-                        ? "border-red-400 focus:border-red-500"
-                        : "border-gray-200 focus:border-orange-400"
-                    }`}
+                    type='text'
+                    autoComplete='given-name'
+                    placeholder='Your first name'
                     disabled={isSubmitting}
+                    aria-invalid={Boolean(errors.firstName)}
+                    aria-describedby={errors.firstName ? "firstName-error" : undefined}
+                    className={inputClass(Boolean(errors.firstName))}
+                    {...register("firstName")}
                   />
                   {errors.firstName && (
-                    <p className='mt-1.5 text-sm text-red-600 flex items-center gap-1'>
-                      <AlertCircle className='w-4 h-4' />
+                    <p
+                      id='firstName-error'
+                      className='mt-1.5 text-xs font-medium text-red-600'
+                    >
                       {errors.firstName.message}
                     </p>
                   )}
                 </div>
 
-                <div className='group'>
+                <div>
                   <label
                     htmlFor='lastName'
-                    className='block text-sm font-semibold text-gray-700 mb-2'
+                    className='mb-2 block text-sm font-semibold text-slate-700'
                   >
-                    Last Name <span className='text-red-500'>*</span>
+                    Last name <span className='text-red-500'>*</span>
                   </label>
                   <input
-                    type='text'
                     id='lastName'
-                    {...register("lastName")}
-                    placeholder='Doe'
-                    className={`w-full px-5 py-2 bg-gray-50 border-2 rounded-lg focus:outline-none focus:bg-white transition-all duration-300 ${
-                      errors.lastName
-                        ? "border-red-400 focus:border-red-500"
-                        : "border-gray-200 focus:border-orange-400"
-                    }`}
+                    type='text'
+                    autoComplete='family-name'
+                    placeholder='Your last name'
                     disabled={isSubmitting}
+                    aria-invalid={Boolean(errors.lastName)}
+                    aria-describedby={errors.lastName ? "lastName-error" : undefined}
+                    className={inputClass(Boolean(errors.lastName))}
+                    {...register("lastName")}
                   />
                   {errors.lastName && (
-                    <p className='mt-1.5 text-sm text-red-600 flex items-center gap-1'>
-                      <AlertCircle className='w-4 h-4' />
+                    <p
+                      id='lastName-error'
+                      className='mt-1.5 text-xs font-medium text-red-600'
+                    >
                       {errors.lastName.message}
                     </p>
                   )}
                 </div>
               </div>
 
-              {/* Email */}
               <div>
                 <label
                   htmlFor='email'
-                  className='block text-sm font-semibold text-gray-700 mb-2'
+                  className='mb-2 block text-sm font-semibold text-slate-700'
                 >
-                  Email Address <span className='text-red-500'>*</span>
+                  Email address <span className='text-red-500'>*</span>
                 </label>
                 <input
-                  type='email'
                   id='email'
-                  {...register("email")}
-                  placeholder='john.doe@company.com'
-                  className={`w-full px-5 py-2 bg-gray-50 border-2 rounded-lg focus:outline-none focus:bg-white transition-all duration-300 ${
-                    errors.email
-                      ? "border-red-400 focus:border-red-500"
-                      : "border-gray-200 focus:border-orange-400"
-                  }`}
+                  type='email'
+                  autoComplete='email'
+                  inputMode='email'
+                  placeholder='you@example.com'
                   disabled={isSubmitting}
+                  aria-invalid={Boolean(errors.email)}
+                  aria-describedby={errors.email ? "email-error" : undefined}
+                  className={inputClass(Boolean(errors.email))}
+                  {...register("email")}
                 />
                 {errors.email && (
-                  <p className='mt-1.5 text-sm text-red-600 flex items-center gap-1'>
-                    <AlertCircle className='w-4 h-4' />
+                  <p
+                    id='email-error'
+                    className='mt-1.5 text-xs font-medium text-red-600'
+                  >
                     {errors.email.message}
                   </p>
                 )}
               </div>
 
-              {/* Subject */}
               <div>
                 <label
                   htmlFor='subject'
-                  className='block text-sm font-semibold text-gray-700 mb-2'
+                  className='mb-2 block text-sm font-semibold text-slate-700'
                 >
                   Subject <span className='text-red-500'>*</span>
                 </label>
                 <input
-                  type='text'
                   id='subject'
-                  {...register("subject")}
-                  placeholder='How can we help you?'
-                  className={`w-full px-5 py-2 bg-gray-50 border-2 rounded-lg focus:outline-none focus:bg-white transition-all duration-300 ${
-                    errors.subject
-                      ? "border-red-400 focus:border-red-500"
-                      : "border-gray-200 focus:border-orange-400"
-                  }`}
+                  type='text'
+                  placeholder='e.g. Course support, book order, partnership'
                   disabled={isSubmitting}
+                  aria-invalid={Boolean(errors.subject)}
+                  aria-describedby={errors.subject ? "subject-error" : undefined}
+                  className={inputClass(Boolean(errors.subject))}
+                  {...register("subject")}
                 />
                 {errors.subject && (
-                  <p className='mt-1.5 text-sm text-red-600 flex items-center gap-1'>
-                    <AlertCircle className='w-4 h-4' />
+                  <p
+                    id='subject-error'
+                    className='mt-1.5 text-xs font-medium text-red-600'
+                  >
                     {errors.subject.message}
                   </p>
                 )}
               </div>
 
-              {/* Message */}
               <div>
-                <label
-                  htmlFor='message'
-                  className='block text-sm font-semibold text-gray-700 mb-2'
-                >
-                  Message <span className='text-red-500'>*</span>
-                </label>
+                <div className='mb-2 flex items-center justify-between gap-3'>
+                  <label
+                    htmlFor='message'
+                    className='text-sm font-semibold text-slate-700'
+                  >
+                    Message <span className='text-red-500'>*</span>
+                  </label>
+                  <span className='text-xs text-slate-400'>20–3000 characters</span>
+                </div>
                 <textarea
                   id='message'
-                  {...register("message")}
-                  placeholder='Tell us about your needs...'
-                  rows={4}
-                  className={`w-full px-5 py-2 bg-gray-50 border-2 rounded-lg focus:outline-none focus:bg-white transition-all duration-300 resize-none ${
-                    errors.message
-                      ? "border-red-400 focus:border-red-500"
-                      : "border-gray-200 focus:border-orange-400"
-                  }`}
+                  rows={6}
+                  placeholder='Tell us what you need help with...'
                   disabled={isSubmitting}
+                  aria-invalid={Boolean(errors.message)}
+                  aria-describedby={errors.message ? "message-error" : undefined}
+                  className={`${inputClass(Boolean(errors.message))} resize-y`}
+                  {...register("message")}
                 />
                 {errors.message && (
-                  <p className='mt-1.5 text-sm text-red-600 flex items-center gap-1'>
-                    <AlertCircle className='w-4 h-4' />
+                  <p
+                    id='message-error'
+                    className='mt-1.5 text-xs font-medium text-red-600'
+                  >
                     {errors.message.message}
                   </p>
                 )}
               </div>
 
-              {/* Submit Button */}
-              <GradientButton
-                onClick={handleSubmit(onSubmit)}
-                className='w-full'
-                disabled={isSubmitting}
-              >
-                {isSubmitting ? (
-                  <span className='flex items-center justify-center gap-2'>
-                    <svg
-                      className='animate-spin h-5 w-5 text-white'
-                      xmlns='http://www.w3.org/2000/svg'
-                      fill='none'
-                      viewBox='0 0 24 24'
-                    >
-                      <circle
-                        className='opacity-25'
-                        cx='12'
-                        cy='12'
-                        r='10'
-                        stroke='currentColor'
-                        strokeWidth='4'
-                      />
-                      <path
-                        className='opacity-75'
-                        fill='currentColor'
-                        d='M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z'
-                      />
-                    </svg>
-                    Sending...
-                  </span>
-                ) : (
-                  "Send Message"
-                )}
-              </GradientButton>
-            </div>
+              <div className='flex flex-col gap-3 pt-1 sm:flex-row sm:items-center sm:justify-between'>
+                <p className='flex items-center gap-2 text-xs leading-5 text-slate-500'>
+                  <ShieldCheck className='h-4 w-4 shrink-0 text-emerald-600' />
+                  Your contact details are used only to respond to this request.
+                </p>
+                <GradientButton
+                  type='submit'
+                  icon={Send}
+                  iconPosition='right'
+                  loading={isSubmitting}
+                  loadingText='Sending...'
+                  disabled={isSubmitting}
+                  className='w-full sm:w-auto'
+                >
+                  Send Message
+                </GradientButton>
+              </div>
+            </form>
           </div>
 
-          {/* Right Column - Stacked Action Cards */}
-          <div className='space-y-6'>
-            {/* Phone Card */}
-            <div
-              className='relative rounded-lg p-8 shadow-2xl overflow-hidden group hover:shadow-3xl transition-all duration-300 transform hover:-translate-y-2'
-              style={{ backgroundColor: "#da7c36" }}
-            >
-              <div
-                className='absolute -top-10 -right-10 w-32 h-32 rounded-full opacity-20'
-                style={{ backgroundColor: "#fc9759" }}
-              />
-
-              <div className='relative w-16 h-16 bg-white/20 backdrop-blur-sm rounded-lg flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300'>
-                <Phone className='w-8 h-8 text-white' />
+          <aside className='space-y-5'>
+            <div className='rounded-2xl bg-gradient-to-br from-[#DA7C36] to-[#C86624] p-7 text-white shadow-xl shadow-orange-200/50'>
+              <div className='mb-5 flex h-12 w-12 items-center justify-center rounded-xl bg-white/15 backdrop-blur'>
+                <Phone className='h-6 w-6' />
               </div>
-
-              <h3 className='text-xl font-bold text-white mb-3'>Talk to Sales</h3>
-              <p className='text-white/90 text-sm mb-6 leading-relaxed'>
-                Schedule a call with our experts to discuss your specific needs.
+              <h3 className='text-xl font-bold'>Prefer to talk?</h3>
+              <p className='mt-2 text-sm leading-6 text-white/85'>
+                Call our team for general support, course questions, or book-order assistance.
               </p>
-              <button className='px-6 py-2 bg-white text-orange-600 rounded-lg hover:bg-gray-50 transition-all duration-300 font-bold text-sm shadow-lg hover:shadow-xl'>
-                Book Now
-              </button>
+              <a
+                href={SUPPORT_PHONE_HREF}
+                className='mt-6 inline-flex items-center gap-2 rounded-xl bg-white px-5 py-3 text-sm font-bold text-[#C86624] transition hover:-translate-y-0.5 hover:bg-orange-50'
+              >
+                <Phone className='h-4 w-4' />
+                {SUPPORT_PHONE_DISPLAY}
+              </a>
             </div>
 
-            {/* Email Card */}
-            <div
-              className='relative rounded-lg p-8 shadow-2xl overflow-hidden group hover:shadow-3xl transition-all duration-300 transform hover:-translate-y-2'
-              style={{
-                background: "linear-gradient(135deg, #fc9759 0%, #da7c36 100%)",
-              }}
-            >
-              <div
-                className='absolute -bottom-10 -left-10 w-32 h-32 rounded-full opacity-20'
-                style={{ backgroundColor: "#d15100" }}
-              />
-
-              <div className='relative w-16 h-16 bg-white/20 backdrop-blur-sm rounded-lg flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300'>
-                <Send className='w-8 h-8 text-white' />
+            <div className='rounded-2xl border border-slate-200 bg-white p-7 shadow-lg shadow-slate-200/40'>
+              <div className='mb-5 flex h-12 w-12 items-center justify-center rounded-xl bg-orange-50 text-[#DA7C36]'>
+                <Mail className='h-6 w-6' />
               </div>
-
-              <h3 className='text-xl font-bold text-white mb-3'>Email Us</h3>
-              <p className='text-white/90 text-sm mb-6 leading-relaxed'>
-                Prefer email? Drop us a line and we will respond promptly.
+              <h3 className='text-lg font-bold text-slate-950'>Email us directly</h3>
+              <p className='mt-2 text-sm leading-6 text-slate-500'>
+                If you already have screenshots, invoices, or detailed information, email is a good
+                option.
               </p>
-              <button className='px-6 py-2 bg-white text-orange-600 rounded-lg hover:bg-gray-50 transition-all duration-300 font-bold text-sm shadow-lg hover:shadow-xl'>
-                Send Email
-              </button>
+              <a
+                href={`mailto:${SUPPORT_EMAIL}`}
+                className='mt-5 inline-flex items-center gap-2 text-sm font-bold text-[#DA7C36] transition hover:text-[#B85D1D]'
+              >
+                {SUPPORT_EMAIL}
+                <Send className='h-4 w-4' />
+              </a>
             </div>
 
-            {/* Info Badge */}
-            <div className='bg-white rounded-lg p-6 shadow-lg border-2 border-gray-100'>
-              <div className='flex items-start gap-4'>
-                <div
-                  className='w-10 h-10 rounded-xl flex items-center justify-center shrink-0'
-                  style={{ backgroundColor: "#da7c36" }}
-                >
-                  <Sparkles className='w-5 h-5 text-white' />
-                </div>
+            <div className='grid gap-3 sm:grid-cols-2 lg:grid-cols-1'>
+              <div className='flex items-start gap-3 rounded-2xl border border-slate-200 bg-white p-5'>
+                <Clock3 className='mt-0.5 h-5 w-5 shrink-0 text-[#DA7C36]' />
                 <div>
-                  <h4 className='font-bold text-gray-900 mb-1'>Quick Response</h4>
-                  <p className='text-sm text-gray-600'>
-                    Average response time:{" "}
-                    <span className='font-semibold text-orange-600'>2 hours</span>
+                  <p className='text-sm font-bold text-slate-900'>Response time</p>
+                  <p className='mt-1 text-xs leading-5 text-slate-500'>
+                    We aim to respond within one business day.
+                  </p>
+                </div>
+              </div>
+
+              <div className='flex items-start gap-3 rounded-2xl border border-slate-200 bg-white p-5'>
+                <ShieldCheck className='mt-0.5 h-5 w-5 shrink-0 text-emerald-600' />
+                <div>
+                  <p className='text-sm font-bold text-slate-900'>Safer support</p>
+                  <p className='mt-1 text-xs leading-5 text-slate-500'>
+                    Never send passwords, OTPs, or payment credentials.
                   </p>
                 </div>
               </div>
             </div>
-          </div>
+          </aside>
         </div>
       </div>
     </section>

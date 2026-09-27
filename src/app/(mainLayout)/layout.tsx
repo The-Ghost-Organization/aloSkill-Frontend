@@ -6,6 +6,8 @@ import NavBar from "@/components/shared/header/NavBar";
 import LeftSidebar from "@/components/shared/sidebars/LeftSidebar";
 
 import RightSidebar from "@/components/shared/sidebars/RightSidebar";
+import WhatsAppQuickContact from "@/components/shared/WhatsAppQuickContact.tsx";
+
 import { useState } from "react";
 
 export default function MainLayout({ children }: { children: React.ReactNode }) {
@@ -28,6 +30,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
         <RightSidebar />
       </div>
       <FooterSimple />
+      <WhatsAppQuickContact />
     </div>
   );
 }

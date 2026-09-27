@@ -159,9 +159,7 @@ export default function CourseDetailPage() {
       .get<Array<{ course: { id: string } | null }>>("/user/student/me/wishlist")
       .then(response => {
         if (!response.success) return;
-        setIsInWishlist(
-          (response.data ?? []).some(item => item.course?.id === courseId)
-        );
+        setIsInWishlist((response.data ?? []).some(item => item.course?.id === courseId));
       })
       .catch(() => undefined);
   }, [courseId, user?.id]);
@@ -222,10 +220,9 @@ export default function CourseDetailPage() {
 
     try {
       setWishlistLoading(true);
-      const response = await apiClient.post<{ wishlisted: boolean }>(
-        "/user/student/me/wishlist",
-        { courseId: course.id }
-      );
+      const response = await apiClient.post<{ wishlisted: boolean }>("/user/student/me/wishlist", {
+        courseId: course.id,
+      });
 
       if (response.success && response.data) {
         setIsInWishlist(response.data.wishlisted);
@@ -266,7 +263,7 @@ export default function CourseDetailPage() {
   if (isLoading) {
     return (
       <div className='min-h-[70vh] bg-slate-50 flex items-center justify-center px-4'>
-        <div className='flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-6 py-4 text-sm font-semibold text-slate-700 shadow-sm'>
+        <div className='flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-6 py-4 text-sm font-semibold text-black-700 shadow-sm'>
           <Loader2 className='h-5 w-5 animate-spin text-orange-500' />
           Loading course details...
         </div>
@@ -281,8 +278,8 @@ export default function CourseDetailPage() {
           <div className='mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-orange-50 text-orange-600'>
             <BookOpen className='h-7 w-7' />
           </div>
-          <h1 className='text-xl font-bold text-slate-900'>Unable to open this course</h1>
-          <p className='mt-2 text-sm leading-6 text-slate-600'>{loadError}</p>
+          <h1 className='text-xl font-bold text-black-900'>Unable to open this course</h1>
+          <p className='mt-2 text-sm leading-6 text-black-600'>{loadError}</p>
           <Link
             href='/courses'
             className='mt-6 inline-flex items-center gap-2 rounded-xl bg-[#074079] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#0a4d90]'
@@ -311,23 +308,29 @@ export default function CourseDetailPage() {
 
   return (
     <main className='min-h-screen bg-[#f7f9fc]'>
-      <section className='relative overflow-hidden bg-[#062f58] text-white'>
-        <div className='absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(249,115,22,0.22),transparent_38%),radial-gradient(circle_at_bottom_left,rgba(59,130,246,0.18),transparent_40%)]' />
+      <section className='relative overflow-hidden bg-orange text-white'>
+        <div className='absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(249,115,22,0.22),transparent_38%),radial-gradient(circle_at_bottom_left,rgba(237, 241, 247, 0.18),transparent_40%)]' />
         <div className='absolute -right-24 top-10 h-72 w-72 rounded-full border border-white/10' />
         <div className='absolute -right-8 top-28 h-44 w-44 rounded-full border border-white/10' />
 
         <div className='relative mx-auto max-w-[1420px] px-4 py-6 sm:px-6 lg:px-8 lg:py-10'>
           <FadeIn>
-            <nav className='mb-7 flex items-center gap-2 overflow-hidden text-sm text-slate-300'>
-              <Link href='/' className='flex shrink-0 items-center gap-1.5 transition hover:text-white'>
+            <nav className='mb-7 flex items-center gap-2 overflow-hidden text-sm text-black'>
+              <Link
+                href='/'
+                className='flex shrink-0 items-center gap-1.5 transition hover:text-white'
+              >
                 <Home className='h-4 w-4' /> Home
               </Link>
-              <ChevronRight className='h-4 w-4 shrink-0 text-slate-500' />
-              <Link href='/courses' className='shrink-0 transition hover:text-white'>
+              <ChevronRight className='h-4 w-4 shrink-0 text-black-500' />
+              <Link
+                href='/courses'
+                className='shrink-0 transition hover:text-white'
+              >
                 Courses
               </Link>
-              <ChevronRight className='h-4 w-4 shrink-0 text-slate-500' />
-              <span className='truncate text-orange-300'>{course.title}</span>
+              <ChevronRight className='h-4 w-4 shrink-0 text-black' />
+              <span className='truncate text-black'>{course.title}</span>
             </nav>
           </FadeIn>
 
@@ -340,10 +343,10 @@ export default function CourseDetailPage() {
                       {course.category}
                     </span>
                   )}
-                  <span className='rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-xs font-medium text-slate-200'>
+                  <span className='rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-xs font-medium text-black-200'>
                     {course.level}
                   </span>
-                  <span className='rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-xs font-medium text-slate-200'>
+                  <span className='rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-xs font-medium text-black-200'>
                     {course.language}
                   </span>
                 </div>
@@ -352,13 +355,13 @@ export default function CourseDetailPage() {
                   {course.title}
                 </h1>
 
-                <p className='mt-5 max-w-3xl text-sm leading-7 text-slate-200 sm:text-base sm:leading-8'>
+                {/* <p className='mt-5 max-w-3xl text-sm leading-7 text-black-200 sm:text-base sm:leading-8'>
                   {courseDescriptionParsed.objective ||
                     courseDescriptionParsed.description ||
                     "Build practical skills through a structured course designed for focused learning."}
-                </p>
+                </p> */}
 
-                <div className='mt-6 flex flex-wrap items-center gap-x-6 gap-y-3 text-sm text-slate-200'>
+                <div className='mt-6 flex flex-wrap items-center gap-x-6 gap-y-3 text-sm text-black-200'>
                   <div className='flex items-center gap-2'>
                     <span className='font-bold text-orange-300'>{rating.toFixed(1)}</span>
                     <div className='flex items-center gap-0.5'>
@@ -368,12 +371,12 @@ export default function CourseDetailPage() {
                           className={`h-4 w-4 ${
                             star <= Math.round(rating)
                               ? "fill-orange-400 text-orange-400"
-                              : "fill-transparent text-slate-500"
+                              : "fill-transparent text-black-500"
                           }`}
                         />
                       ))}
                     </div>
-                    <span className='text-slate-400'>({reviewCount} reviews)</span>
+                    <span className='text-black-400'>({reviewCount} reviews)</span>
                   </div>
                   <div className='flex items-center gap-2'>
                     <Users className='h-4 w-4 text-orange-300' />
@@ -404,7 +407,7 @@ export default function CourseDetailPage() {
                       ))}
                     </div>
                     <div>
-                      <p className='text-xs text-slate-400'>Created by</p>
+                      <p className='text-xs text-black-400'>Created by</p>
                       <p className='text-sm font-semibold text-white'>
                         {course.courseInstructors.map(item => item.displayName).join(", ")}
                       </p>
@@ -442,8 +445,8 @@ export default function CourseDetailPage() {
                       <div className='mb-3 flex h-9 w-9 items-center justify-center rounded-xl bg-orange-50 text-orange-600'>
                         <Icon className='h-4 w-4' />
                       </div>
-                      <p className='text-base font-bold text-slate-900'>{item.label}</p>
-                      <p className='mt-0.5 text-xs text-slate-500'>{item.helper}</p>
+                      <p className='text-base font-bold text-black-900'>{item.label}</p>
+                      <p className='mt-0.5 text-xs text-black-500'>{item.helper}</p>
                     </div>
                   );
                 })}
@@ -463,13 +466,13 @@ export default function CourseDetailPage() {
                           type='button'
                           onClick={() => setActiveTab(tab.label)}
                           className={`relative flex shrink-0 items-center gap-2 px-4 py-4 text-sm font-semibold transition sm:px-5 ${
-                            isActive ? "text-[#074079]" : "text-slate-500 hover:text-slate-900"
+                            isActive ? "text-[#074079]" : "text-black-500 hover:text-black-900"
                           }`}
                         >
                           <Icon className={`h-4 w-4 ${isActive ? "text-orange-500" : ""}`} />
                           {tab.label}
                           {tab.label === "Reviews" && (
-                            <span className='rounded-full bg-slate-100 px-2 py-0.5 text-[11px] text-slate-600'>
+                            <span className='rounded-full bg-slate-100 px-2 py-0.5 text-[11px] text-black-600'>
                               {reviewCount}
                             </span>
                           )}
@@ -513,7 +516,11 @@ export default function CourseDetailPage() {
             <FadeIn delay={180}>
               <div className='sticky top-24 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-xl shadow-slate-900/10'>
                 <div className='hidden lg:block p-2 pb-0'>
-                  <CourseMedia course={course} videoData={videoData} loading={videoDataLoading} />
+                  <CourseMedia
+                    course={course}
+                    videoData={videoData}
+                    loading={videoDataLoading}
+                  />
                 </div>
 
                 <div className='p-5 sm:p-6'>
@@ -523,7 +530,7 @@ export default function CourseDetailPage() {
                     </span>
                     {hasDiscount && (
                       <>
-                        <span className='text-base font-medium text-slate-400 line-through'>
+                        <span className='text-base font-medium text-black-400 line-through'>
                           {formatPrice(course.originalPrice)}
                         </span>
                         <span className='rounded-full bg-rose-50 px-2.5 py-1 text-xs font-bold text-rose-600'>
@@ -557,8 +564,14 @@ export default function CourseDetailPage() {
                       Add To Cart
                     </GradientButton>
 
-                    <Link href={`/checkout/${course.id}`} className='block'>
-                      <BorderGradientButton className='w-full h-14 text-base font-bold' icon={CreditCard}>
+                    <Link
+                      href={`/checkout/${course.id}`}
+                      className='block'
+                    >
+                      <BorderGradientButton
+                        className='w-full h-14 text-base font-bold'
+                        icon={CreditCard}
+                      >
                         Buy Now
                       </BorderGradientButton>
                     </Link>
@@ -570,12 +583,28 @@ export default function CourseDetailPage() {
                   </div>
 
                   <div className='mt-6 border-t border-slate-100 pt-5'>
-                    <h2 className='text-sm font-bold text-slate-900'>Course details</h2>
+                    <h2 className='text-sm font-bold text-black-900'>Course details</h2>
                     <div className='mt-4 space-y-3'>
-                      <InfoRow icon={Clock3} label='Duration' value={formatDuration(course.content.totalDuration)} />
-                      <InfoRow icon={ListVideo} label='Lessons' value={`${course.content.totalLessons}`} />
-                      <InfoRow icon={Languages} label='Language' value={course.language} />
-                      <InfoRow icon={Sparkles} label='Level' value={course.level} />
+                      <InfoRow
+                        icon={Clock3}
+                        label='Duration'
+                        value={formatDuration(course.content.totalDuration)}
+                      />
+                      <InfoRow
+                        icon={ListVideo}
+                        label='Lessons'
+                        value={`${course.content.totalLessons}`}
+                      />
+                      <InfoRow
+                        icon={Languages}
+                        label='Language'
+                        value={course.language}
+                      />
+                      <InfoRow
+                        icon={Sparkles}
+                        label='Level'
+                        value={course.level}
+                      />
                     </div>
                   </div>
 
@@ -587,7 +616,7 @@ export default function CourseDetailPage() {
                       className={`flex items-center justify-center gap-2 rounded-xl border px-3 py-3 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50 ${
                         isInWishlist
                           ? "border-rose-200 bg-rose-50 text-rose-600"
-                          : "border-slate-200 text-slate-700 hover:border-orange-200 hover:bg-orange-50 hover:text-orange-600"
+                          : "border-slate-200 text-black-700 hover:border-orange-200 hover:bg-orange-50 hover:text-orange-600"
                       }`}
                     >
                       {wishlistLoading ? (
@@ -600,7 +629,7 @@ export default function CourseDetailPage() {
                     <button
                       type='button'
                       onClick={shareCourse}
-                      className='flex items-center justify-center gap-2 rounded-xl border border-slate-200 px-3 py-3 text-sm font-semibold text-slate-700 transition hover:border-orange-200 hover:bg-orange-50 hover:text-orange-600'
+                      className='flex items-center justify-center gap-2 rounded-xl border border-slate-200 px-3 py-3 text-sm font-semibold text-black-700 transition hover:border-orange-200 hover:bg-orange-50 hover:text-orange-600'
                     >
                       {copied ? <Check className='h-4 w-4' /> : <Share2 className='h-4 w-4' />}
                       {copied ? "Copied" : "Share"}
@@ -608,18 +637,30 @@ export default function CourseDetailPage() {
                   </div>
 
                   <div className='mt-5 flex items-center justify-between gap-3 rounded-2xl bg-slate-50 px-4 py-3'>
-                    <span className='text-xs font-medium text-slate-500'>Share with</span>
+                    <span className='text-xs font-medium text-black-500'>Share with</span>
                     <div className='flex items-center gap-1'>
-                      <SocialButton label='Facebook' onClick={() => openSocialShare("facebook")}>
+                      <SocialButton
+                        label='Facebook'
+                        onClick={() => openSocialShare("facebook")}
+                      >
                         <Facebook className='h-4 w-4' />
                       </SocialButton>
-                      <SocialButton label='Twitter' onClick={() => openSocialShare("twitter")}>
+                      <SocialButton
+                        label='Twitter'
+                        onClick={() => openSocialShare("twitter")}
+                      >
                         <Twitter className='h-4 w-4' />
                       </SocialButton>
-                      <SocialButton label='LinkedIn' onClick={() => openSocialShare("linkedin")}>
+                      <SocialButton
+                        label='LinkedIn'
+                        onClick={() => openSocialShare("linkedin")}
+                      >
                         <Linkedin className='h-4 w-4' />
                       </SocialButton>
-                      <SocialButton label='Copy link' onClick={shareCourse}>
+                      <SocialButton
+                        label='Copy link'
+                        onClick={shareCourse}
+                      >
                         <Copy className='h-4 w-4' />
                       </SocialButton>
                     </div>
@@ -736,10 +777,10 @@ function InfoRow({
 }) {
   return (
     <div className='flex items-center justify-between gap-4 text-sm'>
-      <span className='flex items-center gap-2 text-slate-500'>
+      <span className='flex items-center gap-2 text-black-500'>
         <Icon className='h-4 w-4 text-orange-500' /> {label}
       </span>
-      <span className='font-semibold text-slate-800'>{value}</span>
+      <span className='font-semibold text-black-800'>{value}</span>
     </div>
   );
 }
@@ -758,7 +799,7 @@ function SocialButton({
       type='button'
       onClick={onClick}
       aria-label={label}
-      className='flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition hover:bg-white hover:text-orange-600 hover:shadow-sm'
+      className='flex h-8 w-8 items-center justify-center rounded-lg text-black-500 transition hover:bg-white hover:text-orange-600 hover:shadow-sm'
     >
       {children}
     </button>

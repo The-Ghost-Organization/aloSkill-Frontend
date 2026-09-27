@@ -11,7 +11,7 @@ import {
   WalletCards,
 } from "lucide-react";
 import { getServerSession } from "next-auth";
-import { apiClient } from "../../../../../lib/api/client";
+import { API_ENDPOINTS, apiClient } from "../../../../../lib/api/client";
 import { authOptions } from "../../../../api/auth/[...nextauth]/route";
 
 type EarningsData = {
@@ -83,6 +83,16 @@ const formatDate = (value: string) =>
     minute: "2-digit",
   }).format(new Date(value));
 
+const getEmptyMonthlyRevenue = () =>
+  Array.from({ length: 6 }, (_, index) => {
+    const date = new Date();
+    date.setMonth(date.getMonth() - (5 - index), 1);
+    return {
+      month: date.toLocaleString("en-US", { month: "short" }),
+      amount: 0,
+    };
+  });
+
 const EarningsPage = async () => {
   const session = await getServerSession(authOptions);
 
@@ -99,14 +109,7 @@ const EarningsPage = async () => {
       totalSales: 0,
     },
 
-    monthlyRevenue: [
-      { month: "May", amount: 0 },
-      { month: "Jun", amount: 0 },
-      { month: "Jul", amount: 0 },
-      { month: "Aug", amount: 0 },
-      { month: "Sep", amount: 0 },
-      { month: "Oct", amount: 0 },
-    ],
+    monthlyRevenue: getEmptyMonthlyRevenue(),
 
     topProducts: [],
     recentSales: [],
@@ -115,20 +118,24 @@ const EarningsPage = async () => {
   };
 
   let data: EarningsData = fallbackData;
+  let loadError: string | null = null;
 
-  try {
-    const response = await apiClient.get<EarningsData>("/course/instructor/earnings", {
-      Authorization: `Bearer ${session?.accessToken}`,
-    });
+  if (!session?.accessToken) {
+    loadError = "Instructor session token is unavailable. Please sign in again.";
+  } else {
+    const earningsResponse = await apiClient.get<EarningsData>(
+      API_ENDPOINTS.COURSE.INSTRUCTOR_EARNINGS,
+      { Authorization: `Bearer ${session.accessToken}` }
+    );
 
-    if (response.success && response.data) {
-      data = response.data;
+    if (earningsResponse.success && earningsResponse.data) {
+      data = earningsResponse.data;
     } else {
-      console.error("Instructor earnings returned no data:", response);
+      loadError = earningsResponse.message || "Unable to load instructor earnings.";
+      console.error("Failed to load live instructor earnings:", earningsResponse);
     }
-  } catch (error) {
-    console.error("Failed to load instructor earnings:", error);
   }
+
   const maxMonthly = Math.max(...data.monthlyRevenue.map(item => item.amount), 1);
 
   const stats = [
@@ -178,6 +185,13 @@ const EarningsPage = async () => {
           current database schema.
         </div>
       </div>
+
+      {loadError ? (
+        <div className='rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800'>
+          Live earnings data could not be loaded. The earnings layout is still available with
+          zero-value fallbacks. <span className='font-medium'>{loadError}</span>
+        </div>
+      ) : null}
 
       <div className='grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4'>
         {stats.map(stat => (

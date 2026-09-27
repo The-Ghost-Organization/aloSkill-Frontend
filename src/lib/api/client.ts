@@ -1,7 +1,20 @@
-import { getSession } from "next-auth/react";
 import { config } from "../../config/env";
 
-const API_BASE_URL = config.NEXT_PUBLIC_BACKEND_API_URL || "http://localhost:5000/api/v1" || "https://alobackendskill.aloskill.com/api/v1";
+const API_BASE_URL = config.NEXT_PUBLIC_BACKEND_API_URL.replace(/\/+$/, "");
+
+export const API_ENDPOINTS = {
+  COURSE: {
+    INSTRUCTOR_DASHBOARD: "/course/instructorDashboard",
+    INSTRUCTOR_EARNINGS: "/course/instructor/earnings",
+  },
+  STUDENT: {
+    DASHBOARD: "/user/student/me/dashboard",
+    INSTRUCTORS: "/user/student/me/instructors",
+  },
+  CONTACT: {
+    SUBMIT: "/contact",
+  },
+} as const;
 
 interface ApiResponse<T = unknown> {
   success: boolean;
@@ -18,23 +31,49 @@ class ApiClient {
   }
 
   private async request<T>(endpoint: string, options: RequestInit = {}): Promise<ApiResponse<T>> {
-    const session = await getSession();
-    const headers: HeadersInit = {
-      "Content-Type": "application/json",
-      ...(session?.accessToken ? { Authorization: `Bearer ${session.accessToken}` } : {}),
-      ...(options.headers || {}),
-    };
-
     try {
+      const headers = new Headers(options.headers);
+
+      if (!headers.has("Content-Type") && !(options.body instanceof FormData)) {
+        headers.set("Content-Type", "application/json");
+      }
+
+      // Client components can obtain the token automatically.
+      // Server components/actions should pass Authorization explicitly from getServerSession().
+      if (!headers.has("Authorization") && typeof window !== "undefined") {
+        const { getSession } = await import("next-auth/react");
+        const session = await getSession();
+        if (session?.accessToken) {
+          headers.set("Authorization", `Bearer ${session.accessToken}`);
+        }
+      }
+
       const response = await fetch(`${this.baseURL}${endpoint}`, {
         ...options,
         headers,
       });
 
-      const data = await response.json();
-      return data;
-    } catch (_error) {
-      // console.error("API request error:", error);
+      const contentType = response.headers.get("content-type") || "";
+      const payload = contentType.includes("application/json")
+        ? ((await response.json()) as ApiResponse<T>)
+        : null;
+
+      if (!response.ok) {
+        return {
+          success: false,
+          message: payload?.message || `Request failed with status ${response.status}.`,
+          errors: payload?.errors,
+        };
+      }
+
+      return (
+        payload || {
+          success: false,
+          message: "Backend returned an invalid response.",
+        }
+      );
+    } catch (error) {
+      console.error(`API request failed: ${endpoint}`, error);
       return {
         success: false,
         message: "Network error. Please check your connection.",
@@ -42,7 +81,6 @@ class ApiClient {
     }
   }
 
-  // GET request
   async get<T>(endpoint: string, customHeaders?: Record<string, string>): Promise<ApiResponse<T>> {
     return this.request<T>(endpoint, {
       method: "GET",
@@ -50,7 +88,6 @@ class ApiClient {
     });
   }
 
-  // POST request
   async post<T>(
     endpoint: string,
     body?: unknown,
@@ -64,25 +101,30 @@ class ApiClient {
   }
 
   async postFormData<T>(endpoint: string, formData: FormData): Promise<ApiResponse<T>> {
-    const session = await getSession();
-    const headers: HeadersInit = {
-      ...(session?.accessToken ? { Authorization: `Bearer ${session.accessToken}` } : {}),
-    };
     try {
+      const headers = new Headers();
+
+      if (typeof window !== "undefined") {
+        const { getSession } = await import("next-auth/react");
+        const session = await getSession();
+        if (session?.accessToken) {
+          headers.set("Authorization", `Bearer ${session.accessToken}`);
+        }
+      }
+
       const response = await fetch(`${this.baseURL}${endpoint}`, {
         method: "POST",
         body: formData,
         headers,
       });
-      const data = await response.json();
+      const data = (await response.json()) as ApiResponse<T>;
       return data;
-    } catch (_error) {
-      // console.error("API request error:", error);
+    } catch (error) {
+      console.error(`Form-data API request failed: ${endpoint}`, error);
       return { success: false, message: "Network error." };
     }
   }
 
-  // PUT request
   async put<T>(endpoint: string, body?: unknown): Promise<ApiResponse<T>> {
     return this.request<T>(endpoint, {
       method: "PUT",
@@ -90,7 +132,6 @@ class ApiClient {
     });
   }
 
-  // PATCH request
   async patch<T>(
     endpoint: string,
     body?: unknown,
@@ -103,7 +144,6 @@ class ApiClient {
     });
   }
 
-  // DELETE request
   async delete<T>(endpoint: string, body?: unknown): Promise<ApiResponse<T>> {
     return this.request<T>(endpoint, {
       method: "DELETE",
@@ -112,8 +152,5 @@ class ApiClient {
   }
 }
 
-// Export singleton instance
 export const apiClient = new ApiClient(API_BASE_URL);
-
-// Export base URL
 export { API_BASE_URL };
