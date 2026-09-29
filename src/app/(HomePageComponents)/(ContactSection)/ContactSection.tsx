@@ -84,7 +84,7 @@ export default function ContactSection() {
   return (
     <section
       id='contact'
-      className='relative overflow-hidden py-16 md:py-24'
+      className='relative overflow-hidden py-6'
       aria-labelledby='contact-heading'
     >
       <div
@@ -104,7 +104,7 @@ export default function ContactSection() {
         aria-hidden='true'
       />
 
-      <div className='relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8'>
+      <div className='relative mx-auto max-w-7xl px-4 sm:px-6'>
         <div
           id='contact-heading'
           className='mb-12 text-center'

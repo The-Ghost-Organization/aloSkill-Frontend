@@ -215,6 +215,31 @@ export default function CourseDetailPage() {
     setCartUpdate?.(prev => !prev);
   };
 
+  const handleCourseReviewSaved = useCallback(
+    (payload: {
+      review: CourseDetailsPublic["reviews"][number];
+      summary: { average: number; count: number };
+    }) => {
+      setCourse(current => {
+        if (!current) return current;
+        const exists = current.reviews.some(review => review.id === payload.review.id);
+        const nextReviews = exists
+          ? current.reviews.map(review =>
+              review.id === payload.review.id ? payload.review : review
+            )
+          : [payload.review, ...current.reviews];
+
+        return {
+          ...current,
+          reviews: nextReviews,
+          ratingAverage: payload.summary.average,
+          ratingCount: payload.summary.count,
+        };
+      });
+    },
+    []
+  );
+
   const handleWishlist = async () => {
     if (!user?.id || !course?.id || wishlistLoading) return;
 
@@ -502,9 +527,10 @@ export default function CourseDetailPage() {
                   )}
                   {activeTab === "Reviews" && (
                     <ReviewsTab
+                      courseId={course.id}
                       reviews={course.reviews}
                       ratingAverage={rating}
-                      ratingBreakdown={course.ratingBreakdown}
+                      onReviewSaved={handleCourseReviewSaved}
                     />
                   )}
                 </div>

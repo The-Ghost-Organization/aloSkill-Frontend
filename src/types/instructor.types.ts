@@ -25,6 +25,7 @@ export interface InstructorDetail {
   avatarUrl: string | null;
   displayName: string;
   ratingAverage: number;
+  ratingCount: number;
   totalCourses: number;
   totalStudents: number;
   expertise: string | null;
@@ -34,6 +35,23 @@ export interface InstructorDetail {
   socialAccounts: {
     url: string;
     platform: string;
+  }[];
+  authorProfile?: {
+    id: string;
+    name: string;
+    slug: string;
+  } | null;
+  reviews: {
+    id: string;
+    courseId: string | null;
+    courseTitle: string;
+    rating: number;
+    title: string | null;
+    body: string | null;
+    createdAt: string;
+    userDisplayName: string;
+    avatarUrl: string | null;
+    verifiedEnrollment?: boolean;
   }[];
   ownedCourses: CourseType[];
   // ownedCourses: {

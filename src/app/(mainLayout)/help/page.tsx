@@ -1,9 +1,11 @@
+import ContactSection from "@/app/(HomePageComponents)/(ContactSection)/ContactSection.tsx";
 import ComingSoon from "@/components/shared/ComingSoon.tsx";
 
 const HelpPage = () => {
   return (
     <div>
-      <ComingSoon pageName='Help And Support page' />
+      <ContactSection />
+      {/* <ComingSoon pageName='Help And Support page' /> */}
     </div>
   );
 };

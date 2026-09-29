@@ -21,6 +21,7 @@ import type { InstructorDetail } from "../../../../types/instructor.types.ts";
 import { useSessionContext } from "../../../contexts/SessionContext.tsx";
 import { AboutTab } from "./about.tsx";
 import { CoursesTab } from "./courses.tsx";
+import { ReviewsTab } from "./reviews.tsx";
 export default function InstructorDetailsClient({ booksTab }: { booksTab: ReactNode }) {
   const params = useParams();
   const instructorId = params["id"] as string;
@@ -238,6 +239,11 @@ export default function InstructorDetailsClient({ booksTab }: { booksTab: ReactN
                       {instructor.totalCourses}
                     </span>
                   )}
+                  {tab.id === "reviews" && instructor.reviews.length > 0 && (
+                    <span className='ml-2 rounded-full bg-orange-100 px-2 py-0.5 text-xs text-orange-700'>
+                      {instructor.reviews.length}
+                    </span>
+                  )}
                   {activeTab === tab.id && (
                     <div className='absolute bottom-0 left-0 right-0 h-1 bg-[#DA7C36] animate-expand'></div>
                   )}
@@ -256,13 +262,7 @@ export default function InstructorDetailsClient({ booksTab }: { booksTab: ReactN
               />
             )}
             <div className={activeTab === "books" ? "block" : "hidden"}>{booksTab}</div>
-            {activeTab === "reviews" && (
-              <div className='text-center py-12'>
-                <Star className='w-16 h-16 text-gray-300 mx-auto mb-4' />
-                <h3 className='text-xl font-semibold text-gray-700 mb-2'>No Reviews Yet</h3>
-                <p className='text-gray-500'>Be the first to review this instructor!</p>
-              </div>
-            )}
+            {activeTab === "reviews" && <ReviewsTab reviews={instructor.reviews ?? []} />}
           </div>
         </div>
       </div>

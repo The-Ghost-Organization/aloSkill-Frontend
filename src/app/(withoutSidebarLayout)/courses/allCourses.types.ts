@@ -189,11 +189,14 @@ export type CourseDetailsPublic = {
     avatarUrl: string | null;
   }[];
   reviews: {
+    id: string;
     rating: number;
+    title: string | null;
     body: string | null;
     createdAt: string;
-    userDisplayName: string | undefined;
+    userDisplayName: string;
     avatarUrl: string | null;
+    verifiedEnrollment?: boolean;
   }[];
   content: {
     totalModules: number;

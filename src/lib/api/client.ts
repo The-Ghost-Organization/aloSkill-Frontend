@@ -6,6 +6,10 @@ export const API_ENDPOINTS = {
   COURSE: {
     INSTRUCTOR_DASHBOARD: "/course/instructorDashboard",
     INSTRUCTOR_EARNINGS: "/course/instructor/earnings",
+    PUBLIC_TESTIMONIALS: "/course/public/testimonials",
+    REVIEWS: (courseId: string) => `/course/public/viewCourse/${courseId}/reviews`,
+    REVIEW_STATUS: (courseId: string) => `/course/user/${courseId}/review-status`,
+    SUBMIT_REVIEW: (courseId: string) => `/course/user/${courseId}/reviews`,
   },
   STUDENT: {
     DASHBOARD: "/user/student/me/dashboard",

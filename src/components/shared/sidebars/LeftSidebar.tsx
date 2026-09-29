@@ -90,7 +90,7 @@ const navItems = [
   {
     icon: Star,
     label: "Success Stories",
-    href: "/success",
+    href: "/successStories",
     color: "text-amber-500",
   },
   {
