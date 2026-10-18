@@ -42,7 +42,7 @@ export default function DashboardCharts({ data }: { data: AdminDashboardData }) 
       <section className='rounded border border-[#1a3158] bg-[#0d1f3c] p-5 sm:p-6'>
         <div className='mb-6 flex flex-wrap items-end justify-between gap-3'>
           <div>
-            <h2 className='text-base font-bold text-slate-100'>Revenue momentum</h2>
+            <h2 className='text-base font-bold text-slate-100'>Customer payment trend</h2>
             <p className='mt-1 text-xs uppercase tracking-wider text-slate-500'>
               Successful payments · last 12 weeks
             </p>
@@ -123,7 +123,7 @@ export default function DashboardCharts({ data }: { data: AdminDashboardData }) 
       </section>
 
       <section className='rounded border border-[#1a3158] bg-[#0d1f3c] p-5 sm:p-6'>
-        <h2 className='text-base font-bold text-slate-100'>Product revenue</h2>
+        <h2 className='text-base font-bold text-slate-100'>Product sales</h2>
         <p className='mt-1 text-xs uppercase tracking-wider text-slate-500'>Books vs courses</p>
         <div className='relative h-48'>
           <ResponsiveContainer
@@ -176,7 +176,7 @@ export default function DashboardCharts({ data }: { data: AdminDashboardData }) 
       </section>
 
       <section className='rounded border border-[#1a3158] bg-[#0d1f3c] p-5 sm:p-6 xl:col-span-2'>
-        <h2 className='text-base font-bold text-slate-100'>Revenue by payment provider</h2>
+        <h2 className='text-base font-bold text-slate-100'>Collections by payment provider</h2>
         <p className='mt-1 text-xs uppercase tracking-wider text-slate-500'>
           Successful purchase transactions
         </p>

@@ -3,6 +3,7 @@ import { config } from "../../config/env";
 const API_BASE_URL = config.NEXT_PUBLIC_BACKEND_API_URL.replace(/\/+$/, "");
 
 export const API_ENDPOINTS = {
+  FINANCE: { ADMIN: "/finance/admin", INSTRUCTOR: "/finance/instructor" },
   COURSE: {
     INSTRUCTOR_DASHBOARD: "/course/instructorDashboard",
     INSTRUCTOR_EARNINGS: "/course/instructor/earnings",

@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { Check } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { updateBookStatus } from "../books/action";
 
 export default function QuickApproveButton({
   approvalId,
@@ -18,19 +17,7 @@ export default function QuickApproveButton({
   const router = useRouter();
 
   const handleClick = async () => {
-    if (state !== "idle") return;
-    setState("loading");
-    if (bookId) {
-      const result = await updateBookStatus(bookId);
-      if (!result?.success) {
-        setState("idle");
-        return;
-      }
-      router.refresh();
-    } else {
-      await new Promise(r => setTimeout(r, 800));
-    }
-    setState("done");
+    router.push(`/dashboard/admin/approvals/review/book/${bookId ?? approvalId}`);
   };
 
   return (

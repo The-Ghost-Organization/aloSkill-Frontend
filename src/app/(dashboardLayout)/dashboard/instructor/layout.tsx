@@ -35,6 +35,7 @@ const navItems = [
   { icon: BookOpen, label: "My Courses", path: "/dashboard/instructor/course" },
   { icon: LibraryBig, label: "My Books", path: "/dashboard/instructor/books" },
   { icon: DollarSign, label: "Earnings", path: "/dashboard/instructor/earning" },
+  { icon: DollarSign, label: "Payouts", path: "/dashboard/instructor/payouts" },
   { icon: MessageSquare, label: "Messages", path: "/dashboard/instructor/message" },
   { icon: Settings, label: "Settings", path: "/dashboard/instructor/settings" },
 ] as const;

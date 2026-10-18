@@ -64,7 +64,7 @@ export default function Sidebar({
   const router = useRouter();
   const pathname = usePathname();
 
-  const activeId = pathname === "/" ? "dashboard" : pathname.replace("/", "");
+  const activeId = pathname === "/dashboard/admin" ? "dashboard" : pathname.split("/")[3];
 
   const handleNav = (id: string) => {
     router.push(id === "dashboard" ? "/dashboard/admin" : `/dashboard/admin/${id}`);

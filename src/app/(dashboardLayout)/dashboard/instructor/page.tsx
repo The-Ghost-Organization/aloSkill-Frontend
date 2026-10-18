@@ -131,7 +131,7 @@ const Dashboard = async () => {
       iconColor: "text-rose-600",
     },
     {
-      label: "Gross Revenue",
+      label: "Product sales",
       value: formatCurrency(data.counters.totalRevenue),
       icon: Wallet,
       iconWrap: "bg-sky-50",

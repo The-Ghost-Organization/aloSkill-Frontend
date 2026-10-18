@@ -34,6 +34,7 @@ export type AdminDashboardData = {
     pendingPayoutAmount: number;
     pendingPayoutCount: number;
     providerFees: number;
+    platformRevenue?: string;
   };
   revenueTrend: Array<{ week: string; revenue: number; payments: number }>;
   revenueSplit: Array<{ name: string; value: number }>;

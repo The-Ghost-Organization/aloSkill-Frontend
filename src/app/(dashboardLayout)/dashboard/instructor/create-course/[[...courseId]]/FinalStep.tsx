@@ -8,7 +8,6 @@ import { redirect } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
 import { z } from "zod";
-import { useSessionContext } from "../../../../../contexts/SessionContext.tsx";
 import CourseFooter from "./CourseFooter.tsx";
 import { type CreateCourseData } from "./page.tsx";
 import StepHeader from "./StepHeader.tsx";
@@ -90,6 +89,7 @@ const FinalStep = ({
   setCourseData,
   isParamsExisting,
   setCourseUploadError,
+  adminMode,
 }: {
   currentStep: number;
   setCurrentStep: (step: number) => void;
@@ -97,9 +97,9 @@ const FinalStep = ({
   setCourseData: React.Dispatch<React.SetStateAction<CreateCourseData>>;
   setCourseUploadError: React.Dispatch<React.SetStateAction<string>>;
   isParamsExisting: boolean;
+  adminMode?: boolean;
 }) => {
   // const { data: session } = useSession();
-  const { user } = useSessionContext();
   const [paymentSelection, setPaymentSelection] = useState<"paid" | "free">("paid");
   const [query, setQuery] = useState<string>("");
   const [dataSaveMode, setDataSaveMode] = useState<
@@ -171,7 +171,7 @@ const FinalStep = ({
     append({
       instructorId: userId,
       displayName: name,
-      role: "PRIMARY",
+      role: adminMode && !fields.some(item => item.role === "PRIMARY") ? "PRIMARY" : "CO_INSTRUCTOR",
     });
   };
 
@@ -192,9 +192,12 @@ const FinalStep = ({
   };
 
   const handleCourseSaveToDb = async (data: FinalStepForm, status: string) => {
+    if (adminMode && !data.courseInstructors?.some(item => item.role === "PRIMARY")) {
+      throw new Error("Select an approved primary instructor before saving this course.");
+    }
     const { originalPrice, discountPrice } = data;
     const { allCategory: _allCategory, ...restCourseData } = courseData;
-    const courseSaveToDB = await apiClient.post(`/course/create-course?user=${user?.email}`, {
+    const courseSaveToDB = await apiClient.post(`/course/create-course`, {
       ...restCourseData,
       originalPrice: Number(originalPrice),
       discountPrice: Number(discountPrice),
@@ -220,6 +223,10 @@ const FinalStep = ({
   };
 
   const onFormSubmit = async (data: FinalStepForm) => {
+    if (adminMode && !data.courseInstructors?.some(item => item.role === "PRIMARY")) {
+      setCourseUploadError("Select an approved primary instructor before saving this course.");
+      return;
+    }
     const { originalPrice, discountPrice } = data;
     const { allCategory: _allCategory, ...restCourseData } = courseData;
     setCourseData(prev => ({
@@ -243,7 +250,7 @@ const FinalStep = ({
       }
       // console.log("Response from DB : ", backendData);
       if (backendData.success) {
-        redirect("/dashboard/instructor/course");
+        redirect(adminMode ? "/dashboard/admin/courses" : "/dashboard/instructor/course");
       }
     }
     if (dataSaveMode === "draft") {
@@ -258,11 +265,11 @@ const FinalStep = ({
       }
       // console.log("Response from DB : ", backendData);
       if (backendData.success) {
-        redirect("/dashboard/instructor/course");
+        redirect(adminMode ? "/dashboard/admin/courses" : "/dashboard/instructor/course");
       }
     }
     if (dataSaveMode === "update") {
-      const backendData = await apiClient.patch(`/course/editOrUpdate-course?user=${user?.email}`, {
+      const backendData = await apiClient.patch(`/course/editOrUpdate-course`, {
         ...restCourseData,
         originalPrice: Number(originalPrice),
         discountPrice: Number(discountPrice),
@@ -282,11 +289,11 @@ const FinalStep = ({
       }
       // console.log("Response from DB for update: ", backendData);
       if (backendData.success) {
-        redirect("/dashboard/instructor/course");
+        redirect(adminMode ? "/dashboard/admin/courses" : "/dashboard/instructor/course");
       }
     }
     if (dataSaveMode === "updateAndPublish") {
-      const backendData = await apiClient.patch(`/course/editOrUpdate-course?user=${user?.email}`, {
+      const backendData = await apiClient.patch(`/course/editOrUpdate-course`, {
         ...restCourseData,
         originalPrice: Number(originalPrice),
         discountPrice: Number(discountPrice),
@@ -306,7 +313,7 @@ const FinalStep = ({
       }
       // console.log("Response from DB for update: ", backendData);
       if (backendData.success) {
-        redirect("/dashboard/instructor/course");
+        redirect(adminMode ? "/dashboard/admin/courses" : "/dashboard/instructor/course");
       }
     }
     // console.log("courseData : ", courseData, "data : ", data);
@@ -478,7 +485,16 @@ const FinalStep = ({
           </div>
           {/* Add Instructor here */}
           <div className='space-y-4 w-full mt-8'>
-            <h5 className='font-medium text-gray-800'>Add Instructors</h5>
+            <div>
+              <h5 className='font-medium text-gray-800'>
+                {adminMode ? "Primary instructor and co-instructors" : "Add co-instructors"}
+              </h5>
+              {adminMode && (
+                <p className='mt-1 text-xs text-gray-500'>
+                  The first selected instructor becomes the course owner and primary instructor.
+                </p>
+              )}
+            </div>
             <div className='flex flex-col gap-2 items-start'>
               <div className='relative rounded w-full'>
                 <Search className='absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400' />

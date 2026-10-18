@@ -182,8 +182,32 @@ const LoadingOverlay = () => (
   </div>
 );
 
+// The same form is shared by the instructor and admin dashboards. These scoped
+// descendant utilities apply the admin palette without changing instructor UI.
+const ADMIN_COURSE_THEME = [
+  "bg-[#071426] text-slate-100",
+  "[&_.bg-white]:!bg-[#0d1f3c] [&_.bg-gray-50]:!bg-[#071426]",
+  "[&_.bg-gray-100]:!bg-slate-800 [&_.bg-gray-200]:!bg-slate-700",
+  "[&_.bg-gray-100\/40]:!bg-slate-800/40 [&_.bg-gray-100\/20]:!bg-slate-800/20",
+  "[&_.bg-gray-300]:!bg-slate-600 [&_.bg-gray-400]:!bg-slate-600",
+  "[&_.bg-gray-400\/60]:!bg-slate-700 [&_.bg-gray-600\/60]:!bg-slate-950/80",
+  "[&_.text-gray-900]:!text-slate-100 [&_.text-gray-800]:!text-slate-200",
+  "[&_.text-gray-700]:!text-slate-300 [&_.text-gray-600]:!text-slate-400",
+  "[&_.text-gray-500]:!text-slate-400 [&_.text-gray-400]:!text-slate-500",
+  "[&_.text-gray-300]:!text-slate-500",
+  "[&_.border-gray-100]:!border-slate-800 [&_.border-gray-200]:!border-slate-700",
+  "[&_.border-gray-300]:!border-slate-600 [&_.shadow-sm]:!shadow-black/20",
+  "[&_.bg-red-50]:!bg-red-950/30 [&_.border-red-200]:!border-red-500/30",
+  "[&_.text-red-700]:!text-red-300",
+  "[&_input]:!border-slate-700 [&_input]:!bg-slate-950 [&_input]:!text-slate-100",
+  "[&_textarea]:!border-slate-700 [&_textarea]:!bg-slate-950 [&_textarea]:!text-slate-100",
+  "[&_select]:!border-slate-700 [&_select]:!bg-slate-950 [&_select]:!text-slate-100",
+  "[&_input::placeholder]:!text-slate-600 [&_textarea::placeholder]:!text-slate-600",
+  "[&_label]:!text-slate-400",
+].join(" ");
+
 // ── Main component ────────────────────────────────────────────────────────────
-export default function CourseCreationForm() {
+export default function CourseCreationForm({ adminMode = false }: { adminMode?: boolean }) {
   // ── State & logic (unchanged) ─────────────────────────────────────────────
   const { courseId } = useParams();
   const { categories } = useSessionContext();
@@ -269,9 +293,17 @@ export default function CourseCreationForm() {
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <div className='min-h-screen w-full overflow-x-hidden bg-[#F8F9FC]'>
+    <div
+      data-course-theme={adminMode ? "admin" : "instructor"}
+      className={`min-h-screen w-full overflow-x-hidden ${adminMode ? ADMIN_COURSE_THEME : "bg-[#F8F9FC]"}`}
+    >
       {/* ── Sticky step navigation ── */}
       <header className='sticky top-0 z-20 border-b border-gray-200 bg-white shadow-sm'>
+        {adminMode && (
+          <div className='border-b border-slate-800 bg-slate-950/70 px-4 py-2 text-center text-[11px] font-semibold uppercase tracking-[0.16em] text-orange-400 sm:px-6'>
+            Admin course workspace
+          </div>
+        )}
         {/* Desktop stepper (sm+) */}
         <nav
           aria-label='Course creation steps'
@@ -383,6 +415,7 @@ export default function CourseCreationForm() {
                 setCourseData={setCourseData}
                 isParamsExisting={courseId !== undefined}
                 setCourseUploadError={setCourseUploadError}
+                adminMode={adminMode}
               />
             )}
           </>

@@ -188,12 +188,19 @@ export default async function AdminDashboardPage() {
 
       <section className='grid gap-3 sm:grid-cols-2 xl:grid-cols-4'>
         <Kpi
-          label='Gross revenue'
+          label='Customer payments'
           value={money(data.overview.grossRevenue)}
           detail={`${number(data.finance.successfulPayments)} successful payments`}
           trend={data.overview.revenueTrend}
           icon={<CircleDollarSign className='h-5 w-5' />}
           color='#00d49a'
+        />
+        <Kpi
+          label='Platform revenue after refunds'
+          value={money(data.finance.platformRevenue ?? 0)}
+          detail='Commission and course fees from the financial ledger'
+          icon={<CircleDollarSign className='h-5 w-5' />}
+          color='#fb923c'
         />
         <Kpi
           label='Net cash position'

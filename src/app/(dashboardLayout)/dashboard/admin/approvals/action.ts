@@ -20,10 +20,10 @@ export async function getApproval(type: ApprovalType, id: string) {
   if (!response.success) return null;
   return response.data;
 }
-export async function decideApproval(type: ApprovalType, id: string, decision: "APPROVE" | "REJECT", note: string) {
+export async function decideApproval(type: ApprovalType, id: string, decision: "APPROVE" | "REJECT", note: string, commissionRate?: string) {
   if (decision === "REJECT" && note.trim().length < 5) return { success: false, message: "Enter a reason of at least 5 characters." };
   try {
-    const response = await apiClient.patch(`/admin/approvals/${type}/${encodeURIComponent(id)}`, { decision, note: note.trim() }, await auth());
+    const response = await apiClient.patch(`/admin/approvals/${type}/${encodeURIComponent(id)}`, { decision, note: note.trim(), ...(commissionRate !== undefined ? {commissionRate} : {}) }, await auth());
     if (!response.success) return { success: false, message: "Decision could not be saved. Refresh the page and try again." };
     revalidatePath("/dashboard/admin/approvals");
     revalidatePath(`/dashboard/admin/approvals/review/${type}/${id}`);

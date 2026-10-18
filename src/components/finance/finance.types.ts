@@ -1,0 +1,113 @@
+export type Balance = {
+  totalEarnings: string;
+  netEarnings: string;
+  pendingBalance: string;
+  availableBalance: string;
+  requestedProcessing: string;
+  totalPaid: string;
+  refundedAdjusted: string;
+  minimumPayout: string;
+};
+export type Entry = {
+  id: string;
+  kind: "SALE" | "REFUND";
+  orderId: string;
+  orderItemId: string;
+  productTitle: string;
+  productType: string;
+  grossAmount: string;
+  discountAmount: string;
+  netSaleAmount: string;
+  commissionRate: string;
+  commissionSource: string;
+  commissionAmount: string;
+  platformFeeAmount: string;
+  platformFeeType: string;
+  platformFeeValue: string;
+  instructorEarning: string;
+  platformRevenue: string;
+  displayStatus: string;
+  status: string;
+  availableAt: string;
+  createdAt: string;
+  reversal: { id: string } | null;
+  refundReference?: string;
+  items: { amount: string; payout: { id: string; workflowStatus: string } }[];
+};
+export type Payout = {
+  id: string;
+  instructorId: string;
+  instructor?: {
+    email: string;
+    instructorProfile?: { displayName: string } | null;
+  };
+  amount: string;
+  workflowStatus: string;
+  methodType: string;
+  accountLastFour: string;
+  requestedAt: string;
+  approvedAt?: string;
+  processedAt?: string;
+  paidAt?: string;
+  transactionReference?: string;
+  adminNote?: string;
+  rejectionReason?: string;
+  account?: {
+    accountNumber: string;
+    holder: string;
+    bank?: string;
+    branch?: string;
+    routing?: string;
+  };
+  items?: { id: string; amount: string; earning: Entry }[];
+};
+export type Account = {
+  id: string;
+  type: string;
+  mobileBankingName: string | null;
+  bankName: string | null;
+  accHolderName: string;
+  branchName: string | null;
+  routingNumber: string | null;
+  accountLastFour: string;
+};
+export type Settings = {
+  globalBookCommission: string;
+  globalCourseCommission: string;
+  coursePlatformFeeType: "NONE" | "FIXED" | "PERCENTAGE";
+  coursePlatformFeeValue: string;
+  holdingPeriodDays: number;
+  minimumPayout: string;
+  financeActivatedAt: string;
+};
+export type Instructor = {
+  id: string;
+  userId: string;
+  displayName: string;
+  bookCommissionRate: string | null;
+  courseCommissionRate: string | null;
+  balances: Balance;
+};
+export type Overview = {
+  grossSales: string;
+  bookSales: string;
+  courseSales: string;
+  commissionRevenue: string;
+  platformFeeRevenue: string;
+  refundAmount: string;
+  refundRevenueImpact: string;
+  grossPlatformRevenue: string;
+  netPlatformRevenueBeforeUnknownCosts: string;
+  knownGatewayCosts: string;
+  paymentsWithKnownGatewayCost: number;
+  periodInstructorEarnings: string;
+  balances: Balance;
+  legacyPaidPayouts: { count: number; amount: string };
+  trend: { day: string; grossSales: string; platformRevenue: string }[];
+};
+export type Page<T> = {
+  rows: T[];
+  total: number;
+  page: number;
+  pageSize: number;
+};
