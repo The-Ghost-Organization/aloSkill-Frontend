@@ -65,7 +65,7 @@ function Cards({ items }: { items: [string, unknown][] }) {
           className='rounded border border-slate-700 bg-slate-900 p-5'
         >
           <p className='text-sm text-slate-400'>{title}</p>
-          <p className='mt-3 break-words text-2xl font-semibold text-white'>{currency(value)}</p>
+          <p className='mt-3 wrap-break-word text-2xl font-semibold text-white'>{currency(value)}</p>
         </div>
       ))}
     </div>
