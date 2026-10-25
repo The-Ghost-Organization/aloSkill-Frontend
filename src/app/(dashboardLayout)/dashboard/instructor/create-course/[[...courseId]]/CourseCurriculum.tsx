@@ -1,5 +1,4 @@
 import { apiClient } from "@/lib/api/client.ts";
-import { getUpload, uploadLessonVideo, type HostingPolicy } from "@/lib/course/videoHosting";
 import {
   ChevronDown,
   ChevronUp,
@@ -12,8 +11,9 @@ import {
   Trash2,
   Upload,
 } from "lucide-react";
-import { useEffect, useState, type ChangeEvent } from "react";
+import { type ChangeEvent, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
+import { getUpload, uploadLessonVideo, type HostingPolicy } from "@/lib/course/videoHosting";
 import { useSessionContext } from "../../../../../contexts/SessionContext.tsx";
 import CourseFooter from "./CourseFooter.tsx";
 import CourseModal from "./CourseModal.tsx";
@@ -55,11 +55,15 @@ export default function CourseCurriculum({
   const { user } = useSessionContext();
 
   const [policy, setPolicy] = useState<HostingPolicy | null>(null);
+  const [policyError, setPolicyError] = useState('');
   const [draftLoaded, setDraftLoaded] = useState(false);
   const draftKey = `aloskill:curriculum:${user?.id ?? ""}:${courseData.id ?? "new"}`;
   useEffect(() => {
     void apiClient.get<HostingPolicy>("/course/video/policy").then(response => {
-      if (response.data) setPolicy(response.data);
+      if (response.success && response.data) {
+        setPolicy(response.data);
+        setPolicyError('');
+      } else setPolicyError(response.message ?? 'Video hosting availability could not be loaded. Reload this page to retry.');
     });
   }, []);
   useEffect(() => {
@@ -67,77 +71,37 @@ export default function CourseCurriculum({
     try {
       const saved = localStorage.getItem(draftKey);
       if (saved) {
-        const draft = JSON.parse(saved) as {
-          modules: CourseModule[];
-          defaultHosting?: "FREE" | "PREMIUM";
-        };
+        const draft = JSON.parse(saved) as { modules: CourseModule[]; defaultHosting?: "FREE" | "PREMIUM" };
         if (Array.isArray(draft.modules)) setCourseData(prev => ({ ...prev, ...draft }));
       }
-    } catch {
-      /* Preserve server state if local storage is unavailable. */
-    }
+    } catch { /* Preserve server state if local storage is unavailable. */ }
     setDraftLoaded(true);
   }, [draftKey, user?.id, setCourseData]);
   useEffect(() => {
     if (!draftLoaded) return;
-    try {
-      localStorage.setItem(
-        draftKey,
-        JSON.stringify({ modules: courseData.modules, defaultHosting: courseData.defaultHosting })
-      );
-    } catch {
-      /* Storage full. */
-    }
+    try { localStorage.setItem(draftKey, JSON.stringify({ modules: courseData.modules, defaultHosting: courseData.defaultHosting })); } catch { /* Storage full. */ }
   }, [courseData.modules, courseData.defaultHosting, draftKey, draftLoaded]);
   useEffect(() => {
     let cancelled = false;
     const poll = async () => {
-      const pending = courseData.modules
-        .flatMap(m => m.lessons)
-        .filter(l => l.pendingVideoUploadJobId);
+      const pending = courseData.modules.flatMap(m => m.lessons).filter(l => l.pendingVideoUploadJobId);
       for (const lesson of pending) {
         try {
           const job = await getUpload(lesson.pendingVideoUploadJobId!);
           if (cancelled) return;
-          setCourseData(prev => ({
-            ...prev,
-            modules: prev.modules.map(m => ({
-              ...m,
-              lessons: m.lessons.map(l => {
-                if (l.pendingVideoUploadJobId !== job.id) return l;
-                if (job.status === "READY" && job.contentUrl)
-                  return {
-                    ...l,
-                    hostingType: l.pendingHostingType,
-                    videoUploadJobId: job.id,
-                    pendingVideoUploadJobId: undefined,
-                    pendingHostingType: undefined,
-                    contentUrl: { name: job.fileName, url: job.contentUrl },
-                    duration: job.duration,
-                    uploadMessage: "Video ready",
-                  };
-                return {
-                  ...l,
-                  uploadMessage:
-                    job.status === "FAILED"
-                      ? (job.uploadError ?? "Upload failed. Select the same file to retry.")
-                      : job.status === "STAGING"
-                        ? "Upload paused. Select the same file to resume."
-                        : "Processing video…",
-                };
-              }),
-            })),
-          }));
-        } catch {
-          /* Retry status after a temporary connection failure. */
-        }
+          setCourseData(prev => ({ ...prev, modules: prev.modules.map(m => ({ ...m, lessons: m.lessons.map(l => {
+            if (l.pendingVideoUploadJobId !== job.id) return l;
+            if (job.status === "READY" && job.contentUrl) return { ...l, hostingType: l.pendingHostingType,
+              videoUploadJobId: job.id, pendingVideoUploadJobId: undefined, pendingHostingType: undefined,
+              contentUrl: { name: job.fileName, url: job.contentUrl }, duration: job.duration, uploadMessage: "Video ready" };
+            return { ...l, uploadMessage: job.status === "FAILED" ? (job.uploadError ?? "Upload failed. Select the same file to retry.") :
+              job.status === "STAGING" ? "Upload paused. Select the same file to resume." : "Processing video…" };
+          }) })) }));
+        } catch { /* Retry status after a temporary connection failure. */ }
       }
     };
     const timer = setInterval(() => void poll(), 10_000);
-    return () => {
-      cancelled = true;
-      clearInterval(timer);
-    };
+    return () => { cancelled = true; clearInterval(timer); };
   }, [courseData.modules, setCourseData]);
 
   const [sections, setSections] = useState<ExtendedCourseModule[]>([
@@ -505,86 +469,34 @@ export default function CourseCurriculum({
 
         if (isVideo) {
           if (loading) return;
-          const lesson = courseData.modules
-            .find(m => m.position === sectionId)
-            ?.lessons.find(l => l.position === lectureId);
+          const lesson = courseData.modules.find(m => m.position === sectionId)?.lessons.find(l => l.position === lectureId);
           if (!lesson) return;
-          const hostingType =
-            lesson.requestedHostingType ??
-            lesson.hostingType ??
-            courseData.defaultHosting ??
-            (courseData.originalPrice > 0 ? "PREMIUM" : policy?.defaultHosting) ??
-            "PREMIUM";
-          if (
-            hostingType === "FREE" &&
-            (!lesson.youtubeDisclosureAccepted ||
-              (courseData.originalPrice > 0 && !lesson.freeHostingAcknowledged))
-          ) {
-            setUploadError(
-              "Accept the upload disclosure and limited protection acknowledgement before uploading."
-            );
-            return;
+          const hostingType = lesson.requestedHostingType ?? lesson.hostingType ?? courseData.defaultHosting ?? (courseData.originalPrice > 0 ? "PREMIUM" : policy?.defaultHosting) ?? "PREMIUM";
+          if (hostingType === "FREE" && (!lesson.youtubeDisclosureAccepted || (courseData.originalPrice > 0 && !lesson.freeHostingAcknowledged))) {
+            setUploadError("Accept the upload disclosure and limited protection acknowledgement before uploading."); return;
           }
-          setLoading(true);
-          setUploadError("");
+          setLoading(true); setUploadError("");
           let pendingId = "";
           try {
             const job = await uploadLessonVideo(file, {
-              hostingType,
-              courseId: courseData.id,
-              title: lesson.title,
-              description: lesson.description,
-              acknowledged: Boolean(lesson.freeHostingAcknowledged),
-              youtubeDisclosureAccepted: Boolean(lesson.youtubeDisclosureAccepted),
+              hostingType, courseId: courseData.id, title: lesson.title, description: lesson.description,
+              acknowledged: Boolean(lesson.freeHostingAcknowledged), youtubeDisclosureAccepted: Boolean(lesson.youtubeDisclosureAccepted),
               key: `${draftKey}:${lesson.id ?? `${sectionId}-${lectureId}`}`,
               onProgress: setUploadPercentage,
               onJob: id => {
                 pendingId = id;
-                setCourseData(prev => ({
-                  ...prev,
-                  modules: prev.modules.map(m => ({
-                    ...m,
-                    lessons: m.lessons.map(l =>
-                      m.position === sectionId && l.position === lectureId
-                        ? { ...l, pendingVideoUploadJobId: id, pendingHostingType: hostingType }
-                        : l
-                    ),
-                  })),
-                }));
+                setCourseData(prev => ({ ...prev, modules: prev.modules.map(m => ({ ...m, lessons: m.lessons.map(l =>
+                  m.position === sectionId && l.position === lectureId ? { ...l, pendingVideoUploadJobId: id, pendingHostingType: hostingType } : l) })) }));
               },
             });
             if (!job.contentUrl) throw new Error("Video is not ready yet.");
-            setCourseData(prev => ({
-              ...prev,
-              modules: prev.modules.map(m => ({
-                ...m,
-                lessons: m.lessons.map(l =>
-                  l.pendingVideoUploadJobId === pendingId
-                    ? {
-                        ...l,
-                        hostingType,
-                        videoUploadJobId: job.id,
-                        pendingVideoUploadJobId: undefined,
-                        pendingHostingType: undefined,
-                        contentUrl: { name: file.name, url: job.contentUrl! },
-                        duration: job.duration,
-                        uploadMessage: "Video ready",
-                      }
-                    : l
-                ),
-              })),
-            }));
+            setCourseData(prev => ({ ...prev, modules: prev.modules.map(m => ({ ...m, lessons: m.lessons.map(l =>
+              l.pendingVideoUploadJobId === pendingId ? { ...l, hostingType, videoUploadJobId: job.id,
+                pendingVideoUploadJobId: undefined, pendingHostingType: undefined, contentUrl: { name: file.name, url: job.contentUrl! },
+                duration: job.duration, uploadMessage: "Video ready" } : l) })) }));
           } catch (error) {
-            setUploadError(
-              error instanceof Error
-                ? error.message
-                : "Video upload failed. Select the same file to retry."
-            );
-          } finally {
-            setLoading(false);
-            setUploadPercentage("");
-            e.target.value = "";
-          }
+            setUploadError(error instanceof Error ? error.message : "Video upload failed. Select the same file to retry.");
+          } finally { setLoading(false); setUploadPercentage(""); e.target.value = ""; }
           return;
         }
 
@@ -904,26 +816,10 @@ export default function CourseCurriculum({
     const selectedModule = courseData.modules.find(m => m.position === sectionId);
     const lesson = selectedModule?.lessons.find(l => l.position === lectureId);
     if (type === "video") {
-      if (!window.confirm("Remove this video from the draft? Save the course to apply the change."))
-        return;
-      setCourseData(prev => ({
-        ...prev,
-        modules: prev.modules.map(m => ({
-          ...m,
-          lessons: m.lessons.map(l =>
-            m.position === sectionId && l.position === lectureId
-              ? {
-                  ...l,
-                  contentUrl: null,
-                  videoUploadJobId: null,
-                  pendingVideoUploadJobId: undefined,
-                  hostingType: undefined,
-                  uploadMessage: "Video removed from draft. Save to apply.",
-                }
-              : l
-          ),
-        })),
-      }));
+      if (!window.confirm("Remove this video from the draft? Save the course to apply the change.")) return;
+      setCourseData(prev => ({ ...prev, modules: prev.modules.map(m => ({ ...m, lessons: m.lessons.map(l =>
+        m.position === sectionId && l.position === lectureId ? { ...l, contentUrl: null, videoUploadJobId: null,
+          pendingVideoUploadJobId: undefined, hostingType: undefined, uploadMessage: "Video removed from draft. Save to apply." } : l) })) }));
       return;
     }
 
@@ -1030,37 +926,18 @@ export default function CourseCurriculum({
       >
         {/* Sections */}
         <div className='space-y-4'>
-          <label className='mb-4 block text-sm font-medium'>
-            Default video hosting
-            <select
-              value={
-                courseData.defaultHosting ??
-                (courseData.originalPrice > 0 ? "PREMIUM" : policy?.defaultHosting) ??
-                "PREMIUM"
-              }
-              className='ml-2 rounded border p-2'
-              onChange={e =>
-                setCourseData(prev => ({
-                  ...prev,
-                  defaultHosting: e.target.value as "FREE" | "PREMIUM",
-                }))
-              }
-            >
-              <option
-                value='FREE'
-                disabled={!policy?.freeEnabled}
-              >
-                Free Hosting
-              </option>
-              <option
-                value='PREMIUM'
-                disabled={policy ? !policy.premiumEnabled : false}
-              >
-                Premium Hosting
-              </option>
-            </select>
-          </label>
-          {courseData.modules.map((module, moduleIndex) => (
+          <label className='mb-4 block text-sm font-medium'>Default video hosting
+                <select value={courseData.defaultHosting ?? (courseData.originalPrice > 0 ? 'PREMIUM' : policy?.defaultHosting) ?? 'PREMIUM'} className='ml-2 rounded border p-2'
+                  onChange={e => setCourseData(prev => ({ ...prev, defaultHosting: e.target.value as "FREE" | "PREMIUM" }))}>
+                  <option value='FREE' disabled={!policy?.freeEnabled || (courseData.originalPrice > 0 && !policy.allowFreePaid)}>Free Hosting</option>
+                  <option value='PREMIUM' disabled={policy ? !policy.premiumEnabled : false}>Premium Hosting</option>
+                </select>
+              </label>
+              {policyError ? <p role='alert' className='text-sm text-red-700'>{policyError}</p>
+                : !policy ? <p role='status' className='text-sm text-gray-500'>Checking video hosting availability…</p>
+                : !policy.freeEnabled ? <p role='status' className='text-sm text-gray-600'>{policy.freeUnavailableReason ?? 'Free Hosting is currently unavailable. Ask an administrator to check Video Hosting settings.'}</p>
+                : courseData.originalPrice > 0 && !policy.allowFreePaid ? <p role='status' className='text-sm text-gray-600'>Free Hosting is disabled for paid lessons by the administrator.</p> : null}
+              {courseData.modules.map((module, moduleIndex) => (
             <div
               key={module.position}
               className='bg-gray-50 rounded p-4'
@@ -1388,195 +1265,39 @@ export default function CourseCurriculum({
                         {/* Contents Details */}
                         {lesson.type === "VIDEO" && (
                           <div className='bg-gray-100/20 w-full h-full p-2 pb-0 flex flex-col gap-1 rounded'>
-                            <fieldset
-                              disabled={loading}
-                              className='mb-3 space-y-2 rounded border border-gray-200 bg-white p-3 text-sm'
-                            >
+                            <fieldset disabled={loading} className='mb-3 space-y-2 rounded border border-gray-200 bg-white p-3 text-sm'>
                               <legend className='px-1 font-semibold'>Video hosting</legend>
-                              {(
-                                [
-                                  [
-                                    "FREE",
-                                    "Free Hosting",
-                                    "Standard video hosting. Suitable for free lessons and content that does not require advanced protection.",
-                                  ],
-                                  [
-                                    "PREMIUM",
-                                    "Premium Hosting",
-                                    "Protected video hosting with enhanced access security.",
-                                  ],
-                                ] as const
-                              ).map(([value, label, description]) => (
-                                <label
-                                  key={value}
-                                  className='flex items-start gap-2 p-2'
-                                >
-                                  <input
-                                    type='radio'
-                                    name={`hosting-${module.position}-${lesson.position}`}
-                                    value={value}
-                                    checked={
-                                      (lesson.requestedHostingType ??
-                                        lesson.hostingType ??
-                                        courseData.defaultHosting ??
-                                        (courseData.originalPrice > 0
-                                          ? "PREMIUM"
-                                          : policy?.defaultHosting) ??
-                                        "PREMIUM") === value
-                                    }
-                                    disabled={
-                                      value === "FREE"
-                                        ? !policy?.freeEnabled ||
-                                          (courseData.originalPrice > 0 && !policy.allowFreePaid)
-                                        : policy
-                                          ? !policy.premiumEnabled
-                                          : false
-                                    }
-                                    onChange={() =>
-                                      setCourseData(prev => ({
-                                        ...prev,
-                                        modules: prev.modules.map(m => ({
-                                          ...m,
-                                          lessons: m.lessons.map(l =>
-                                            m.position === module.position &&
-                                            l.position === lesson.position
-                                              ? {
-                                                  ...l,
-                                                  requestedHostingType: value,
-                                                  youtubeDisclosureAccepted: false,
-                                                }
-                                              : l
-                                          ),
-                                        })),
-                                      }))
-                                    }
-                                  />
-                                  <span>
-                                    <strong>{label}</strong>
-                                    {value === "PREMIUM" && courseData.originalPrice > 0
-                                      ? " (Recommended)"
-                                      : ""}
-                                    <span className='block text-xs text-gray-500'>
-                                      {description}
-                                    </span>
-                                  </span>
+                              {([['FREE', 'Free Hosting', 'Standard video hosting. Suitable for free lessons and content that does not require advanced protection.'],
+                                ['PREMIUM', 'Premium Hosting', 'Protected video hosting with enhanced access security.']] as const).map(([value, label, description]) => (
+                                <label key={value} className='flex items-start gap-2 p-2'>
+                                  <input type='radio' name={`hosting-${module.position}-${lesson.position}`} value={value}
+                                    checked={(lesson.requestedHostingType ?? lesson.hostingType ?? courseData.defaultHosting ?? (courseData.originalPrice > 0 ? 'PREMIUM' : policy?.defaultHosting) ?? 'PREMIUM') === value}
+                                    disabled={value === 'FREE' ? !policy?.freeEnabled || (courseData.originalPrice > 0 && !policy.allowFreePaid) : policy ? !policy.premiumEnabled : false}
+                                    onChange={() => setCourseData(prev => ({ ...prev, modules: prev.modules.map(m => ({ ...m, lessons: m.lessons.map(l =>
+                                      m.position === module.position && l.position === lesson.position ? { ...l, requestedHostingType: value, youtubeDisclosureAccepted: false } : l) })) }))} />
+                                  <span><strong>{label}</strong>{value === 'PREMIUM' && courseData.originalPrice > 0 ? ' (Recommended)' : ''}<span className='block text-xs text-gray-500'>{description}</span></span>
                                 </label>
                               ))}
-                              {(lesson.requestedHostingType ??
-                                lesson.hostingType ??
-                                courseData.defaultHosting ??
-                                (courseData.originalPrice > 0
-                                  ? "PREMIUM"
-                                  : policy?.defaultHosting) ??
-                                "PREMIUM") === "FREE" && (
-                                <>
-                                  <div className='rounded bg-orange-50 p-3 text-xs'>
-                                    Upload destination: the central ALOSKILL YouTube channel.
-                                    Privacy: Unlisted; embedding enabled. Title: {lesson.title}.
-                                    Description: {lesson.description || "(empty)"}. A private course
-                                    playlist organizes these videos. Anyone with a video link may
-                                    share it.
-                                    <label className='mt-2 flex gap-2'>
-                                      <input
-                                        type='checkbox'
-                                        checked={Boolean(lesson.youtubeDisclosureAccepted)}
-                                        onChange={e => {
-                                          const checked = e.target.checked;
-                                          setCourseData(prev => ({
-                                            ...prev,
-                                            modules: prev.modules.map(m => ({
-                                              ...m,
-                                              lessons: m.lessons.map(l =>
-                                                m.position === module.position &&
-                                                l.position === lesson.position
-                                                  ? { ...l, youtubeDisclosureAccepted: checked }
-                                                  : l
-                                              ),
-                                            })),
-                                          }));
-                                        }}
-                                      />
-                                      I authorize this upload to YouTube as Unlisted and agree to
-                                      the{" "}
-                                      <a
-                                        className='underline'
-                                        href='https://www.youtube.com/t/terms'
-                                        target='_blank'
-                                        rel='noreferrer'
-                                      >
-                                        YouTube Terms
-                                      </a>{" "}
-                                      and{" "}
-                                      <a
-                                        className='underline'
-                                        href='https://policies.google.com/privacy'
-                                        target='_blank'
-                                        rel='noreferrer'
-                                      >
-                                        Google Privacy Policy
-                                      </a>
-                                      .
-                                    </label>
-                                  </div>
-                                  {courseData.originalPrice > 0 && (
-                                    <label className='flex gap-2 text-xs text-orange-700'>
-                                      <input
-                                        type='checkbox'
-                                        checked={Boolean(lesson.freeHostingAcknowledged)}
-                                        onChange={e => {
-                                          const checked = e.target.checked;
-                                          setCourseData(prev => ({
-                                            ...prev,
-                                            modules: prev.modules.map(m => ({
-                                              ...m,
-                                              lessons: m.lessons.map(l =>
-                                                m.position === module.position &&
-                                                l.position === lesson.position
-                                                  ? { ...l, freeHostingAcknowledged: checked }
-                                                  : l
-                                              ),
-                                            })),
-                                          }));
-                                        }}
-                                      />
-                                      I understand that paid content links can be shared and access
-                                      protection is limited.
-                                    </label>
-                                  )}
-                                </>
-                              )}
-                              {(lesson.contentUrl?.url || lesson.pendingVideoUploadJobId) && (
-                                <label className='block cursor-pointer rounded border border-dashed p-2 text-center'>
-                                  {lesson.contentUrl?.url
-                                    ? "Replace video / change hosting (select source file)"
-                                    : "Select video / retry upload"}
-                                  <input
-                                    type='file'
-                                    accept='.mp4,.mov,.webm'
-                                    className='block w-full text-xs'
-                                    disabled={loading}
-                                    onChange={e =>
-                                      void handleFileSelect(e, module.position, lesson.position)
-                                    }
-                                  />
-                                </label>
-                              )}
-                              {lesson.uploadMessage && (
-                                <p
-                                  role='status'
-                                  className='text-xs'
-                                >
-                                  {lesson.uploadMessage}
-                                </p>
-                              )}
-                              {uploadPercentage && (
-                                <p
-                                  role='status'
-                                  className='text-xs'
-                                >
-                                  {uploadPercentage}
-                                </p>
-                              )}
+                              {(lesson.requestedHostingType ?? lesson.hostingType ?? courseData.defaultHosting ?? (courseData.originalPrice > 0 ? 'PREMIUM' : policy?.defaultHosting) ?? 'PREMIUM') === 'FREE' && <>
+                                <div className='rounded bg-orange-50 p-3 text-xs'>
+                                  Upload destination: the central ALOSKILL YouTube channel. Privacy: Unlisted; embedding enabled. Title: {lesson.title}. Description: {lesson.description || '(empty)'}. A private course playlist organizes these videos. Anyone with a video link may share it.
+                                  <label className='mt-2 flex gap-2'><input type='checkbox' checked={Boolean(lesson.youtubeDisclosureAccepted)} onChange={e => {
+                                    const checked = e.target.checked;
+                                    setCourseData(prev => ({ ...prev, modules: prev.modules.map(m => ({ ...m, lessons: m.lessons.map(l => m.position === module.position && l.position === lesson.position ? { ...l, youtubeDisclosureAccepted: checked } : l) })) }));
+                                  }} />I authorize this upload to YouTube as Unlisted and agree to the <a className='underline' href='https://www.youtube.com/t/terms' target='_blank' rel='noreferrer'>YouTube Terms</a> and <a className='underline' href='https://policies.google.com/privacy' target='_blank' rel='noreferrer'>Google Privacy Policy</a>.</label>
+                                </div>
+                                {courseData.originalPrice > 0 && <label className='flex gap-2 text-xs text-orange-700'><input type='checkbox' checked={Boolean(lesson.freeHostingAcknowledged)} onChange={e => {
+                                  const checked = e.target.checked;
+                                  setCourseData(prev => ({ ...prev, modules: prev.modules.map(m => ({ ...m, lessons: m.lessons.map(l => m.position === module.position && l.position === lesson.position ? { ...l, freeHostingAcknowledged: checked } : l) })) }));
+                                }} />I understand that paid content links can be shared and access protection is limited.</label>}
+                              </>}
+                              {(lesson.contentUrl?.url || lesson.pendingVideoUploadJobId) && <label className='block cursor-pointer rounded border border-dashed p-2 text-center'>
+                                {lesson.contentUrl?.url ? 'Replace video / change hosting (select source file)' : 'Select video / retry upload'}
+                                <input type='file' accept='.mp4,.mov,.webm' className='block w-full text-xs' disabled={loading}
+                                  onChange={e => void handleFileSelect(e, module.position, lesson.position)} />
+                              </label>}
+                              {lesson.uploadMessage && <p role='status' className='text-xs'>{lesson.uploadMessage}</p>}
+                              {uploadPercentage && <p role='status' className='text-xs'>{uploadPercentage}</p>}
                             </fieldset>
                             {/* Video and Files */}
                             <div className='flex items-center justify-center gap-3'>
@@ -2627,3 +2348,4 @@ export default function CourseCurriculum({
     </div>
   );
 }
+
