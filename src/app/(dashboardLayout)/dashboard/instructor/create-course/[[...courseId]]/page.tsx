@@ -41,6 +41,7 @@ export type CourseLesson = {
   freeHostingAcknowledged?: boolean;
   youtubeDisclosureAccepted?: boolean;
   uploadMessage?: string;
+  uploadProgress?: import("@/lib/course/videoHosting").VideoUploadProgress;
   title: string;
   position: number;
   notes?: string;

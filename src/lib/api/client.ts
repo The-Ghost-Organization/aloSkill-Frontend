@@ -130,6 +130,37 @@ class ApiClient {
     }
   }
 
+  // Authenticate once per source-file upload, rather than fetching a NextAuth
+  // session for every chunk. XHR exposes real upload progress unlike fetch.
+  async createFormUploader() {
+    const headers = new Headers();
+    if (typeof window !== 'undefined') {
+      const { getSession } = await import('next-auth/react');
+      const session = await getSession();
+      if (session?.accessToken) headers.set('Authorization', `Bearer ${session.accessToken}`);
+    }
+    return <T>(endpoint: string, formData: FormData, onProgress: (fraction: number) => void): Promise<ApiResponse<T>> =>
+      new Promise(resolve => {
+        const request = new XMLHttpRequest();
+        request.open('POST', `${this.baseURL}${endpoint}`);
+        request.timeout = 300_000;
+        headers.forEach((value, key) => request.setRequestHeader(key, value));
+        request.upload.onprogress = event => {
+          if (event.lengthComputable && event.total > 0) onProgress(Math.min(1, event.loaded / event.total));
+        };
+        request.onload = () => {
+          try {
+            const response = JSON.parse(request.responseText) as ApiResponse<T>;
+            resolve(request.status >= 200 && request.status < 300 ? response : { ...response, success: false });
+          } catch { resolve({ success: false, message: `Upload request failed (HTTP ${request.status}).` }); }
+        };
+        request.onerror = () => resolve({ success: false, message: 'Upload connection interrupted. Retrying this chunk…' });
+        request.ontimeout = () => resolve({ success: false, message: 'Upload chunk timed out. Retrying…' });
+        request.onabort = () => resolve({ success: false, message: 'Upload cancelled.' });
+        request.send(formData);
+      });
+  }
+
   async put<T>(endpoint: string, body?: unknown): Promise<ApiResponse<T>> {
     return this.request<T>(endpoint, {
       method: "PUT",

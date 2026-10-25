@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import { type ChangeEvent, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
-import { getUpload, uploadLessonVideo, type HostingPolicy } from "@/lib/course/videoHosting";
+import { getUpload, uploadLessonVideo, progressFromJob, formatVideoBytes, type HostingPolicy } from "@/lib/course/videoHosting";
 import { useSessionContext } from "../../../../../contexts/SessionContext.tsx";
 import CourseFooter from "./CourseFooter.tsx";
 import CourseModal from "./CourseModal.tsx";
@@ -51,7 +51,7 @@ export default function CourseCurriculum({
   const [uploadError, setUploadError] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(false);
   const [fileLoading, setFileLoading] = useState<boolean>(false);
-  const [uploadPercentage, setUploadPercentage] = useState<string>("");
+
   const { user } = useSessionContext();
 
   const [policy, setPolicy] = useState<HostingPolicy | null>(null);
@@ -93,16 +93,18 @@ export default function CourseCurriculum({
             if (l.pendingVideoUploadJobId !== job.id) return l;
             if (job.status === "READY" && job.contentUrl) return { ...l, hostingType: l.pendingHostingType,
               videoUploadJobId: job.id, pendingVideoUploadJobId: undefined, pendingHostingType: undefined,
-              contentUrl: { name: job.fileName, url: job.contentUrl }, duration: job.duration, uploadMessage: "Video ready" };
-            return { ...l, uploadMessage: job.status === "FAILED" ? (job.uploadError ?? "Upload failed. Select the same file to retry.") :
-              job.status === "STAGING" ? "Upload paused. Select the same file to resume." : "Processing video…" };
+              contentUrl: { name: job.fileName, url: job.contentUrl }, duration: job.duration, uploadMessage: "Video ready", uploadProgress: progressFromJob(job) };
+            // Do not overwrite in-flight browser byte progress with the last
+            // committed chunk offset returned by background polling.
+            if (job.status === 'STAGING' && loading) return l;
+            return { ...l, uploadMessage: job.statusMessage ?? 'Upload status updated', uploadProgress: progressFromJob(job) };
           }) })) }));
         } catch { /* Retry status after a temporary connection failure. */ }
       }
     };
-    const timer = setInterval(() => void poll(), 10_000);
+    const timer = setInterval(() => void poll(), 3000);
     return () => { cancelled = true; clearInterval(timer); };
-  }, [courseData.modules, setCourseData]);
+  }, [courseData.modules, setCourseData, loading]);
 
   const [sections, setSections] = useState<ExtendedCourseModule[]>([
     {
@@ -482,21 +484,22 @@ export default function CourseCurriculum({
               hostingType, courseId: courseData.id, title: lesson.title, description: lesson.description,
               acknowledged: Boolean(lesson.freeHostingAcknowledged), youtubeDisclosureAccepted: Boolean(lesson.youtubeDisclosureAccepted),
               key: `${draftKey}:${lesson.id ?? `${sectionId}-${lectureId}`}`,
-              onProgress: setUploadPercentage,
+              onProgress: progress => setCourseData(prev => ({ ...prev, modules: prev.modules.map(m => ({ ...m, lessons: m.lessons.map(l =>
+                l.pendingVideoUploadJobId === pendingId ? { ...l, uploadProgress: progress, uploadMessage: progress.message } : l) })) })),
               onJob: id => {
                 pendingId = id;
                 setCourseData(prev => ({ ...prev, modules: prev.modules.map(m => ({ ...m, lessons: m.lessons.map(l =>
                   m.position === sectionId && l.position === lectureId ? { ...l, pendingVideoUploadJobId: id, pendingHostingType: hostingType } : l) })) }));
               },
             });
-            if (!job.contentUrl) throw new Error("Video is not ready yet.");
+            if (job.status !== "READY" || !job.contentUrl) return;
             setCourseData(prev => ({ ...prev, modules: prev.modules.map(m => ({ ...m, lessons: m.lessons.map(l =>
               l.pendingVideoUploadJobId === pendingId ? { ...l, hostingType, videoUploadJobId: job.id,
                 pendingVideoUploadJobId: undefined, pendingHostingType: undefined, contentUrl: { name: file.name, url: job.contentUrl! },
-                duration: job.duration, uploadMessage: "Video ready" } : l) })) }));
+                duration: job.duration, uploadMessage: "Video ready", uploadProgress: progressFromJob(job) } : l) })) }));
           } catch (error) {
             setUploadError(error instanceof Error ? error.message : "Video upload failed. Select the same file to retry.");
-          } finally { setLoading(false); setUploadPercentage(""); e.target.value = ""; }
+          } finally { setLoading(false); e.target.value = ""; }
           return;
         }
 
@@ -933,6 +936,8 @@ export default function CourseCurriculum({
                   <option value='PREMIUM' disabled={policy ? !policy.premiumEnabled : false}>Premium Hosting</option>
                 </select>
               </label>
+              {policy && <p className='text-sm text-gray-600'>Maximum video size: {formatVideoBytes(policy.maxUploadBytes)}. Large files upload in resumable chunks.</p>}
+              {policy?.workerAvailable === false && <p role='alert' className='text-sm text-red-700'>The video worker is offline. Ask the administrator to start it before uploading. Existing uploaded files are saved.</p>}
               {policyError ? <p role='alert' className='text-sm text-red-700'>{policyError}</p>
                 : !policy ? <p role='status' className='text-sm text-gray-500'>Checking video hosting availability…</p>
                 : !policy.freeEnabled ? <p role='status' className='text-sm text-gray-600'>{policy.freeUnavailableReason ?? 'Free Hosting is currently unavailable. Ask an administrator to check Video Hosting settings.'}</p>
@@ -1296,8 +1301,19 @@ export default function CourseCurriculum({
                                 <input type='file' accept='.mp4,.mov,.webm' className='block w-full text-xs' disabled={loading}
                                   onChange={e => void handleFileSelect(e, module.position, lesson.position)} />
                               </label>}
-                              {lesson.uploadMessage && <p role='status' className='text-xs'>{lesson.uploadMessage}</p>}
-                              {uploadPercentage && <p role='status' className='text-xs'>{uploadPercentage}</p>}
+                              {lesson.uploadProgress ? <div className='space-y-2 rounded border bg-gray-50 p-3' role='status' aria-live='polite'>
+                                <div className='flex flex-wrap justify-between gap-2 text-sm'>
+                                  <span>{lesson.uploadProgress.message}</span>
+                                  {lesson.uploadProgress.percent !== null && <strong>{lesson.uploadProgress.percent.toFixed(1)}%</strong>}
+                                </div>
+                                {lesson.uploadProgress.percent !== null ? <progress className='h-2 w-full accent-orange-500' max={100} value={lesson.uploadProgress.percent} aria-label='Current video upload stage progress' />
+                                  : <p className='text-xs text-gray-500'>Upload progress and video processing are separate stages. Your draft is saved.</p>}
+                                {['SOURCE', 'TRANSFER'].includes(lesson.uploadProgress.stage) && <p className='text-xs text-gray-600'>
+                                  {formatVideoBytes(lesson.uploadProgress.bytes)} / {formatVideoBytes(lesson.uploadProgress.total)}
+                                  {lesson.uploadProgress.bytesPerSecond ? ` · ${formatVideoBytes(lesson.uploadProgress.bytesPerSecond)}/s` : ''}
+                                  {lesson.uploadProgress.remainingSeconds !== undefined ? ` · About ${Math.ceil(lesson.uploadProgress.remainingSeconds / 60)} min remaining` : ''}
+                                </p>}
+                              </div> : lesson.uploadMessage && <p role='status' className='text-xs'>{lesson.uploadMessage}</p>}
                             </fieldset>
                             {/* Video and Files */}
                             <div className='flex items-center justify-center gap-3'>
@@ -1336,13 +1352,6 @@ export default function CourseCurriculum({
                                       <Loader className='w-4 h-4 animate-spin mx-auto my-auto' />
                                     ) : (
                                       <>
-                                        {uploadPercentage ? (
-                                          <span className='flex items-center gap-2 text-sm'>
-                                            <CloudUpload className='animate-pulse mr-2 w-4 h-4' />{" "}
-                                            {uploadPercentage}
-                                          </span>
-                                        ) : (
-                                          <>
                                             <label
                                               htmlFor={`lessonVideo-${module.position}-${lesson.position}`}
                                               className={`flex items-center justify-center gap-2 text-sm w-full cursor-pointer`}
@@ -1368,8 +1377,7 @@ export default function CourseCurriculum({
                                               accept='.mp4,.mov,.webm'
                                               className='hidden'
                                             />
-                                          </>
-                                        )}
+
                                       </>
                                     )}
                                   </div>

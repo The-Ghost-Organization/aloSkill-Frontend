@@ -39,6 +39,7 @@ export default function VideoHostingSettings() {
     <h2 className='mb-4 text-lg font-bold'>Video Hosting</h2>
     {message && <p role='status' className='mb-4 text-sm text-orange-300'>{message}</p>}
     {!settings ? <p>Loading hosting configuration…</p> : <>
+      <p role='status' className={`mb-4 text-sm ${settings.workerAvailable ? 'text-green-300' : 'text-red-300'}`}>Video worker: {settings.workerAvailable ? 'Online' : 'Offline — start the video worker process. The email worker does not process videos.'}</p>
       <div className='grid gap-5 md:grid-cols-2'>
         <div><h3 className='font-semibold'>Free Hosting configuration</h3>
           <p className='my-2 text-sm'>YouTube OAuth: {settings.connected ? `Connected to ${settings.channelTitle} (${settings.channelId})` : 'Not connected'}</p>
@@ -56,7 +57,7 @@ export default function VideoHostingSettings() {
       <fieldset disabled={busy} className='my-5 grid gap-4 sm:grid-cols-2'>
         <legend className='mb-3 font-semibold'>Platform policies</legend>
         <label className='flex flex-col gap-2 text-sm'>Default hosting preference<select className={inputClass} value={settings.defaultHosting} onChange={e => setSettings({ ...settings, defaultHosting: e.target.value as 'FREE' | 'PREMIUM' })}><option value='FREE'>Free Hosting</option><option value='PREMIUM'>Premium Hosting</option></select></label>
-        <label className='flex flex-col gap-2 text-sm'>Maximum file size (MB)<input type='number' min={1} max={1907} className={inputClass} value={Math.floor(settings.maxUploadBytes / 1048576)} onChange={e => setSettings({ ...settings, maxUploadBytes: Number(e.target.value) * 1048576 })} /></label>
+        <label className='flex flex-col gap-2 text-sm'>Maximum video size (GB)<input type='number' min={1} max={100} className={inputClass} value={Math.floor(settings.maxUploadBytes / 1073741824)} onChange={e => setSettings({ ...settings, maxUploadBytes: Number(e.target.value) * 1073741824 })} /></label>
         {(['freeEnabled', 'premiumEnabled', 'allowFreePaid'] as const).map(key => <label key={key} className='flex gap-2 text-sm'><input type='checkbox' checked={settings[key]} onChange={e => setSettings({ ...settings, [key]: e.target.checked })} />{{ freeEnabled: 'Enable Free Hosting', premiumEnabled: 'Enable Premium Hosting', allowFreePaid: 'Allow Free Hosting for paid lessons' }[key]}</label>)}
         <div className='text-sm'>Allowed formats{(['video/mp4', 'video/quicktime', 'video/webm'] as const).map(mime => <label key={mime} className='mt-2 flex gap-2'><input type='checkbox' checked={settings.allowedMimeTypes.includes(mime)} onChange={e => setSettings({ ...settings, allowedMimeTypes: e.target.checked ? [...settings.allowedMimeTypes, mime] : settings.allowedMimeTypes.filter(v => v !== mime) })} />{mime}</label>)}</div>
       </fieldset>
