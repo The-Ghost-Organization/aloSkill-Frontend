@@ -1,4 +1,5 @@
 "use client";
+import { RefreshCw, Wallet } from "lucide-react";
 import {
   cloneElement,
   isValidElement,
@@ -6,6 +7,7 @@ import {
   useEffect,
   useRef,
   useState,
+  type CSSProperties,
   type FormEvent,
   type ReactElement,
   type ReactNode,
@@ -31,9 +33,9 @@ const currency = (value: unknown) =>
 const date = (value?: string) =>
   value ? new Date(value).toLocaleString("en-BD", { timeZone: "Asia/Dhaka" }) : "—";
 const field =
-  "w-full rounded border border-slate-600 bg-slate-950 px-3 py-2 text-slate-100 focus:border-orange-400 focus:outline-none";
+  "w-full rounded-[var(--finance-control-radius)] border border-[var(--finance-border)] bg-[var(--finance-inset)] px-3 py-2 text-[var(--finance-text)] text-sm placeholder:text-[var(--finance-muted)] focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-500/15 transition-colors";
 const button =
-  "rounded bg-orange-600 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-500 disabled:opacity-40";
+  "rounded-[var(--finance-control-radius)] bg-orange-500 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-600 transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-500 disabled:cursor-not-allowed disabled:opacity-40";
 const zero: Balance = {
   totalEarnings: "0",
   netEarnings: "0",
@@ -46,7 +48,7 @@ const zero: Balance = {
 };
 function Label({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <label className='block space-y-2 text-sm text-slate-300'>
+    <label className='block space-y-2 text-sm text-[var(--finance-label)]'>
       <span>{title}</span>
       {isValidElement(children)
         ? cloneElement(children as ReactElement<Record<string, unknown>>, {
@@ -59,13 +61,33 @@ function Label({ title, children }: { title: string; children: ReactNode }) {
 function Cards({ items }: { items: [string, unknown][] }) {
   return (
     <div className='grid gap-3 sm:grid-cols-2 xl:grid-cols-4'>
-      {items.map(([title, value]) => (
+      {items.map(([title, value], index) => (
         <div
           key={title}
-          className='rounded border border-slate-700 bg-slate-900 p-5'
+          className='flex items-center gap-3 rounded-[var(--finance-card-radius)] border border-[var(--finance-border)] bg-[var(--finance-surface)] p-4 sm:p-5'
         >
-          <p className='text-sm text-slate-400'>{title}</p>
-          <p className='mt-3 wrap-break-word text-2xl font-semibold text-white'>{currency(value)}</p>
+          <span
+            className={
+              [
+                "bg-orange-500/10 text-orange-500",
+                "bg-blue-500/10 text-blue-500",
+                "bg-green-500/10 text-green-500",
+                "bg-red-500/10 text-red-500",
+              ][index % 4] +
+              " flex h-11 w-11 shrink-0 items-center justify-center rounded-[var(--finance-control-radius)]"
+            }
+          >
+            <Wallet
+              size={20}
+              aria-hidden='true'
+            />
+          </span>
+          <div className='min-w-0'>
+            <p className='break-words text-[length:var(--finance-value-size)] font-bold leading-tight text-[var(--finance-text)]'>
+              {currency(value)}
+            </p>
+            <p className='mt-1 text-xs text-[var(--finance-muted)]'>{title}</p>
+          </div>
         </div>
       ))}
     </div>
@@ -73,14 +95,14 @@ function Cards({ items }: { items: [string, unknown][] }) {
 }
 function Status({ value }: { value: string }) {
   return (
-    <span className='inline-block rounded-full border border-slate-600 bg-slate-800 px-2 py-1 text-xs text-slate-200'>
+    <span className='inline-block rounded-full border border-[var(--finance-border)] bg-[var(--finance-inset)] px-2 py-1 text-xs text-[var(--finance-text)]'>
       {value.replaceAll("_", " ")}
     </span>
   );
 }
 function Empty({ children }: { children: ReactNode }) {
   return (
-    <p className='rounded border border-dashed border-slate-700 p-8 text-center text-slate-400'>
+    <p className='rounded-[var(--finance-control-radius)] border border-dashed border-[var(--finance-border)] p-8 text-center text-[var(--finance-muted)]'>
       {children}
     </p>
   );
@@ -292,7 +314,7 @@ export default function FinanceWorkspace({
         : payouts;
   function pagination() {
     return (
-      <div className='flex items-center justify-between gap-3 text-sm text-slate-400'>
+      <div className='flex items-center justify-between gap-3 text-sm text-[var(--finance-muted)]'>
         <span>
           {listed.total} records · Page {currentPage}
         </span>
@@ -318,9 +340,9 @@ export default function FinanceWorkspace({
   function transactionTable() {
     return (
       <>
-        <div className='overflow-x-auto rounded border border-slate-700'>
+        <div className='overflow-x-auto rounded-[var(--finance-card-radius)] border border-[var(--finance-border)] bg-[var(--finance-surface)]'>
           <table className='w-full min-w-[1000px] text-left text-sm'>
-            <thead className='bg-slate-800 text-slate-300'>
+            <thead className='bg-[var(--finance-inset)] text-[var(--finance-label)]'>
               <tr>
                 {[
                   "Date / product",
@@ -334,7 +356,7 @@ export default function FinanceWorkspace({
                 ].map(h => (
                   <th
                     key={h}
-                    className='p-3'
+                    className='px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-[var(--finance-muted)]'
                   >
                     {h}
                   </th>
@@ -345,30 +367,32 @@ export default function FinanceWorkspace({
               {entries.rows.map(e => (
                 <tr
                   key={e.id}
-                  className='border-t border-slate-800'
+                  className='border-t border-[var(--finance-border)] transition-colors hover:bg-[var(--finance-hover)]'
                 >
                   <td className='max-w-56 p-3'>
-                    <p className='font-semibold text-white'>{e.productTitle}</p>
-                    <p className='text-xs text-slate-400'>
+                    <p className='font-semibold text-[var(--finance-text)]'>{e.productTitle}</p>
+                    <p className='text-xs text-[var(--finance-muted)]'>
                       {e.productType} · {e.kind} · {date(e.createdAt)}
                     </p>
-                    <span className='text-xs text-slate-500'>Order {e.orderId.slice(0, 8)}</span>
+                    <span className='text-xs text-[var(--finance-muted)]'>
+                      Order {e.orderId.slice(0, 8)}
+                    </span>
                   </td>
                   <td className='p-3'>
                     {currency(e.netSaleAmount)}
-                    <p className='text-xs text-slate-400'>
+                    <p className='text-xs text-[var(--finance-muted)]'>
                       Allocated discount {currency(e.discountAmount)}
                     </p>
                   </td>
                   <td className='p-3'>
                     {currency(e.commissionAmount)}
-                    <p className='text-xs text-slate-400'>
+                    <p className='text-xs text-[var(--finance-muted)]'>
                       {e.commissionRate}% · {e.commissionSource}
                     </p>
                   </td>
                   <td className='p-3'>
                     {currency(e.platformFeeAmount)}
-                    <p className='text-xs text-slate-400'>
+                    <p className='text-xs text-[var(--finance-muted)]'>
                       {e.platformFeeType} {e.platformFeeValue}
                     </p>
                   </td>
@@ -376,7 +400,9 @@ export default function FinanceWorkspace({
                   <td className='p-3'>{currency(e.platformRevenue)}</td>
                   <td className='p-3'>
                     <Status value={e.displayStatus} />
-                    <p className='mt-1 text-xs text-slate-400'>{date(e.availableAt)}</p>
+                    <p className='mt-1 text-xs text-[var(--finance-muted)]'>
+                      {date(e.availableAt)}
+                    </p>
                     {e.refundReference && (
                       <p className='text-xs'>Refund ref: {e.refundReference}</p>
                     )}
@@ -423,11 +449,35 @@ export default function FinanceWorkspace({
     }
   }
   return (
-    <section className='min-w-0 space-y-6 text-slate-100'>
+    <section
+      data-finance-theme={admin ? "admin" : "instructor"}
+      style={
+        {
+          "--finance-surface": admin ? "#0d1f3c" : "#ffffff",
+          "--finance-inset": admin ? "#070f1e" : "#f9fafb",
+          "--finance-hover": admin ? "#1a3158" : "#f3f4f6",
+          "--finance-border": admin ? "#1a3158" : "#e5e7eb",
+          "--finance-text": admin ? "#e8f0fe" : "#111827",
+          "--finance-label": admin ? "#7a9cc4" : "#374151",
+          "--finance-muted": admin ? "#7a9cc4" : "#6b7280",
+          "--finance-accent-text": admin ? "#fc9759" : "#ea580c",
+          "--finance-danger": admin ? "#fca5a5" : "#dc2626",
+          "--finance-success": admin ? "#34d399" : "#15803d",
+          "--finance-warning": admin ? "#fcd34d" : "#a16207",
+          "--finance-card-radius": admin ? "16px" : "4px",
+          "--finance-control-radius": admin ? "8px" : "4px",
+          "--finance-value-size": admin ? "26px" : "18px",
+          colorScheme: admin ? "dark" : "light",
+        } as CSSProperties
+      }
+      className='min-w-0 space-y-5 text-sm text-[var(--finance-text)] [&_h1]:text-[var(--finance-text)] [&_h2]:text-[var(--finance-text)] [&_h3]:text-[var(--finance-text)] [&_h1]:[font-family:inherit] [&_h2]:[font-family:inherit] [&_h3]:[font-family:inherit]'
+    >
       <header className='flex flex-wrap items-start justify-between gap-3'>
         <div>
-          <h1 className='text-3xl font-bold'>{admin ? "Finance" : "Earnings & payouts"}</h1>
-          <p className='mt-2 text-sm text-slate-400'>
+          <h1 className='text-[22px] font-extrabold tracking-tight'>
+            {admin ? "Finance" : "Earnings & payouts"}
+          </h1>
+          <p className='mt-2 text-sm text-[var(--finance-muted)]'>
             {admin
               ? "Verified sales, platform revenue and instructor settlements."
               : "Your sale earnings, held funds and manual payout history."}
@@ -438,19 +488,24 @@ export default function FinanceWorkspace({
           disabled={loading || busy}
           onClick={() => void load()}
         >
+          <RefreshCw
+            size={14}
+            className='mr-2 inline-block'
+            aria-hidden='true'
+          />
           Refresh
         </button>
       </header>
       <nav
-        className='flex flex-wrap gap-2'
+        className='flex max-w-full flex-wrap gap-1 rounded-[var(--finance-control-radius)] border border-[var(--finance-border)] bg-[var(--finance-inset)] p-1'
         aria-label='Finance sections'
       >
         {tabs.map(([id, label]) => (
           <button
             key={id}
             aria-current={tab === id ? "page" : undefined}
-            onClick={() => changeTab(id as string)}
-            className={`rounded px-4 py-2 text-sm ${tab === id ? "bg-orange-600 text-white" : "bg-slate-800 text-slate-300 hover:bg-slate-700"}`}
+            onClick={() => changeTab(id || "")}
+            className={`rounded-[var(--finance-control-radius)] border px-4 py-2 text-sm font-semibold transition-colors cursor-pointer ${tab === id ? "border-orange-500/20 bg-orange-500/10 text-[var(--finance-accent-text)]" : "border-transparent text-[var(--finance-muted)] hover:bg-[var(--finance-hover)] hover:text-[var(--finance-text)]"}`}
           >
             {label}
           </button>
@@ -459,7 +514,7 @@ export default function FinanceWorkspace({
       {error && (
         <p
           role='alert'
-          className='rounded border border-red-700 bg-red-950/30 p-4 text-red-300'
+          className='rounded-[var(--finance-control-radius)] border border-red-500/25 bg-red-500/10 p-4 text-[var(--finance-danger)]'
         >
           {error}
         </p>
@@ -467,7 +522,7 @@ export default function FinanceWorkspace({
       {notice && (
         <p
           role='status'
-          className='text-emerald-400'
+          className='text-[var(--finance-success)]'
         >
           {notice}
         </p>
@@ -475,7 +530,7 @@ export default function FinanceWorkspace({
       {loading && (
         <p
           role='status'
-          className='text-slate-400'
+          className='text-[var(--finance-muted)]'
         >
           Loading financial records…
         </p>
@@ -518,12 +573,12 @@ export default function FinanceWorkspace({
           {admin && (
             <>
               <Cards items={overviewItems} />
-              <p className='text-sm text-slate-400'>
+              <p className='text-sm text-[var(--finance-muted)]'>
                 Product sales exclude shipping. Platform fees reduce instructor earnings; the
                 customer checkout amount stays the same. Gateway costs show only amounts returned by
                 a provider.
               </p>
-              <h2 className='text-xl font-semibold'>
+              <h2 className='text-base font-semibold'>
                 Current instructor liabilities · all periods
               </h2>
             </>
@@ -531,7 +586,7 @@ export default function FinanceWorkspace({
           {balanceCards()}
           {admin && overview && (
             <>
-              <div className='overflow-x-auto rounded border border-slate-700 p-4'>
+              <div className='overflow-x-auto rounded-[var(--finance-card-radius)] border border-[var(--finance-border)] bg-[var(--finance-surface)] p-4'>
                 <h2 className='mb-3 font-semibold'>
                   Daily sales and platform revenue · selected period
                 </h2>
@@ -546,7 +601,7 @@ export default function FinanceWorkspace({
                   <tbody>
                     {overview.trend.map(t => (
                       <tr
-                        className='border-t border-slate-800'
+                        className='border-t border-[var(--finance-border)] transition-colors hover:bg-[var(--finance-hover)]'
                         key={t.day}
                       >
                         <td className='p-2'>{t.day}</td>
@@ -559,7 +614,7 @@ export default function FinanceWorkspace({
                 {!overview.trend.length && <Empty>No sales in this period.</Empty>}
               </div>
               {overview.legacyPaidPayouts.count > 0 && (
-                <p className='text-sm text-amber-300'>
+                <p className='text-sm text-[var(--finance-warning)]'>
                   Legacy paid payouts: {currency(overview.legacyPaidPayouts.amount)}. These have no
                   ledger allocations and are excluded from new balances. Reconcile legacy funds
                   separately before launch.
@@ -569,7 +624,7 @@ export default function FinanceWorkspace({
           )}
           {!admin && (
             <>
-              <h2 className='text-xl font-semibold'>Sale and adjustment history</h2>
+              <h2 className='text-base font-semibold'>Sale and adjustment history</h2>
               {transactionTable()}
             </>
           )}
@@ -589,7 +644,7 @@ export default function FinanceWorkspace({
                 ]}
               />
               <form
-                className='grid gap-4 rounded border border-slate-700 bg-slate-900 p-5 md:grid-cols-3'
+                className='grid gap-4 rounded-[var(--finance-card-radius)] border border-[var(--finance-border)] bg-[var(--finance-surface)] p-5 md:grid-cols-3'
                 onSubmit={payoutSubmit}
               >
                 <Label title='Amount (BDT)'>
@@ -630,14 +685,14 @@ export default function FinanceWorkspace({
                   >
                     Request payout
                   </button>
-                  <p className='mt-2 text-xs text-slate-400'>
+                  <p className='mt-2 text-xs text-[var(--finance-muted)]'>
                     Balance and eligibility are verified by the backend.
                   </p>
                 </div>
                 {!accounts.length && (
                   <button
                     type='button'
-                    className='text-orange-400'
+                    className='text-[var(--finance-accent-text)]'
                     onClick={() => changeTab("accounts")}
                   >
                     Add a payout account first →
@@ -663,9 +718,9 @@ export default function FinanceWorkspace({
               </select>
             </Label>
           )}
-          <div className='overflow-x-auto rounded border border-slate-700'>
+          <div className='overflow-x-auto rounded-[var(--finance-card-radius)] border border-[var(--finance-border)] bg-[var(--finance-surface)]'>
             <table className='w-full min-w-[720px] text-left text-sm'>
-              <thead className='bg-slate-800'>
+              <thead className='bg-[var(--finance-inset)]'>
                 <tr>
                   {[
                     "Requested",
@@ -677,7 +732,7 @@ export default function FinanceWorkspace({
                     "Details",
                   ].map(h => (
                     <th
-                      className='p-3'
+                      className='px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-[var(--finance-muted)]'
                       key={h}
                     >
                       {h}
@@ -689,13 +744,13 @@ export default function FinanceWorkspace({
                 {payouts.rows.map(p => (
                   <tr
                     key={p.id}
-                    className='border-t border-slate-800'
+                    className='border-t border-[var(--finance-border)] transition-colors hover:bg-[var(--finance-hover)]'
                   >
                     <td className='p-3'>{date(p.requestedAt)}</td>
                     {admin && (
                       <td className='p-3'>
                         {p.instructor?.instructorProfile?.displayName}
-                        <p className='text-xs text-slate-400'>{p.instructor?.email}</p>
+                        <p className='text-xs text-[var(--finance-muted)]'>{p.instructor?.email}</p>
                       </td>
                     )}
                     <td className='p-3'>{currency(p.amount)}</td>
@@ -729,7 +784,7 @@ export default function FinanceWorkspace({
       {tab === "accounts" && !admin && (
         <>
           <form
-            className='grid gap-4 rounded border border-slate-700 bg-slate-900 p-5 sm:grid-cols-2'
+            className='grid gap-4 rounded-[var(--finance-card-radius)] border border-[var(--finance-border)] bg-[var(--finance-surface)] p-5 sm:grid-cols-2'
             onSubmit={async e => {
               e.preventDefault();
               if (
@@ -807,7 +862,7 @@ export default function FinanceWorkspace({
               >
                 Save account
               </button>
-              <p className='mt-2 text-xs text-slate-400'>
+              <p className='mt-2 text-xs text-[var(--finance-muted)]'>
                 Account numbers are encrypted and displayed using only the last four digits.
               </p>
             </div>
@@ -816,14 +871,14 @@ export default function FinanceWorkspace({
             {accounts.map(a => (
               <div
                 key={a.id}
-                className='rounded border border-slate-700 p-4'
+                className='rounded-[var(--finance-control-radius)] border border-[var(--finance-border)] p-4'
               >
                 <h3 className='font-semibold'>{a.mobileBankingName ?? a.bankName}</h3>
-                <p className='text-slate-400'>
+                <p className='text-[var(--finance-muted)]'>
                   {a.accHolderName} · ••••{a.accountLastFour}
                 </p>
                 <button
-                  className='mt-3 text-sm text-orange-400'
+                  className='mt-3 text-sm text-[var(--finance-accent-text)]'
                   onClick={() =>
                     setAccount({
                       id: a.id,
@@ -846,13 +901,13 @@ export default function FinanceWorkspace({
       )}
       {tab === "settings" && admin && settings && (
         <form
-          className='grid gap-4 rounded border border-slate-700 bg-slate-900 p-5 sm:grid-cols-2'
+          className='grid gap-4 rounded-[var(--finance-card-radius)] border border-[var(--finance-border)] bg-[var(--finance-surface)] p-5 sm:grid-cols-2'
           onSubmit={async e => {
             e.preventDefault();
             await mutate(`${root}/settings`, settings, "patch");
           }}
         >
-          <h2 className='text-xl font-semibold sm:col-span-2'>Financial settings</h2>
+          <h2 className='text-base font-semibold sm:col-span-2'>Financial settings</h2>
           {(["globalBookCommission", "globalCourseCommission"] as const).map(k => (
             <Label
               key={k}
@@ -941,7 +996,7 @@ export default function FinanceWorkspace({
               onChange={e => setSettings({ ...settings, minimumPayout: e.target.value })}
             />
           </Label>
-          <p className='text-sm text-slate-400 sm:col-span-2'>
+          <p className='text-sm text-[var(--finance-muted)] sm:col-span-2'>
             Priority: product → instructor → global. Approval saves a product rate; update that rate
             for future sales using the product commission control. Fees are capped at the remaining
             sale value. Saved transactions and release dates stay unchanged.
@@ -960,9 +1015,9 @@ export default function FinanceWorkspace({
       )}
       {tab === "instructors" && admin && (
         <>
-          <div className='overflow-x-auto rounded border border-slate-700'>
+          <div className='overflow-x-auto rounded-[var(--finance-card-radius)] border border-[var(--finance-border)] bg-[var(--finance-surface)]'>
             <table className='w-full min-w-[850px] text-left text-sm'>
-              <thead className='bg-slate-800'>
+              <thead className='bg-[var(--finance-inset)]'>
                 <tr>
                   {[
                     "Instructor",
@@ -974,7 +1029,7 @@ export default function FinanceWorkspace({
                     "Actions",
                   ].map(h => (
                     <th
-                      className='p-3'
+                      className='px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-[var(--finance-muted)]'
                       key={h}
                     >
                       {h}
@@ -986,7 +1041,7 @@ export default function FinanceWorkspace({
                 {instructors.rows.map(i => (
                   <tr
                     key={i.id}
-                    className='border-t border-slate-800'
+                    className='border-t border-[var(--finance-border)] transition-colors hover:bg-[var(--finance-hover)]'
                   >
                     <td className='p-3'>{i.displayName}</td>
                     <td className='p-3'>
@@ -1028,12 +1083,12 @@ export default function FinanceWorkspace({
                 ? "Record refund"
                 : "Instructor commission override"
           }
-          className='fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4'
+          className='fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4'
         >
-          <div className='max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded border border-slate-700 bg-slate-900 p-5'>
+          <div className='max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-[var(--finance-card-radius)] border border-[var(--finance-border)] bg-[var(--finance-surface)] p-5'>
             <button
               type='button'
-              className='float-right text-slate-300'
+              className='float-right text-[var(--finance-label)]'
               aria-label='Close dialog'
               onClick={() => {
                 setDetail(null);
@@ -1045,13 +1100,13 @@ export default function FinanceWorkspace({
             </button>
             {detail && (
               <div className='space-y-4'>
-                <h2 className='text-xl font-semibold'>Payout {currency(detail.amount)}</h2>
+                <h2 className='text-base font-semibold'>Payout {currency(detail.amount)}</h2>
                 <Status value={detail.workflowStatus} />
                 <p>
                   {detail.instructor?.instructorProfile?.displayName} · {detail.methodType} · ••••
                   {detail.accountLastFour}
                 </p>
-                <p className='text-sm text-slate-400'>
+                <p className='text-sm text-[var(--finance-muted)]'>
                   Requested {date(detail.requestedAt)} · Paid {date(detail.paidAt)}
                 </p>
                 {detail.transactionReference && (
@@ -1059,7 +1114,7 @@ export default function FinanceWorkspace({
                 )}
                 {detail.rejectionReason && <p>Rejection reason: {detail.rejectionReason}</p>}
                 {admin && detail.account && (
-                  <div className='rounded border border-slate-700 p-3'>
+                  <div className='rounded-[var(--finance-control-radius)] border border-[var(--finance-border)] p-3'>
                     <h3 className='font-semibold'>Transfer destination</h3>
                     <p>
                       {detail.account.holder} · {detail.account.accountNumber}
@@ -1074,12 +1129,12 @@ export default function FinanceWorkspace({
                   {detail.items?.map(i => (
                     <div
                       key={i.id}
-                      className='flex justify-between gap-3 rounded bg-slate-800 p-3 text-sm'
+                      className='flex justify-between gap-3 rounded-[var(--finance-control-radius)] bg-[var(--finance-inset)] p-3 text-sm'
                     >
                       <span>
                         {i.earning.productTitle} · {i.earning.kind}
                         <br />
-                        <span className='text-xs text-slate-400'>
+                        <span className='text-xs text-[var(--finance-muted)]'>
                           Order {i.earning.orderId} · Entry {i.earning.id}
                         </span>
                       </span>
@@ -1106,7 +1161,7 @@ export default function FinanceWorkspace({
                           maxLength={120}
                         />
                       </Label>
-                      <p className='text-xs text-slate-400'>
+                      <p className='text-xs text-[var(--finance-muted)]'>
                         Mark paid only after manually transferring funds. Cancel processing only
                         after confirming the transfer was stopped.
                       </p>
@@ -1176,11 +1231,11 @@ export default function FinanceWorkspace({
                     setRefundEntry(null);
                 }}
               >
-                <h2 className='text-xl font-semibold'>Record completed refund</h2>
+                <h2 className='text-base font-semibold'>Record completed refund</h2>
                 <p>
                   {refundEntry.productTitle} · {currency(refundEntry.netSaleAmount)}
                 </p>
-                <p className='text-sm text-slate-400'>
+                <p className='text-sm text-[var(--finance-muted)]'>
                   This records a full product line refund that you have already transferred.
                   Shipping is excluded. Reserved requests may be cancelled; paid instructor earnings
                   become a recovery adjustment.
@@ -1230,10 +1285,10 @@ export default function FinanceWorkspace({
                     setOverride(null);
                 }}
               >
-                <h2 className='text-xl font-semibold'>
+                <h2 className='text-base font-semibold'>
                   {override.displayName} · commission override
                 </h2>
-                <p className='text-sm text-slate-400'>
+                <p className='text-sm text-[var(--finance-muted)]'>
                   Leave blank to inherit the global default. Product rates take priority.
                 </p>
                 <Label title='Book commission (%)'>
@@ -1269,7 +1324,7 @@ export default function FinanceWorkspace({
             {error && (
               <p
                 role='alert'
-                className='mt-4 text-red-300'
+                className='mt-4 text-[var(--finance-danger)]'
               >
                 {error}
               </p>
@@ -1294,9 +1349,9 @@ function ProductCommission({
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   return (
-    <div className='space-y-3 border-t border-slate-700 pt-5 sm:col-span-2'>
+    <div className='space-y-3 border-t border-[var(--finance-border)] pt-5 sm:col-span-2'>
       <h3 className='text-lg font-semibold'>Existing product commission</h3>
-      <p className='text-sm text-slate-400'>
+      <p className='text-sm text-[var(--finance-muted)]'>
         Paste the product ID from its details URL. Blank rate restores instructor/global inheritance
         for future sales.
       </p>
@@ -1367,11 +1422,11 @@ function ProductCommission({
           Update product rate
         </button>
       </div>
-      {source && <p className='text-sm text-slate-400'>Resolved from {source}</p>}
+      {source && <p className='text-sm text-[var(--finance-muted)]'>Resolved from {source}</p>}
       {error && (
         <p
           role='alert'
-          className='text-red-300'
+          className='text-[var(--finance-danger)]'
         >
           {error}
         </p>
