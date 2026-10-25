@@ -464,9 +464,9 @@ export default function FinanceWorkspace({
           "--finance-danger": admin ? "#fca5a5" : "#dc2626",
           "--finance-success": admin ? "#34d399" : "#15803d",
           "--finance-warning": admin ? "#fcd34d" : "#a16207",
-          "--finance-card-radius": admin ? "16px" : "4px",
-          "--finance-control-radius": admin ? "8px" : "4px",
-          "--finance-value-size": admin ? "26px" : "18px",
+          "--finance-card-radius": admin ? "4px" : "4px",
+          "--finance-control-radius": admin ? "4px" : "4px",
+          "--finance-value-size": admin ? "20px" : "18px",
           colorScheme: admin ? "dark" : "light",
         } as CSSProperties
       }

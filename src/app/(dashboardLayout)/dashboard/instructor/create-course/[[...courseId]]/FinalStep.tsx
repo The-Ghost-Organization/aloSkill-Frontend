@@ -8,6 +8,7 @@ import { redirect } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
 import { z } from "zod";
+import { useSessionContext } from "../../../../../contexts/SessionContext";
 import CourseFooter from "./CourseFooter.tsx";
 import { type CreateCourseData } from "./page.tsx";
 import StepHeader from "./StepHeader.tsx";
@@ -99,6 +100,7 @@ const FinalStep = ({
   isParamsExisting: boolean;
   adminMode?: boolean;
 }) => {
+  const { user } = useSessionContext();
   // const { data: session } = useSession();
   const [paymentSelection, setPaymentSelection] = useState<"paid" | "free">("paid");
   const [query, setQuery] = useState<string>("");
@@ -223,6 +225,10 @@ const FinalStep = ({
   };
 
   const onFormSubmit = async (data: FinalStepForm) => {
+    if (courseData.modules.some(m => m.lessons.some(l => l.pendingVideoUploadJobId || (l.contentUrl?.url && l.requestedHostingType && l.requestedHostingType !== (l.hostingType ?? "PREMIUM"))))) {
+      setCourseUploadError("Finish the video upload or restore its hosting selection before saving. The current video remains playable.");
+      return;
+    }
     if (adminMode && !data.courseInstructors?.some(item => item.role === "PRIMARY")) {
       setCourseUploadError("Select an approved primary instructor before saving this course.");
       return;
@@ -250,6 +256,7 @@ const FinalStep = ({
       }
       // console.log("Response from DB : ", backendData);
       if (backendData.success) {
+        try { localStorage.removeItem(`aloskill:curriculum:${user?.id ?? ""}:${courseData.id ?? "new"}`); } catch {}
         redirect(adminMode ? "/dashboard/admin/courses" : "/dashboard/instructor/course");
       }
     }
@@ -265,6 +272,7 @@ const FinalStep = ({
       }
       // console.log("Response from DB : ", backendData);
       if (backendData.success) {
+        try { localStorage.removeItem(`aloskill:curriculum:${user?.id ?? ""}:${courseData.id ?? "new"}`); } catch {}
         redirect(adminMode ? "/dashboard/admin/courses" : "/dashboard/instructor/course");
       }
     }
@@ -289,6 +297,7 @@ const FinalStep = ({
       }
       // console.log("Response from DB for update: ", backendData);
       if (backendData.success) {
+        try { localStorage.removeItem(`aloskill:curriculum:${user?.id ?? ""}:${courseData.id ?? "new"}`); } catch {}
         redirect(adminMode ? "/dashboard/admin/courses" : "/dashboard/instructor/course");
       }
     }
@@ -313,6 +322,7 @@ const FinalStep = ({
       }
       // console.log("Response from DB for update: ", backendData);
       if (backendData.success) {
+        try { localStorage.removeItem(`aloskill:curriculum:${user?.id ?? ""}:${courseData.id ?? "new"}`); } catch {}
         redirect(adminMode ? "/dashboard/admin/courses" : "/dashboard/instructor/course");
       }
     }

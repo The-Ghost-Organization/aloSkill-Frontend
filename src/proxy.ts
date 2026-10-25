@@ -122,7 +122,7 @@ export default withAuth(
 function addSecurityHeaders(response: NextResponse) {
   const cspDirectives = [
     "default-src 'self' https://iframe.mediadelivery.net",
-    "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://accounts.google.com http://assets.mediadelivery.net unpkg.com",
+    "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://accounts.google.com https://assets.mediadelivery.net http://assets.mediadelivery.net https://www.youtube.com https://s.ytimg.com unpkg.com",
     "worker-src 'self' blob:",
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "img-src 'self' data: https: blob:",
@@ -133,7 +133,7 @@ function addSecurityHeaders(response: NextResponse) {
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self' https://accounts.google.com",
-    "frame-src 'self' https://accounts.google.com https://iframe.mediadelivery.net blob:",
+    "frame-src 'self' https://accounts.google.com https://iframe.mediadelivery.net https://www.youtube.com blob:",
     "frame-ancestors 'self'",
   ];
 

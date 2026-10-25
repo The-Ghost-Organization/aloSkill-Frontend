@@ -1,5 +1,6 @@
 "use client";
 
+import VideoHostingSettings from "./VideoHostingSettings";
 import { SectionHeader, Toggle } from "../Components";
 
 const featureToggles: [string, boolean][] = [
@@ -52,6 +53,7 @@ export default function SettingsPage() {
         sub='Configure global platform behaviour and integrations'
       />
 
+      <VideoHostingSettings />
       {/* Settings Grid */}
       <div className='grid grid-cols-1 md:grid-cols-2 gap-5 mb-5'>
         {settingSections.map(s => (
@@ -121,3 +123,4 @@ export default function SettingsPage() {
     </div>
   );
 }
+

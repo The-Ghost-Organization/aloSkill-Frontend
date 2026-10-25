@@ -32,6 +32,15 @@ type Quiz = {
 };
 
 export type CourseLesson = {
+  id?: string;
+  hostingType?: "FREE" | "PREMIUM";
+  requestedHostingType?: "FREE" | "PREMIUM";
+  videoUploadJobId?: string | null;
+  pendingVideoUploadJobId?: string;
+  pendingHostingType?: "FREE" | "PREMIUM";
+  freeHostingAcknowledged?: boolean;
+  youtubeDisclosureAccepted?: boolean;
+  uploadMessage?: string;
   title: string;
   position: number;
   notes?: string;
@@ -52,12 +61,14 @@ type CourseInstructor = {
 };
 
 export type CourseModule = {
+  id?: string;
   title: string;
   position: number;
   lessons: CourseLesson[];
 };
 
 export type CreateCourseData = {
+  defaultHosting?: "FREE" | "PREMIUM";
   id?: string;
   title: string;
   slug: string;

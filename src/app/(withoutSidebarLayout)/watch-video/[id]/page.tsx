@@ -20,6 +20,7 @@ import { useSessionContext } from "../../../contexts/SessionContext";
 import type { CourseDetailsPrivate, PrivateLesson } from "../../courses/allCourses.types";
 import AttachFileTab from "./AttachFileTab";
 import BunnyVideoPlayer from "./BunnyVideoPlayer";
+import YouTubeVideoPlayer from "./YouTubeVideoPlayer";
 import CommentsTab from "./CommentsTab";
 import DescriptionTab from "./DescriptionTab";
 import LectureNotesTab from "./LectureNotesTab";
@@ -35,9 +36,10 @@ export default function CoursePage() {
   const [course, setCourse] = useState<CourseDetailsPrivate | undefined>(undefined);
   const [activeContent, setActiveContent] = useState<PrivateLesson | null>(null);
   const [videoData, setVideoData] = useState<{
-    libraryId: string;
-    token: string;
-    expiresAt: number;
+    provider: "BUNNY" | "YOUTUBE";
+    libraryId?: string;
+    token?: string;
+    expiresAt?: number;
     videoId: string;
   } | null>(null);
   const { id } = useParams();
@@ -188,31 +190,18 @@ export default function CoursePage() {
     [id, user, course?.modules]
   );
 
+  const [playbackError, setPlaybackError] = useState("");
   useEffect(() => {
-    if (!activeContent?.contentUrl) {
-      return;
-    }
-    try {
-      const getVideoData = async () => {
-        const getVideoFromBunny = await apiClient.post<{
-          libraryId: string;
-          token: string;
-          videoId: string;
-          expiresAt: number;
-        }>("/course/get-video-url", {
-          filePath: getFileIdFromUrl(activeContent?.contentUrl as string),
-          duration: 1,
-        });
-        if (!getVideoFromBunny.success) {
-          return;
-        }
-        if (getVideoFromBunny.data) {
-          setVideoData(getVideoFromBunny.data);
-        }
-      };
-      getVideoData();
-    } catch (_error: unknown) {}
-  }, [activeContent?.contentUrl]);
+    let stale = false;
+    setVideoData(null); setPlaybackError("");
+    if (!activeContent?.id || activeContent.type !== "VIDEO") return;
+    void apiClient.post<NonNullable<typeof videoData>>("/course/video/playback", { lessonId: activeContent.id }).then(response => {
+      if (stale) return;
+      if (response.success && response.data) setVideoData(response.data);
+      else setPlaybackError(response.message ?? "This lesson is unavailable.");
+    });
+    return () => { stale = true; };
+  }, [activeContent?.id, activeContent?.type]);
 
   useEffect(() => {
     if (activeContent) return;
@@ -342,24 +331,12 @@ export default function CoursePage() {
           <div className='lg:col-span-2'>
             {/* Video/Image Player */}
             <div className='bg-white overflow-hidden'>
-              {/* <div className='aspect-video bg-linear-to-br from-teal-400 to-teal-500'>
-                {videoData ? (
-                  <>
-                    <BunnyVideoPlayer
-                      videoUrl={`https://iframe.mediadelivery.net/embed/${videoData.libraryId}/${videoData.videoId}?token=${videoData.token}&expires=${videoData.expiresAt}&autoplay=false&api=true&enableStats=true`}
-                      lessonId={activeContent?.id as string}
-                      lastPosition={activeContent?.lessonProgress[0]?.lastPosition as number}
-                      handleUpdateProgress={handleUpdateProgress}
-                    />
-                  </>
-                ) : (
-                  <div className='min-h-screen flex gap-3 items-center justify-center'>
-                    <Loader className='w-8 h-8 text-gray-500 animate-spin' />
-                    <p className='text-gray-500'>Loading Lesson Video.</p>
-                  </div>
-                )}
-              </div> */}
               <div className='aspect-video bg-linear-to-br from-teal-400 to-teal-500'>
+                {videoData?.provider === "YOUTUBE" ? (
+                  <YouTubeVideoPlayer key={activeContent?.id} videoId={videoData.videoId}
+                    lessonId={activeContent?.id as string} lastPosition={activeContent?.lessonProgress[0]?.lastPosition ?? 0}
+                    handleUpdateProgress={handleUpdateProgress} />
+                ) : playbackError ? <p role='alert' className='bg-white p-4 text-red-700'>{playbackError}</p> : (
                 <VideoProtectionWrapper
                   watermarkText={user?.email ?? user?.id} // ties the watermark to the enrolled user
                   onSuspiciousActivity={handleSuspiciousActivity}
@@ -367,6 +344,7 @@ export default function CoursePage() {
                 >
                   {videoData ? (
                     <BunnyVideoPlayer
+                      key={activeContent?.id}
                       videoUrl={`https://iframe.mediadelivery.net/embed/${videoData.libraryId}/${videoData.videoId}?token=${videoData.token}&expires=${videoData.expiresAt}&autoplay=false&api=true&enableStats=true`}
                       lessonId={activeContent?.id as string}
                       lastPosition={activeContent?.lessonProgress[0]?.lastPosition as number}
@@ -381,6 +359,7 @@ export default function CoursePage() {
                     </div>
                   )}
                 </VideoProtectionWrapper>
+                )}
               </div>
             </div>
             {/* <div className='space-y-2'>
