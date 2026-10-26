@@ -1,18 +1,19 @@
 import { getFileIdFromUrl } from "@/lib/course/utils.tsx";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { CloudUpload, ImageIcon, Loader, Play, Plus, Trash, Upload } from "lucide-react";
+import { CloudUpload, ImageIcon, Loader, Play, Plus, RefreshCw, Trash2, Upload } from "lucide-react";
 import Image from "next/image";
-import { useEffect, useState, type ChangeEvent } from "react";
+import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { useForm, type FieldErrors, type UseFormRegister } from "react-hook-form";
 import * as tus from "tus-js-client";
 import z from "zod";
 import { apiClient } from "../../../../../../lib/api/client.ts";
 import { useSessionContext } from "../../../../../contexts/SessionContext.tsx";
 import CourseFooter from "./CourseFooter.tsx";
+import { cx, ErrorSummary, Field, FormSection, inputClass, TextArea, TextInput } from "./formUi.tsx";
 import { type CreateCourseData } from "./page.tsx";
 import StepHeader from "./StepHeader.tsx";
 
-// ── Types & schema (unchanged) ────────────────────────────────────────────────
+// ── Types & schema (rules unchanged; two copy-pasted error messages corrected) ─
 
 type CourseDescriptionForm = {
   trailerUrl?: string;
@@ -25,13 +26,13 @@ type CourseDescriptionForm = {
 };
 
 const CourseDescriptionSchema = z.object({
-  trailerUrl: z.url("Trailer Url is invalid. Please provide a valid URL.").optional(),
+  trailerUrl: z.url("Trailer URL is invalid. Please provide a valid URL.").or(z.literal("")).optional(),
   objectives: z
     .string()
     .trim()
-    .min(10, "Objectives must be at least 10 characters long")
-    .max(100, "Objectives Cannot exceed 100 characters.")
-    .regex(/^[^<>]*$/, "Objectives must not contain any opening or closing HTML tags"),
+    .min(10, "Short summary must be at least 10 characters long")
+    .max(100, "Short summary cannot exceed 100 characters.")
+    .regex(/^[^<>]*$/, "Short summary must not contain any opening or closing HTML tags"),
   description: z
     .string()
     .trim()
@@ -44,10 +45,10 @@ const CourseDescriptionSchema = z.object({
         .trim()
         .min(10, "Must be at least 10 characters long.")
         .max(120, "Cannot exceed 120 characters.")
-        .regex(/^[^<>]*$/, "whyThisCourse must not contain any opening or closing HTML tags")
+        .regex(/^[^<>]*$/, "Must not contain any opening or closing HTML tags")
     )
-    .min(1, "You must define at least one teaching objective.")
-    .max(5, "You can define a maximum of 5 teaching objectives."),
+    .min(1, "Add at least one reason to take this course.")
+    .max(5, "You can add a maximum of 5 reasons."),
   whatYouTeach: z
     .array(
       z
@@ -55,7 +56,7 @@ const CourseDescriptionSchema = z.object({
         .trim()
         .min(10, "Must be at least 10 characters long.")
         .max(120, "Cannot exceed 120 characters.")
-        .regex(/^[^<>]*$/, "whatYouTeach must not contain any opening or closing HTML tags")
+        .regex(/^[^<>]*$/, "Must not contain any opening or closing HTML tags")
     )
     .min(1, "You must define at least one teaching objective.")
     .max(5, "You can define a maximum of 5 teaching objectives."),
@@ -66,10 +67,10 @@ const CourseDescriptionSchema = z.object({
         .trim()
         .min(10, "Must be at least 10 characters long.")
         .max(120, "Cannot exceed 120 characters.")
-        .regex(/^[^<>]*$/, "targetAudience must not contain any opening or closing HTML tags")
+        .regex(/^[^<>]*$/, "Must not contain any opening or closing HTML tags")
     )
-    .min(1, "You must define at least one teaching objective.")
-    .max(5, "You can define a maximum of 5 teaching objectives."),
+    .min(1, "Describe at least one type of student this course is for.")
+    .max(5, "You can add a maximum of 5 audience descriptions."),
   requirements: z
     .array(
       z
@@ -77,88 +78,29 @@ const CourseDescriptionSchema = z.object({
         .trim()
         .min(10, "Must be at least 10 characters long.")
         .max(120, "Cannot exceed 120 characters.")
-        .regex(/^[^<>]*$/, "requirements must not contain any opening or closing HTML tags")
+        .regex(/^[^<>]*$/, "Must not contain any opening or closing HTML tags")
     )
     .min(1, "You must define at least one requirement.")
     .max(5, "You can define a maximum of 5 requirements."),
 });
 
-// ── Style utilities ───────────────────────────────────────────────────────────
-
-const cx = (...cls: (string | false | undefined)[]) => cls.filter(Boolean).join(" ");
-
-// ── FloatingTextarea ──────────────────────────────────────────────────────────
-// Same peer-placeholder-shown pattern as FloatingInput in BasicInformaton.
-
-interface FloatingTextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
-  label: string;
-  hasError?: boolean;
-  error?: string;
-  hint?: string;
+function collectValidationMessages(value: unknown): string[] {
+  if (!value || typeof value !== "object") return [];
+  const record = value as Record<string, unknown>;
+  if (typeof record.message === "string") return [record.message];
+  return Object.entries(record)
+    .filter(([key]) => !["ref", "type", "types"].includes(key))
+    .flatMap(([, child]) => collectValidationMessages(child));
 }
 
-const FloatingTextarea = ({
-  id,
-  label,
-  hasError,
-  error,
-  hint,
-  rows = 3,
-  className,
-  ...rest
-}: FloatingTextareaProps) => (
-  <div>
-    <div className='relative'>
-      <textarea
-        id={id}
-        placeholder=' '
-        rows={rows}
-        className={cx(
-          "peer w-full px-3.5 pt-6 pb-3 text-sm text-gray-900 rounded-xl border",
-          "outline-none resize-none transition-all duration-200 placeholder:text-gray-400",
-          hasError
-            ? "border-red-300 bg-red-50/40 focus:ring-2 focus:ring-red-100 focus:border-red-400"
-            : "border-gray-200 bg-white hover:border-gray-300 focus:border-orange-400 focus:ring-2 focus:ring-orange-100",
-          className
-        )}
-        {...rest}
-      />
-      <label
-        htmlFor={id}
-        className={cx(
-          "pointer-events-none absolute left-3.5 transition-all duration-200 select-none",
-          // Floated (filled / focused)
-          "top-[7px] text-[11px] font-medium",
-          // Resting — input is empty, not focused
-          "peer-placeholder-shown:top-4 peer-placeholder-shown:text-sm",
-          "peer-placeholder-shown:font-normal peer-placeholder-shown:text-gray-400",
-          // Focus lifts label regardless
-          hasError
-            ? "text-red-400 peer-focus:text-red-500"
-            : "text-gray-400 peer-focus:text-orange-500 peer-[:not(:placeholder-shown)]:text-gray-500"
-        )}
-      >
-        {label}
-      </label>
-    </div>
-    {error && (
-      <p
-        role='alert'
-        className='mt-1.5 text-xs text-red-500'
-      >
-        {error}
-      </p>
-    )}
-    {!error && hint && <p className='mt-1.5 text-xs text-gray-400'>{hint}</p>}
-  </div>
-);
-
 // ── ListSection ───────────────────────────────────────────────────────────────
-// Extracted from the 4 identical copy-paste blocks. All logic is passed in
-// as props — nothing changed inside AdvanceInformation's handlers.
+// One editable list (max 5). All state changes go through the handlers passed in.
+
+const MAX_ITEMS = 5;
 
 interface ListSectionProps {
   title: string;
+  description: string;
   fieldName: keyof Pick<
     CourseDescriptionForm,
     "whyThisCourse" | "whatYouTeach" | "targetAudience" | "requirements"
@@ -170,11 +112,11 @@ interface ListSectionProps {
   onAdd: () => void;
   onDelete: (index: number) => void;
   onChange: (index: number, value: string) => void;
-  hasBorderBottom?: boolean;
 }
 
 const ListSection = ({
   title,
+  description,
   fieldName,
   items,
   placeholder,
@@ -183,102 +125,124 @@ const ListSection = ({
   onAdd,
   onDelete,
   onChange,
-  hasBorderBottom = true,
 }: ListSectionProps) => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const fieldErrors = errors[fieldName] as any;
+  const listRef = useRef<HTMLOListElement>(null);
+  const canAdd = items.length < MAX_ITEMS;
+
+  const focusItem = (index: number) =>
+    requestAnimationFrame(() =>
+      listRef.current?.querySelector<HTMLInputElement>(`[data-item-index="${index}"]`)?.focus()
+    );
+
+  const addAndFocus = () => {
+    if (!canAdd) return;
+    onAdd();
+    focusItem(items.length);
+  };
 
   return (
-    <section className={cx("px-4 sm:px-6 py-6", hasBorderBottom && "border-b border-gray-100")}>
-      {/* Section header */}
-      <div className='flex items-center justify-between mb-4'>
-        <div className='flex items-center gap-2'>
-          <h4 className='text-sm font-semibold text-gray-900'>{title}</h4>
-          <span className='inline-flex items-center justify-center px-2 py-0.5 text-[11px] font-semibold text-gray-400 bg-gray-100 rounded-full tabular-nums'>
-            {items.length}/5
-          </span>
-        </div>
-        <button
-          type='button'
-          onClick={onAdd}
-          disabled={items.length >= 5}
-          className={cx(
-            "inline-flex items-center gap-1 text-xs font-semibold transition-colors",
-            items.length >= 5
-              ? "text-gray-300 cursor-not-allowed"
-              : "text-orange-500 hover:text-orange-600 cursor-pointer"
-          )}
-        >
-          <Plus className='w-3.5 h-3.5' />
-          Add item
-        </button>
-      </div>
-
-      {/* Item rows */}
-      <div className='space-y-2.5'>
-        {items.map((item, index) => (
-          <div key={index}>
-            <div className='flex items-center gap-2.5'>
-              {/* Index badge */}
-              <span className='shrink-0 w-6 h-6 flex items-center justify-center rounded-full bg-gray-100 text-[10px] font-bold text-gray-400 tabular-nums'>
-                {String(index + 1).padStart(2, "0")}
-              </span>
-
-              {/* Input + counter + delete */}
-              <div className='relative flex-1'>
-                <input
-                  {...register(`${fieldName}.${index}` as Parameters<typeof register>[0])}
-                  type='text'
-                  placeholder={placeholder}
-                  value={item}
-                  onChange={e => onChange(index, e.target.value)}
-                  maxLength={120}
-                  className={cx(
-                    "w-full px-3.5 py-2.5 pr-20 text-sm border rounded-xl outline-none transition-all duration-200 placeholder:text-gray-400",
-                    fieldErrors?.[index]
-                      ? "border-red-300 bg-red-50/40 focus:ring-2 focus:ring-red-100 focus:border-red-400"
-                      : "border-gray-200 hover:border-gray-300 focus:border-orange-400 focus:ring-2 focus:ring-orange-100"
-                  )}
-                />
-                {/* Character counter */}
-                <span className='pointer-events-none absolute right-9 top-1/2 -translate-y-1/2 text-[11px] tabular-nums text-gray-300'>
-                  {item.length}/120
+    <FormSection
+      title={title}
+      description={description}
+      aside={
+        <span className='rounded-full bg-gray-100 px-2.5 py-1 text-xs font-semibold tabular-nums text-gray-500'>
+          {items.length} of {MAX_ITEMS}
+        </span>
+      }
+    >
+      <ol
+        ref={listRef}
+        className='space-y-2.5'
+      >
+        {items.map((item, index) => {
+          const itemError = fieldErrors?.[index]?.message as string | undefined;
+          return (
+            <li key={index}>
+              <div className='flex items-center gap-2'>
+                <span
+                  aria-hidden='true'
+                  className='w-5 shrink-0 text-right text-xs font-semibold tabular-nums text-gray-400'
+                >
+                  {index + 1}.
                 </span>
-                {/* Delete button inline */}
+                <div className='relative min-w-0 flex-1'>
+                  <input
+                    {...register(`${fieldName}.${index}` as Parameters<typeof register>[0])}
+                    data-item-index={index}
+                    type='text'
+                    aria-label={`${title} item ${index + 1}`}
+                    placeholder={placeholder}
+                    value={item}
+                    onChange={e => onChange(index, e.target.value)}
+                    onKeyDown={e => {
+                      // Enter moves to a new line instead of submitting the step.
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        if (index === items.length - 1) addAndFocus();
+                        else focusItem(index + 1);
+                      }
+                    }}
+                    maxLength={120}
+                    className={inputClass(!!itemError, "pr-16")}
+                  />
+                  <span
+                    className={cx(
+                      "pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[11px] tabular-nums",
+                      item.length > 0 && item.trim().length < 10 ? "text-amber-600" : "text-gray-400"
+                    )}
+                  >
+                    {item.length}/120
+                  </span>
+                </div>
                 <button
                   type='button'
                   onClick={() => onDelete(index)}
-                  aria-label={`Remove item ${index + 1}`}
-                  className='absolute right-2.5 top-1/2 -translate-y-1/2 p-1 rounded-lg text-gray-300 hover:text-red-400 hover:bg-red-50 transition-colors'
+                  aria-label={`Remove ${title} item ${index + 1}`}
+                  className='inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-red-500/10 hover:text-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400'
                 >
-                  <Trash className='w-3.5 h-3.5' />
+                  <Trash2
+                    className='h-4 w-4'
+                    aria-hidden='true'
+                  />
                 </button>
               </div>
-            </div>
+              {itemError && <p className='ml-7 mt-1 text-xs text-red-600'>{itemError}</p>}
+            </li>
+          );
+        })}
+      </ol>
 
-            {/* Per-item error */}
-            {fieldErrors?.[index]?.message && (
-              <p className='mt-1 ml-8 text-xs text-red-500'>{fieldErrors[index].message}</p>
-            )}
-          </div>
-        ))}
+      {fieldErrors?.message && <p className='text-xs text-red-600'>{fieldErrors.message}</p>}
 
-        {/* Array-level error (min/max) */}
-        {fieldErrors?.message && <p className='text-xs text-red-500 mt-1'>{fieldErrors.message}</p>}
-      </div>
-    </section>
+      <button
+        type='button'
+        onClick={addAndFocus}
+        disabled={!canAdd}
+        className='ml-7 inline-flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm font-semibold text-orange transition-colors hover:bg-orange-500/10 disabled:cursor-not-allowed disabled:text-gray-400 disabled:hover:bg-transparent'
+      >
+        <Plus
+          className='h-4 w-4'
+          aria-hidden='true'
+        />
+        {canAdd ? "Add another" : "Maximum of 5 reached"}
+      </button>
+    </FormSection>
   );
 };
 
-// ── Upload card ───────────────────────────────────────────────────────────────
+// ── Media upload card ─────────────────────────────────────────────────────────
 
-const UploadCard = ({
+const MediaUpload = ({
   title,
   description,
   specs,
   uploadError,
   inputId,
   accept,
-  buttonLabel,
+  hasMedia,
+  busy,
   previewSlot,
   onChange,
 }: {
@@ -288,43 +252,88 @@ const UploadCard = ({
   uploadError?: string;
   inputId: string;
   accept: string;
-  buttonLabel: string;
+  hasMedia: boolean;
+  busy: boolean;
   previewSlot: React.ReactNode;
   onChange: (e: ChangeEvent<HTMLInputElement>) => void;
 }) => (
   <div className='flex flex-col gap-3'>
-    <h4 className='text-sm font-semibold text-gray-900'>{title}</h4>
-
-    {/* Preview area — aspect-video makes it fully responsive */}
-    <div className='w-full aspect-video rounded-xl bg-gray-50 border border-gray-200 overflow-hidden flex items-center justify-center'>
-      {previewSlot}
+    <div>
+      <h4 className='text-[13px] font-medium text-gray-800'>{title}</h4>
+      <p className='mt-0.5 text-xs leading-relaxed text-gray-500'>{description}</p>
     </div>
 
-    {/* Description + upload button */}
-    <div className='space-y-2'>
+    <label
+      htmlFor={inputId}
+      className={cx(
+        "group relative flex aspect-video w-full items-center justify-center overflow-hidden rounded-xl border-2 border-dashed transition-colors",
+        busy ? "cursor-wait" : "cursor-pointer",
+        uploadError
+          ? "border-red-200 bg-red-50"
+          : hasMedia
+            ? "border-gray-200 bg-gray-50"
+            : "border-gray-200 bg-gray-50 hover:border-orange/60 hover:bg-orange-500/5"
+      )}
+    >
+      {previewSlot}
+    </label>
+    <input
+      type='file'
+      id={inputId}
+      // Reset the value afterwards so choosing the same file again still triggers onChange.
+      onChange={e => {
+        void onChange(e);
+        e.currentTarget.value = "";
+      }}
+      disabled={busy}
+      className='sr-only'
+      accept={accept}
+    />
+
+    <div className='flex flex-wrap items-center justify-between gap-2'>
       {uploadError ? (
-        <p className='text-xs text-red-500 font-medium'>{uploadError}</p>
+        <p
+          role='alert'
+          className='text-xs font-medium text-red-600'
+        >
+          {uploadError}
+        </p>
       ) : (
-        <>
-          <p className='text-xs text-gray-500 leading-relaxed'>{description}</p>
-          {specs && <p className='text-xs text-gray-400'>{specs}</p>}
-        </>
+        specs && <p className='text-xs text-gray-400'>{specs}</p>
       )}
       <label
         htmlFor={inputId}
-        className='inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-orange-600 bg-orange-50 border border-orange-200 rounded-lg hover:bg-orange-100 transition-colors cursor-pointer'
+        className={cx(
+          "ml-auto inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 transition-colors hover:bg-gray-500/10",
+          busy ? "pointer-events-none opacity-50" : "cursor-pointer"
+        )}
       >
-        <Upload className='w-3.5 h-3.5' />
-        {buttonLabel}
+        {hasMedia ? (
+          <RefreshCw
+            className='h-3.5 w-3.5'
+            aria-hidden='true'
+          />
+        ) : (
+          <Upload
+            className='h-3.5 w-3.5'
+            aria-hidden='true'
+          />
+        )}
+        {hasMedia ? "Replace" : "Upload"}
       </label>
-      <input
-        type='file'
-        id={inputId}
-        onChange={onChange}
-        hidden
-        accept={accept}
-      />
     </div>
+  </div>
+);
+
+const EmptyMedia = ({ icon: Icon, text }: { icon: typeof ImageIcon; text: string }) => (
+  <div className='flex flex-col items-center gap-2 px-4 text-center text-gray-400'>
+    <Icon
+      size={36}
+      strokeWidth={1.25}
+      aria-hidden='true'
+    />
+    <span className='text-sm font-medium text-gray-600'>{text}</span>
+    <span className='text-xs'>Click to choose a file</span>
   </div>
 );
 
@@ -387,6 +396,10 @@ function AdvanceInformation({
   );
   const [imageUploadLoading, setImageUploadLoading] = useState<boolean>(false);
   const [uploadError, setUploadError] = useState<string>("");
+  // Bug 10 fix: trailer errors are tracked separately from thumbnail errors.
+  const [trailerUploadError, setTrailerUploadError] = useState<string>("");
+  const [submitAttempted, setSubmitAttempted] = useState(false);
+  const errorSummaryRef = useRef<HTMLDivElement>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [uploadPercentage, setUploadPercentage] = useState<string>("");
   const [preview, setPreview] = useState<string>(courseData.thumbnailUrl || "");
@@ -406,7 +419,10 @@ function AdvanceInformation({
     handleSubmit,
     setValue,
     formState: { errors, isSubmitting },
-  } = useForm<CourseDescriptionForm>({ resolver: zodResolver(CourseDescriptionSchema) });
+  } = useForm<CourseDescriptionForm>({
+    resolver: zodResolver(CourseDescriptionSchema),
+    defaultValues: { ...courseDescriptionParsed, trailerUrl: courseData.trailerUrl ?? '' },
+  });
 
   // ── Effects & handlers (unchanged) ───────────────────────────────────────
   useEffect(() => {
@@ -436,14 +452,22 @@ function AdvanceInformation({
       description: JSON.stringify({
         objectives,
         description,
-        whyThisCourse: whyThisCourse.join("||"),
+        whyThisCourse: data.whyThisCourse.join("||"),
         whatYouTeach: whatYouTeach.join("||"),
         targetAudience: targetAudience.join("||"),
         requirements: requirements.join("||"),
       }),
-      trailerUrl: data.trailerUrl,
+      trailerUrl: data.trailerUrl?.trim() || undefined,
     }));
     setCurrentStep(currentStep + 1);
+  };
+
+  const onInvalid = () => {
+    setSubmitAttempted(true);
+    requestAnimationFrame(() => {
+      errorSummaryRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      errorSummaryRef.current?.focus();
+    });
   };
 
   const addNewItem = (field: string) => {
@@ -473,22 +497,28 @@ function AdvanceInformation({
     if (field === "whyThisCourse") {
       unregister(`whyThisCourse.${index}`);
       setWhyThisCourse(prev => prev.filter((_, i) => i !== index));
+      setValue('whyThisCourse', whyThisCourse.filter((_, i) => i !== index), { shouldDirty: true, shouldValidate: true });
     }
     if (field === "whatYouTeach") {
       unregister(`whatYouTeach.${index}`);
       setWhatYouTeach(prev => prev.filter((_, i) => i !== index));
+      setValue('whatYouTeach', whatYouTeach.filter((_, i) => i !== index), { shouldDirty: true, shouldValidate: true });
     }
     if (field === "targetAudience") {
       unregister(`targetAudience.${index}`);
       setTargetAudience(prev => prev.filter((_, i) => i !== index));
+      setValue('targetAudience', targetAudience.filter((_, i) => i !== index), { shouldDirty: true, shouldValidate: true });
     }
     if (field === "requirements") {
       unregister(`requirements.${index}`);
       setRequirements(prev => prev.filter((_, i) => i !== index));
+      setValue('requirements', requirements.filter((_, i) => i !== index), { shouldDirty: true, shouldValidate: true });
     }
   };
 
   const handleArrayInputChange = (field: string, index: number, value: string) => {
+    const fieldName = field as 'whyThisCourse' | 'whatYouTeach' | 'targetAudience' | 'requirements';
+    setValue(`${fieldName}.${index}`, value, { shouldDirty: true, shouldValidate: true });
     if (field === "whyThisCourse") {
       const a = [...whyThisCourse];
       a[index] = value;
@@ -513,10 +543,10 @@ function AdvanceInformation({
 
   const uploadVideoToBunny = async (file: File): Promise<{ name: string; url: string }> => {
     setLoading(true);
-    setUploadError("");
+    setTrailerUploadError("");
     setUploadPercentage("");
     if (!user?.id) {
-      setUploadError("User not authenticated.");
+      setTrailerUploadError("User not authenticated.");
       setUploadPercentage("");
       setLoading(false);
       return { name: "", url: "" };
@@ -544,19 +574,19 @@ function AdvanceInformation({
             },
             metadata: { filetype: file.type, title: file.name, collection: collectionId },
             onError: (error: Error) => {
-              setUploadError("Failed to upload video. " + error.message);
+              setTrailerUploadError("Failed to upload video. " + error.message);
               setLoading(false);
               setUploadPercentage("");
               reject(error);
             },
             onProgress: (bytesUploaded, bytesTotal) => {
-              setUploadError("");
+              setTrailerUploadError("");
               setUploadPercentage(`${((bytesUploaded / bytesTotal) * 100).toFixed(2)}%`);
               setLoading(false);
             },
             onSuccess: () => {
               setLoading(false);
-              setUploadError("");
+              setTrailerUploadError("");
               setUploadPercentage("");
               resolve({
                 name: file.name,
@@ -575,7 +605,7 @@ function AdvanceInformation({
       }
       return { name: "", url: "" };
     } catch (error: unknown) {
-      setUploadError(error instanceof Error ? error.message : "An unknown error occurred.");
+      setTrailerUploadError(error instanceof Error ? error.message : "An unknown error occurred.");
       return { name: "", url: "" };
     } finally {
       setLoading(false);
@@ -647,7 +677,9 @@ function AdvanceInformation({
           try {
             const uploadResult = await uploadVideoToBunny(file);
             if (uploadResult.url) setVideoPreview(URL.createObjectURL(file));
-            setValue("trailerUrl", uploadResult.url);
+            if (!uploadResult.url) return;
+            setValue("trailerUrl", uploadResult.url, { shouldDirty: true, shouldValidate: true });
+            setCourseData(prev => ({ ...prev, trailerUrl: uploadResult.url }));
           } catch (_error) {}
           return;
         }
@@ -666,78 +698,122 @@ function AdvanceInformation({
   const handlePrevious = () => setCurrentStep(currentStep - 1);
 
   // ── Render ───────────────────────────────────────────────────────────────
+  const [objectivesValue, setObjectivesValue] = useState<string>(courseDescriptionParsed.objectives || "");
+  const [descriptionValue, setDescriptionValue] = useState<string>(
+    courseDescriptionParsed.description || ""
+  );
+  const objectivesField = register("objectives", {
+    onChange: e => setObjectivesValue(e.target.value),
+  });
+  const descriptionField = register("description", {
+    required: "Description is required",
+    onChange: e => setDescriptionValue(e.target.value),
+  });
+  const trailerBusy = loading || Boolean(uploadPercentage);
+
   return (
-    <div className='w-full bg-white'>
-      <StepHeader headingText='Advance Information' />
+    <div className='w-full'>
+      <StepHeader
+        headingText='Course details'
+        description='This is what students see on your course page before they enrol.'
+      />
 
       <form
-        onSubmit={handleSubmit(onSubmit)}
+        onSubmit={handleSubmit(onSubmit, onInvalid)}
         noValidate
       >
+        {submitAttempted && Object.keys(errors).length > 0 && (
+          <ErrorSummary
+            ref={errorSummaryRef}
+            messages={[...new Set(collectValidationMessages(errors))]}
+          />
+        )}
+
         {/* ── Media uploads ── */}
-        <div className='px-4 sm:px-6 py-6 border-b border-gray-100'>
-          {/* FIX: stacks to single column on mobile, 2 columns on lg+ */}
-          <div className='grid grid-cols-1 lg:grid-cols-2 gap-6'>
-            {/* Thumbnail */}
-            <UploadCard
-              title='Course Thumbnail'
-              description='Upload your course thumbnail. A great thumbnail increases enrolment.'
-              specs='1280 × 720 px · 16:9 ratio · .jpg, .jpeg or .png'
+        <FormSection
+          title='Thumbnail and trailer'
+          description='A clear thumbnail and a short trailer make your course stand out in listings.'
+        >
+          <div className='grid grid-cols-1 gap-6 lg:grid-cols-2'>
+            <MediaUpload
+              title='Thumbnail'
+              description='Shown on course cards and at the top of the course page.'
+              specs='At least 1280 × 720 px · 16:9 · JPG or PNG'
               uploadError={uploadError}
               inputId='imageUpload'
               accept='.jpg,.jpeg,.png'
-              buttonLabel='Upload image'
+              hasMedia={Boolean(preview)}
+              busy={imageUploadLoading}
               onChange={handleFileSelect}
               previewSlot={
                 imageUploadLoading ? (
-                  <Loader className='w-6 h-6 animate-spin text-gray-400' />
+                  <span className='flex flex-col items-center gap-2 text-sm text-gray-500'>
+                    <Loader
+                      className='h-6 w-6 animate-spin text-orange'
+                      aria-hidden='true'
+                    />
+                    Uploading image…
+                  </span>
                 ) : preview ? (
                   <Image
                     width={640}
                     height={360}
                     src={preview}
-                    alt='Thumbnail Preview'
-                    className='w-full h-full object-contain'
+                    alt='Course thumbnail preview'
+                    className='h-full w-full object-cover'
                   />
                 ) : (
-                  <div className='flex flex-col items-center gap-2 text-gray-300'>
-                    <ImageIcon
-                      size={48}
-                      strokeWidth={1}
-                    />
-                    <span className='text-xs'>No thumbnail yet</span>
-                  </div>
+                  <EmptyMedia
+                    icon={ImageIcon}
+                    text='Add a thumbnail'
+                  />
                 )
               }
             />
 
-            {/* Trailer */}
-            <UploadCard
-              title='Course Trailer'
-              description='Students who watch a promo video are 5× more likely to enrol. Make it compelling.'
+            <MediaUpload
+              title='Trailer (optional)'
+              description='A 1–2 minute preview that tells students what they will get.'
+              specs='MP4, MOV or WebM'
+              uploadError={trailerUploadError}
               inputId='thumbUpload'
               accept='.mp4,.mov,.webm'
-              buttonLabel='Upload video'
+              hasMedia={Boolean(videoData || videoPreview)}
+              busy={trailerBusy}
               onChange={handleFileSelect}
               previewSlot={
                 loading ? (
-                  <Loader className='w-6 h-6 animate-spin text-gray-400' />
+                  <span className='flex flex-col items-center gap-2 text-sm text-gray-500'>
+                    <Loader
+                      className='h-6 w-6 animate-spin text-orange'
+                      aria-hidden='true'
+                    />
+                    Preparing upload…
+                  </span>
                 ) : uploadPercentage ? (
-                  <div className='flex flex-col items-center gap-3 px-6 w-full'>
-                    <div className='flex items-center gap-2 text-sm text-gray-500'>
-                      <CloudUpload className='w-4 h-4 animate-pulse text-orange-500' />
+                  <span
+                    className='flex w-full flex-col items-center gap-3 px-8'
+                    role='status'
+                  >
+                    <span className='flex items-center gap-2 text-sm font-medium text-gray-700'>
+                      <CloudUpload
+                        className='h-4 w-4 animate-pulse text-orange'
+                        aria-hidden='true'
+                      />
                       Uploading {uploadPercentage}
-                    </div>
-                    <div className='w-full h-1.5 bg-gray-200 rounded-full overflow-hidden'>
-                      <div
-                        className='h-full bg-orange-500 rounded-full transition-all duration-300'
+                    </span>
+                    <span className='h-1.5 w-full overflow-hidden rounded-full bg-gray-200'>
+                      <span
+                        className='block h-full rounded-full bg-orange transition-all duration-300'
                         style={{ width: uploadPercentage }}
                       />
-                    </div>
-                  </div>
+                    </span>
+                    <span className='text-xs text-gray-400'>Keep this tab open until it finishes.</span>
+                  </span>
                 ) : videoData ? (
                   <iframe
-                    className='w-full h-full'
+                    title='Course trailer'
+                    className='h-full w-full'
                     src={`https://iframe.mediadelivery.net/embed/${videoData.libraryId}/${videoData.videoId}?token=${videoData.token}&expires=${videoData.expiresAt}&autoplay=false`}
                     allow='encrypted-media;'
                     allowFullScreen
@@ -746,18 +822,15 @@ function AdvanceInformation({
                   <video
                     src={videoPreview}
                     controls
-                    className='w-full h-full rounded-xl'
+                    className='h-full w-full'
                   >
                     Your browser does not support the video tag.
                   </video>
                 ) : (
-                  <div className='flex flex-col items-center gap-2 text-gray-300'>
-                    <Play
-                      size={48}
-                      strokeWidth={1}
-                    />
-                    <span className='text-xs'>No trailer yet</span>
-                  </div>
+                  <EmptyMedia
+                    icon={Play}
+                    text='Add a trailer'
+                  />
                 )
               }
             />
@@ -767,41 +840,78 @@ function AdvanceInformation({
           <input
             type='hidden'
             {...register("trailerUrl")}
-            value={courseData.trailerUrl || ""}
           />
-        </div>
+          {errors.trailerUrl?.message && (
+            <p
+              role='alert'
+              className='text-xs text-red-600'
+            >
+              {errors.trailerUrl.message}
+            </p>
+          )}
+        </FormSection>
 
-        {/* ── Objectives & Description ── */}
-        <section className='px-4 sm:px-6 py-6 border-b border-gray-100 space-y-4'>
-          <h4 className='text-sm font-semibold text-gray-900'>Course Description & Objectives</h4>
-
-          <FloatingTextarea
-            {...register("objectives")}
-            id='objectives'
-            label='Course Objectives'
-            defaultValue={courseDescriptionParsed.objectives || ""}
-            rows={2}
-            maxLength={100}
-            hasError={!!errors.objectives}
+        {/* ── Summary & description ── */}
+        <FormSection
+          title='Summary and description'
+          description='Start with a one-line promise, then explain the course in detail.'
+        >
+          {/* Change E: single-line "short summary" (stored as `objectives`) */}
+          <Field
+            label='Short summary'
+            htmlFor='objectives'
+            counter={{ value: objectivesValue.length, max: 100, min: 10 }}
             error={errors.objectives?.message}
-            hint='Summarise what students will achieve. Max 100 characters.'
-          />
+            hint='Shown under the course title. Example: Build and deploy three real projects with Next.js.'
+          >
+            <TextInput
+              {...objectivesField}
+              id='objectives'
+              type='text'
+              defaultValue={courseDescriptionParsed.objectives || ""}
+              maxLength={100}
+              placeholder='One sentence about what students will achieve'
+              hasError={!!errors.objectives}
+              onKeyDown={e => {
+                if (e.key === "Enter") e.preventDefault();
+              }}
+            />
+          </Field>
 
-          <FloatingTextarea
-            {...register("description", { required: "Description is required" })}
-            id='description'
-            label='Course Description'
-            defaultValue={courseDescriptionParsed.description || ""}
-            rows={4}
-            hasError={!!errors.description}
+          <Field
+            label='Description'
+            htmlFor='description'
+            counter={{ value: descriptionValue.length, min: 10 }}
             error={errors.description?.message}
-            hint='Give a detailed overview of your course content and outcomes.'
-          />
-        </section>
+            hint='Cover what the course includes, how it is taught, and what students can do afterwards. Plain text only.'
+          >
+            <TextArea
+              {...descriptionField}
+              id='description'
+              defaultValue={courseDescriptionParsed.description || ""}
+              rows={7}
+              placeholder='Describe your course…'
+              hasError={!!errors.description}
+            />
+          </Field>
+        </FormSection>
 
-        {/* ── Why This Course ── */}
         <ListSection
-          title='Why This Course?'
+          title='What students will learn'
+          description='Concrete skills or results. Start each one with a verb.'
+          fieldName='whatYouTeach'
+          items={whatYouTeach}
+          placeholder='e.g. Build a full-stack app with Next.js and PostgreSQL'
+          errors={errors}
+          register={register}
+          onAdd={() => addNewItem("whatYouTeach")}
+          onDelete={index => deleteItem("whatYouTeach", index)}
+          onChange={(i, v) => handleArrayInputChange("whatYouTeach", i, v)}
+        />
+
+        <ListSection
+          title='Why take this course'
+          description='What makes your course different from others on the same topic.'
           fieldName='whyThisCourse'
           items={whyThisCourse}
           placeholder='e.g. Hands-on projects with real-world applications'
@@ -812,25 +922,12 @@ function AdvanceInformation({
           onChange={(i, v) => handleArrayInputChange("whyThisCourse", i, v)}
         />
 
-        {/* ── What You Will Teach ── */}
         <ListSection
-          title='What You Will Teach'
-          fieldName='whatYouTeach'
-          items={whatYouTeach}
-          placeholder='e.g. Build a full-stack app with Next.js and Postgres'
-          errors={errors}
-          register={register}
-          onAdd={() => addNewItem("whatYouTeach")}
-          onDelete={index => deleteItem("whatYouTeach", index)}
-          onChange={(i, v) => handleArrayInputChange("whatYouTeach", i, v)}
-        />
-
-        {/* ── Target Audience ── */}
-        <ListSection
-          title='Target Audience'
+          title='Who this course is for'
+          description='Describe the students who will get the most out of it.'
           fieldName='targetAudience'
           items={targetAudience}
-          placeholder='e.g. Developers who know basic JavaScript'
+          placeholder='e.g. Developers who already know basic JavaScript'
           errors={errors}
           register={register}
           onAdd={() => addNewItem("targetAudience")}
@@ -838,28 +935,24 @@ function AdvanceInformation({
           onChange={(i, v) => handleArrayInputChange("targetAudience", i, v)}
         />
 
-        {/* ── Requirements ── */}
         <ListSection
-          title='Course Requirements'
+          title='Requirements'
+          description='Tools, knowledge or equipment students need before starting.'
           fieldName='requirements'
           items={requirements}
-          placeholder='e.g. Basic understanding of HTML and CSS'
+          placeholder='e.g. A computer with internet access and basic HTML knowledge'
           errors={errors}
           register={register}
           onAdd={() => addNewItem("requirements")}
           onDelete={index => deleteItem("requirements", index)}
           onChange={(i, v) => handleArrayInputChange("requirements", i, v)}
-          hasBorderBottom={false}
         />
 
-        {/* ── Footer ── */}
-        <div className='px-4 sm:px-6 py-6 border-t border-gray-100'>
-          <CourseFooter
-            handlePrevious={handlePrevious}
-            isSubmitting={isSubmitting}
-            currentStep={currentStep}
-          />
-        </div>
+        <CourseFooter
+          handlePrevious={handlePrevious}
+          isSubmitting={isSubmitting || loading || imageUploadLoading || Boolean(uploadPercentage)}
+          currentStep={currentStep}
+        />
       </form>
     </div>
   );

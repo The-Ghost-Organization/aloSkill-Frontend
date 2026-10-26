@@ -1,7 +1,10 @@
 "use client";
 
-import { Loader } from "lucide-react";
-import React from "react";
+import { ArrowLeft, Loader2 } from "lucide-react";
+import React, { useEffect, useState } from "react";
+import { btnPrimary, btnSecondary } from "./formUi.tsx";
+
+type SaveMode = "draft" | "publish" | "update" | "updateAndPublish";
 
 const CourseFooter = ({
   handleCancel,
@@ -16,129 +19,112 @@ const CourseFooter = ({
   isSubmitting: boolean;
   currentStep: number;
   handlePrevious?: () => void;
-  setDataSaveMode?: React.Dispatch<
-    React.SetStateAction<"draft" | "publish" | "update" | "updateAndPublish">
-  >;
+  setDataSaveMode?: React.Dispatch<React.SetStateAction<SaveMode>>;
   isParamsExisting?: boolean;
   isDraft?: boolean;
 }) => {
+  // Purely visual: remembers which submit button was pressed so only that
+  // button shows the spinner. The save mode itself is still set via setDataSaveMode.
+  const [pressed, setPressed] = useState<SaveMode | "next" | null>(null);
+  useEffect(() => {
+    if (!isSubmitting) setPressed(null);
+  }, [isSubmitting]);
+
+  const renderSubmit = ({
+    mode,
+    label,
+    busyLabel,
+    variant = "primary",
+  }: {
+    mode: SaveMode;
+    label: string;
+    busyLabel: string;
+    variant?: "primary" | "secondary";
+  }) => (
+    <button
+      key={mode}
+      type='submit'
+      disabled={isSubmitting}
+      onClick={() => {
+        setPressed(mode);
+        if (setDataSaveMode) setDataSaveMode(mode);
+      }}
+      className={variant === "primary" ? btnPrimary : btnSecondary}
+    >
+      {isSubmitting && pressed === mode ? (
+        <>
+          <Loader2
+            className='h-4 w-4 animate-spin'
+            aria-hidden='true'
+          />
+          {busyLabel}
+        </>
+      ) : (
+        label
+      )}
+    </button>
+  );
+
   return (
-    <div className='w-full flex items-center justify-between'>
+    <div className='sticky bottom-0 z-10 flex flex-wrap items-center justify-between gap-3 rounded-b-2xl border-t border-gray-200 bg-white px-4 py-4 sm:px-8'>
       {currentStep > 1 ? (
         <button
+          type='button'
           onClick={handlePrevious}
-          className='px-4 py-1.5 text-gray-700 rounded bg-gray-100 font-medium hover:text-gray-900 hover:bg-gray-200 transition-colors cursor-pointer'
+          className={btnSecondary}
         >
-          Previous
+          <ArrowLeft
+            className='h-4 w-4'
+            aria-hidden='true'
+          />
+          Back
         </button>
-      ) : (
+      ) : handleCancel ? (
         <button
+          type='button'
           onClick={handleCancel}
-          className='px-4 py-1.5 text-gray-700 rounded bg-gray-100 font-medium hover:text-gray-900 hover:bg-gray-200 transition-colors cursor-pointer'
+          className={btnSecondary}
         >
           Cancel
         </button>
+      ) : (
+        <span className='text-xs text-gray-400'>Step {currentStep} of 4</span>
       )}
-      <div>
+
+      <div className='flex flex-wrap items-center gap-3'>
         {currentStep === 4 ? (
           isParamsExisting ? (
             isDraft ? (
-              <div className='w-fit flex items-center gap-3'>
-                <button
-                  type='submit'
-                  disabled={isSubmitting}
-                  onClick={() => setDataSaveMode && setDataSaveMode("update")}
-                  className='px-4 py-1.5 bg-orange text-white rounded font-medium hover:bg-orange-light transition-colors cursor-pointer'
-                >
-                  {isSubmitting ? (
-                    <span className='flex items-center justify-center gap-2'>
-                      <Loader className='w-5 h-5 animate-spin' />
-                      Submitting...
-                    </span>
-                  ) : (
-                    "Update Course"
-                  )}
-                </button>
-                <button
-                  type='submit'
-                  disabled={isSubmitting}
-                  onClick={() => setDataSaveMode && setDataSaveMode("updateAndPublish")}
-                  className='px-4 py-1.5 bg-orange text-white rounded font-medium hover:bg-orange-light transition-colors cursor-pointer'
-                >
-                  {isSubmitting ? (
-                    <span className='flex items-center justify-center gap-2'>
-                      <Loader className='w-5 h-5 animate-spin' />
-                      Submitting...
-                    </span>
-                  ) : (
-                    "Publish Course"
-                  )}
-                </button>
-              </div>
+              <>
+                {renderSubmit({ mode: "update", label: "Save changes", busyLabel: "Saving…", variant: "secondary" })}
+                {renderSubmit({ mode: "updateAndPublish", label: "Publish course", busyLabel: "Publishing…" })}
+              </>
             ) : (
-              <button
-                type='submit'
-                disabled={isSubmitting}
-                onClick={() => setDataSaveMode && setDataSaveMode("update")}
-                className='px-4 py-1.5 bg-orange text-white rounded font-medium hover:bg-orange-light transition-colors cursor-pointer'
-              >
-                {isSubmitting ? (
-                  <span className='flex items-center justify-center gap-2'>
-                    <Loader className='w-5 h-5 animate-spin' />
-                    Submitting...
-                  </span>
-                ) : (
-                  "Update Course"
-                )}
-              </button>
+              renderSubmit({ mode: "update", label: "Save changes", busyLabel: "Saving…" })
             )
           ) : (
-            <div className='w-fit flex items-center gap-3'>
-              <button
-                type='submit'
-                disabled={isSubmitting}
-                onClick={() => setDataSaveMode && setDataSaveMode("draft")}
-                className='px-4 py-1.5 bg-orange text-white rounded font-medium hover:bg-orange-light transition-colors cursor-pointer'
-              >
-                {isSubmitting ? (
-                  <span className='flex items-center justify-center gap-2'>
-                    <Loader className='w-5 h-5 animate-spin' />
-                    Saving...
-                  </span>
-                ) : (
-                  "Draft Save"
-                )}
-              </button>
-              <button
-                type='submit'
-                disabled={isSubmitting}
-                onClick={() => setDataSaveMode && setDataSaveMode("publish")}
-                className='px-4 py-1.5 bg-orange text-white rounded font-medium hover:bg-orange-light transition-colors cursor-pointer'
-              >
-                {isSubmitting ? (
-                  <span className='flex items-center justify-center gap-2'>
-                    <Loader className='w-5 h-5 animate-spin' />
-                    Submitting...
-                  </span>
-                ) : (
-                  "Submit for Review"
-                )}
-              </button>
-            </div>
+            <>
+              {renderSubmit({ mode: "draft", label: "Save as draft", busyLabel: "Saving…", variant: "secondary" })}
+              {renderSubmit({ mode: "publish", label: "Submit for review", busyLabel: "Submitting…" })}
+            </>
           )
         ) : (
           <button
             type='submit'
             disabled={isSubmitting}
-            className='px-4 py-1.5 bg-orange text-white rounded font-medium hover:bg-orange-light transition-colors cursor-pointer'
+            onClick={() => setPressed("next")}
+            className={btnPrimary}
           >
             {isSubmitting ? (
-              <span className='flex items-center justify-center gap-2'>
-                <Loader className='w-5 h-5 animate-spin' />
-                Saving...
-              </span>
+              <>
+                <Loader2
+                  className='h-4 w-4 animate-spin'
+                  aria-hidden='true'
+                />
+                Saving…
+              </>
             ) : (
-              "Save and Next"
+              "Save & continue"
             )}
           </button>
         )}

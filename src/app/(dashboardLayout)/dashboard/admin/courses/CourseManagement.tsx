@@ -7,7 +7,7 @@ import {
   Users, Wallet, X,
 } from "lucide-react";
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { AdminCourse, AdminCoursesResponse, CourseStatus } from "./course.types";
 
 type Filter = "ALL" | CourseStatus;
@@ -43,6 +43,8 @@ export default function CourseManagement() {
   const [action, setAction] = useState<{ course: AdminCourse; type: Action } | null>(null);
   const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
+  const [actionError, setActionError] = useState("");
+  const requestVersion = useRef(0);
 
   useEffect(() => {
     const timer = window.setTimeout(() => setDebouncedSearch(search.trim()), 350);
@@ -51,17 +53,35 @@ export default function CourseManagement() {
   useEffect(() => setPage(1), [filter, debouncedSearch]);
 
   const load = useCallback(async () => {
+    const version = ++requestVersion.current;
     setLoading(true);
     setError("");
-    const params = new URLSearchParams({ page: String(page), limit: "10", status: filter });
-    if (debouncedSearch) params.set("search", debouncedSearch);
-    const response = await apiClient.get<AdminCoursesResponse>(`/admin/courses?${params}`);
-    if (!response.success || !response.data) setError(response.message ?? "Unable to load courses.");
-    else setData(response.data);
-    setLoading(false);
+    try {
+      const params = new URLSearchParams({ page: String(page), limit: "10", status: filter });
+      if (debouncedSearch) params.set("search", debouncedSearch);
+      const response = await apiClient.get<AdminCoursesResponse>(`/admin/courses?${params}`);
+      if (version !== requestVersion.current) return;
+      if (!response.success || !response.data) {
+        setData(null);
+        setError(response.message ?? "Unable to load courses.");
+      } else {
+        setData(response.data);
+        setPage(response.data.pagination.page);
+      }
+    } catch (error) {
+      if (version === requestVersion.current) {
+        setData(null);
+        setError(error instanceof Error ? error.message : "Unable to load courses.");
+      }
+    } finally {
+      if (version === requestVersion.current) setLoading(false);
+    }
   }, [page, filter, debouncedSearch]);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    void load();
+    return () => { requestVersion.current++; };
+  }, [load]);
   useEffect(() => {
     if (!selected && !action) return;
     const previous = document.body.style.overflow;
@@ -76,17 +96,22 @@ export default function CourseManagement() {
   }), [data]);
 
   const runAction = async () => {
-    if (!action) return;
+    if (!action || saving) return;
     if ((action.type === "SUSPEND" || action.type === "DELETE") && note.trim().length < 5) {
-      setError("Enter a reason of at least 5 characters.");
+      setActionError("Enter a reason of at least 5 characters.");
       return;
     }
     setSaving(true);
-    setError("");
-    const response = await apiClient.patch(`/admin/courses/${action.course.id}/action`, { action: action.type, note: note.trim() });
-    setSaving(false);
-    if (!response.success) { setError(response.message ?? "Course action failed."); return; }
-    setAction(null); setNote(""); setSelected(null); await load();
+    setActionError("");
+    try {
+      const response = await apiClient.patch(`/admin/courses/${action.course.id}/action`, { action: action.type, note: note.trim() });
+      if (!response.success) { setActionError(response.message ?? "Course action failed."); return; }
+      setAction(null); setNote(""); setSelected(null); await load();
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : "Course action failed.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const tabs: { key: Filter; label: string; count: number }[] = [
@@ -116,7 +141,7 @@ export default function CourseManagement() {
         </label>
       </div>
 
-      {error && <div role='alert' className='mb-4 flex items-center gap-2 rounded-lg border border-red-500/20 bg-red-500/10 p-3 text-sm text-red-300'><AlertTriangle size={16} />{error}</div>}
+      {error && <div role='alert' className='mb-4 flex items-center gap-2 rounded-lg border border-red-500/20 bg-red-500/10 p-3 text-sm text-red-300'><AlertTriangle size={16} /><span>{error}</span><button type='button' disabled={loading} onClick={() => void load()} className='ml-auto rounded border border-red-500/30 px-3 py-1 disabled:opacity-40'>Retry</button></div>}
 
       <section className='overflow-hidden rounded-xl border border-slate-800 bg-slate-900'>
         {loading ? <div className='flex min-h-72 items-center justify-center gap-2 text-sm text-slate-400'><Loader2 className='animate-spin' /> Loading courses…</div> : !data?.items.length ? <div className='min-h-72 place-content-center text-center text-sm text-slate-500'>No matching courses found.</div> : <CourseTable courses={data.items} onView={setSelected} />}
@@ -124,8 +149,8 @@ export default function CourseManagement() {
 
       <div className='mt-4 flex items-center justify-between text-xs text-slate-500'><span>{data?.pagination.total ?? 0} courses</span><div className='flex items-center gap-2'><button disabled={page <= 1 || loading} onClick={() => setPage(value => value - 1)} className='rounded border border-slate-800 p-2 disabled:opacity-40'><ChevronLeft size={14} /></button><span>Page {data?.pagination.page ?? page} of {data?.pagination.totalPages ?? 1}</span><button disabled={page >= (data?.pagination.totalPages ?? 1) || loading} onClick={() => setPage(value => value + 1)} className='rounded border border-slate-800 p-2 disabled:opacity-40'><ChevronRight size={14} /></button></div></div>
 
-      {selected && <CourseDrawer course={selected} onClose={() => setSelected(null)} onAction={type => { setAction({ course: selected, type }); setNote(""); }} />}
-      {action && <ActionDialog value={action} note={note} setNote={setNote} saving={saving} onClose={() => { setAction(null); setNote(""); }} onConfirm={() => void runAction()} />}
+      {selected && <CourseDrawer course={selected} onClose={() => setSelected(null)} onAction={type => { setAction({ course: selected, type }); setNote(""); setActionError(""); }} />}
+      {action && <ActionDialog value={action} note={note} setNote={setNote} saving={saving} error={actionError} onClose={() => { setAction(null); setNote(""); setActionError(""); }} onConfirm={() => void runAction()} />}
     </div>
   );
 }
@@ -172,13 +197,14 @@ function CourseDrawer({ course, onClose, onAction }: { course: AdminCourse; onCl
   );
 }
 
-function ActionDialog({ value, note, setNote, saving, onClose, onConfirm }: { value: { course: AdminCourse; type: Action }; note: string; setNote: (value: string) => void; saving: boolean; onClose: () => void; onConfirm: () => void }) {
+function ActionDialog({ value, note, setNote, saving, error, onClose, onConfirm }: { value: { course: AdminCourse; type: Action }; note: string; setNote: (value: string) => void; saving: boolean; error: string; onClose: () => void; onConfirm: () => void }) {
   const required = value.type === "SUSPEND" || value.type === "DELETE";
   return (
     <div className='fixed inset-0 z-[60] grid place-items-center bg-black/70 p-4'>
       <div className='w-full max-w-md rounded-2xl border border-slate-700 bg-slate-900 p-5 shadow-2xl'>
         <h3 className='text-lg font-bold text-white'>{value.type.toLowerCase().replace(/^./, char => char.toUpperCase())} course</h3>
         <p className='mt-2 text-sm text-slate-400'>{value.course.title}</p>
+        {error && <p role='alert' className='mt-3 rounded-lg bg-red-500/10 p-3 text-sm text-red-300'>{error}</p>}
         <label className='mt-5 block text-xs font-semibold text-slate-400'>Admin note {required ? "(required)" : "(optional)"}<textarea value={note} onChange={event => setNote(event.target.value)} maxLength={500} rows={4} className='mt-2 w-full resize-none rounded-lg border border-slate-700 bg-slate-950 p-3 text-sm text-white outline-none focus:border-orange-500' placeholder='Explain this action…' /></label>
         <div className='mt-5 flex justify-end gap-2'><button disabled={saving} onClick={onClose} className='rounded-lg border border-slate-700 px-4 py-2 text-sm text-slate-300'>Cancel</button><button disabled={saving || (required && note.trim().length < 5)} onClick={onConfirm} className={`rounded-lg px-4 py-2 text-sm font-semibold text-white disabled:opacity-40 ${value.type === "DELETE" ? "bg-red-500" : "bg-orange-500"}`}>{saving ? "Saving…" : "Confirm"}</button></div>
       </div>

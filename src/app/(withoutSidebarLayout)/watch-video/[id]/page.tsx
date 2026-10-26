@@ -13,7 +13,7 @@ import {
   Play,
 } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { apiClient } from "../../../../lib/api/client";
 import { getFileIdFromUrl } from "../../../../lib/course/utils";
 import { useSessionContext } from "../../../contexts/SessionContext";
@@ -44,6 +44,15 @@ export default function CoursePage() {
   } | null>(null);
   const { id } = useParams();
   const { user } = useSessionContext();
+  const [navigationError, setNavigationError] = useState("");
+  const curriculum = useMemo(() => [...(course?.modules ?? [])]
+    .sort((a, b) => a.position - b.position)
+    .flatMap(module => [...module.lessons].sort((a, b) => a.position - b.position)
+      .map(lesson => ({ modulePosition: module.position, lesson }))), [course?.modules]);
+  const currentIndex = curriculum.findIndex(item => item.lesson.id === activeContent?.id);
+  const previousLecture = currentIndex > 0 ? curriculum[currentIndex - 1] : undefined;
+  const nextLecture = currentIndex >= 0 ? curriculum[currentIndex + 1] : undefined;
+  const canContinue = Boolean(curriculum[currentIndex]?.lesson.lessonProgress[0]?.completed);
 
   if (user) {
     mapUser.set("storedUser", user?.id);
@@ -77,13 +86,7 @@ export default function CoursePage() {
         return;
       }
 
-      if (moduleId === 1 && lessonId === 1) {
-        setActiveContent(targetLesson);
-        return;
-      }
-      const allLessons = course?.modules
-        .sort((a, b) => a.position - b.position)
-        .flatMap(m => m.lessons.sort((a, b) => a.position - b.position));
+      const allLessons = curriculum.map(item => item.lesson);
 
       const targetIndex = allLessons?.findIndex(l => l.id === targetLesson.id);
       const previousLesson =
@@ -91,13 +94,16 @@ export default function CoursePage() {
 
       const isPrevCompleted = previousLesson?.lessonProgress[0]?.completed;
 
-      if (isPrevCompleted) {
+      if (targetIndex === 0 || isPrevCompleted) {
+        setNavigationError("");
+        setVideoData(null);
         setActiveContent(targetLesson);
+        setExpandedSections(previous => previous.includes(moduleId) ? previous : [...previous, moduleId]);
       } else {
-        console.warn("Previous lesson not completed!");
+        setNavigationError("Finish the previous lesson before opening this lecture.");
       }
     },
-    [course?.modules]
+    [course?.modules, curriculum]
   );
 
   useEffect(() => {
@@ -191,6 +197,7 @@ export default function CoursePage() {
   );
 
   const [playbackError, setPlaybackError] = useState("");
+  const [playbackAttempt, setPlaybackAttempt] = useState(0);
   useEffect(() => {
     let stale = false;
     setVideoData(null); setPlaybackError("");
@@ -199,14 +206,15 @@ export default function CoursePage() {
       if (stale) return;
       if (response.success && response.data) setVideoData(response.data);
       else setPlaybackError(response.message ?? "This lesson is unavailable.");
-    });
+    }).catch(() => { if (!stale) setPlaybackError("The lesson could not load. Check your connection and try again."); });
     return () => { stale = true; };
-  }, [activeContent?.id, activeContent?.type]);
+  }, [activeContent?.id, activeContent?.type, playbackAttempt]);
 
   useEffect(() => {
     if (activeContent) return;
-    handleSetActiveContents(1, 1);
-  }, [handleSetActiveContents, activeContent]);
+    const first = curriculum[0];
+    if (first) handleSetActiveContents(first.modulePosition, first.lesson.position);
+  }, [handleSetActiveContents, activeContent, curriculum]);
 
   const toggleSection = (sectionId: number) => {
     setExpandedSections(prev =>
@@ -285,7 +293,7 @@ export default function CoursePage() {
       {/* Header */}
       <header className='bg-transparent shadow-md'>
         <div className='max-w-[90%]  mx-auto px-3 sm:px-4 lg:px-6 py-2.5'>
-          <div className='flex items-center justify-between'>
+          <div className='flex flex-wrap items-center justify-between gap-4'>
             <div className='flex items-center space-x-4'>
               <button
                 className='cursor-pointer'
@@ -317,7 +325,13 @@ export default function CoursePage() {
               <button className='px-3 py-1.5 text-orange font-medium hover:bg-orange-100 rounded transition-colors duration-750'>
                 Write A Review
               </button>
-              <button className='px-3 py-1.5 bg-orange text-white font-medium rounded hover:bg-orange-500 transition-colors duration-500 cursor-pointer'>
+              <button type='button' disabled={!previousLecture}
+                onClick={() => previousLecture && handleSetActiveContents(previousLecture.modulePosition, previousLecture.lesson.position)}
+                className='rounded border border-gray-300 px-3 py-1.5 text-sm disabled:opacity-40'>Previous</button>
+              <button type='button' disabled={!nextLecture || !canContinue}
+                title={!nextLecture ? 'You reached the last lecture' : !canContinue ? 'Finish this lesson before continuing' : nextLecture.lesson.title}
+                onClick={() => nextLecture && handleSetActiveContents(nextLecture.modulePosition, nextLecture.lesson.position)}
+                className='px-3 py-1.5 bg-orange text-white font-medium rounded hover:bg-orange-500 transition-colors duration-500 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed'>
                 Next Lecture
               </button>
             </div>
@@ -326,17 +340,18 @@ export default function CoursePage() {
       </header>
 
       <div className='max-w-[90%] mx-auto px-3 sm:px-4 lg:px-6 py-6'>
+        {navigationError && <p role='alert' className='mb-4 rounded bg-orange-50 p-3 text-sm text-orange-800'>{navigationError}</p>}
         <div className='grid grid-cols-1 lg:grid-cols-3 gap-6'>
           {/* Main Content */}
           <div className='lg:col-span-2'>
             {/* Video/Image Player */}
             <div className='bg-white overflow-hidden'>
-              <div className='aspect-video bg-linear-to-br from-teal-400 to-teal-500'>
+              <div className={videoData?.provider === 'YOUTUBE' ? 'bg-black' : 'aspect-video bg-black'}>
                 {videoData?.provider === "YOUTUBE" ? (
                   <YouTubeVideoPlayer key={activeContent?.id} videoId={videoData.videoId}
                     lessonId={activeContent?.id as string} lastPosition={activeContent?.lessonProgress[0]?.lastPosition ?? 0}
                     handleUpdateProgress={handleUpdateProgress} />
-                ) : playbackError ? <p role='alert' className='bg-white p-4 text-red-700'>{playbackError}</p> : (
+                ) : playbackError ? <div role='alert' className='bg-white p-4 text-red-700'><p>{playbackError}</p><button type='button' className='mt-3 rounded border px-3 py-2 text-sm' onClick={() => setPlaybackAttempt(value => value + 1)}>Retry lesson</button></div> : (
                 <VideoProtectionWrapper
                   watermarkText={user?.email ?? user?.id} // ties the watermark to the enrolled user
                   onSuspiciousActivity={handleSuspiciousActivity}
@@ -353,7 +368,7 @@ export default function CoursePage() {
                       // disableProtection={process.env.NODE_ENV === "development"}
                     />
                   ) : (
-                    <div className='min-h-screen flex gap-3 items-center justify-center'>
+                    <div className='h-full min-h-[200px] flex gap-3 items-center justify-center text-white'>
                       <Loader className='w-8 h-8 text-gray-500 animate-spin' />
                       <p className='text-gray-500'>Loading Lesson Video.</p>
                     </div>

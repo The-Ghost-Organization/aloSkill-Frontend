@@ -1,22 +1,44 @@
 import { apiClient } from "@/lib/api/client.ts";
 import {
+  AlertTriangle,
+  CheckCircle2,
   ChevronDown,
-  ChevronUp,
+  CircleDashed,
   CloudUpload,
-  Loader,
-  Menu,
+  FileText,
+  Film,
+  HelpCircle,
+  ListChecks,
+  Loader2,
+  Paperclip,
   Pencil,
   Plus,
-  Trash,
+  RefreshCw,
+  Repeat,
+  ShieldCheck,
   Trash2,
   Upload,
+  Youtube,
 } from "lucide-react";
-import { type ChangeEvent, useEffect, useState } from "react";
+import { type ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { getUpload, uploadLessonVideo, progressFromJob, formatVideoBytes, type HostingPolicy } from "@/lib/course/videoHosting";
 import { useSessionContext } from "../../../../../contexts/SessionContext.tsx";
 import CourseFooter from "./CourseFooter.tsx";
-import CourseModal from "./CourseModal.tsx";
+import { validateCurriculum } from "./curriculumValidation";
+import {
+  Callout,
+  ChoiceDot,
+  choiceCardClass,
+  cx,
+  ErrorSummary,
+  Field,
+  iconBtn,
+  iconBtnDanger,
+  inputClass,
+  SelectInput,
+  TextArea,
+} from "./formUi.tsx";
 import StepHeader from "./StepHeader.tsx";
 import { type CourseLesson, type CourseModule, type CreateCourseData } from "./page.tsx";
 
@@ -25,9 +47,276 @@ type ExtendedCourseLesson = CourseLesson & {
   lessonTypeSelection?: boolean;
 };
 
-type ExtendedCourseModule = CourseModule & {
-  lessons: ExtendedCourseLesson[];
+type LessonType = "VIDEO" | "ARTICLE" | "QUIZ";
+type QuestionType = "MULTIPLE_CHOICE" | "TRUE_FALSE" | "SINGLE_CHOICE";
+
+// ── Static config ─────────────────────────────────────────────────────────────
+
+const LESSON_TYPES: { value: LessonType; label: string; hint: string; icon: typeof Film }[] = [
+  { value: "VIDEO", label: "Video", hint: "Upload a recorded lesson", icon: Film },
+  { value: "ARTICLE", label: "Article", hint: "Written lesson with files", icon: FileText },
+  { value: "QUIZ", label: "Quiz", hint: "Check what students learned", icon: HelpCircle },
+];
+
+// Change J: readable question type names (stored values unchanged).
+const QUESTION_TYPES: { value: QuestionType; label: string; hint: string }[] = [
+  { value: "SINGLE_CHOICE", label: "One answer", hint: "4 options, 1 correct" },
+  { value: "MULTIPLE_CHOICE", label: "Multiple answers", hint: "4 options, up to 3 correct" },
+  { value: "TRUE_FALSE", label: "True / False", hint: "A statement to judge" },
+];
+const questionTypeLabel = (type: QuestionType) =>
+  QUESTION_TYPES.find(t => t.value === type)?.label ?? type;
+
+const ATTACHMENT_ACCEPT = ".pdf,.doc,.docx,.ppt,.pptx";
+const ATTACHMENT_MIME = new Set([
+  "application/pdf",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.ms-powerpoint",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+]);
+const isAttachmentFile = (file: File) =>
+  ATTACHMENT_MIME.has(file.type) || /\.(pdf|docx?|pptx?)$/i.test(file.name);
+
+const formatDuration = (totalSeconds: number) => {
+  if (!totalSeconds) return "0 min";
+  const h = Math.floor(totalSeconds / 3600);
+  const m = Math.round((totalSeconds % 3600) / 60);
+  return h ? `${h} h ${m} min` : `${Math.max(1, m)} min`;
 };
+
+const ISSUE_PREFIX = /^(Module \d+(, lesson \d+)?|Curriculum): /;
+const stripIssuePrefix = (message: string) => message.replace(ISSUE_PREFIX, "");
+
+// Turns generic schema messages ("Too small: expected number to be >0") into
+// plain language with the field name. Display only; the rules are unchanged.
+const FIELD_LABELS: [RegExp, string][] = [
+  [/_quiz_duration$/, "Time limit"],
+  [/_quiz_passingScore$/, "Pass mark"],
+  [/_quiz_attemptsAllowed$/, "Attempts"],
+  [/_points$/, "Points"],
+  [/_duration$/, "Duration"],
+  [/_position$/, "Position"],
+];
+const friendlyIssue = (key: string, message: string, keepPrefix = false) => {
+  const prefix = keepPrefix ? (message.match(ISSUE_PREFIX)?.[0] ?? "") : "";
+  let text = stripIssuePrefix(message);
+  const label = FIELD_LABELS.find(([re]) => re.test(key))?.[1];
+  const small = text.match(/^Too small: expected number to be (>=?)(\d+)/);
+  const big = text.match(/^Too big: expected number to be (<=?)(\d+)/);
+  if (small) text = `must be at least ${small[1] === ">" ? Number(small[2]) + 1 : small[2]}`;
+  else if (big) text = `must be ${big[1] === "<" ? Number(big[2]) - 1 : big[2]} or less`;
+  else if (/^Invalid input: expected number/.test(text)) text = "must be a number";
+  if ((small || big || text === "must be a number") && label) text = `${label} ${text}`;
+  return prefix + text.charAt(0).toUpperCase() + text.slice(1);
+};
+
+// ── Inline title editor (change G: replaces the rename pop-up) ─────────────────
+
+const InlineTitle = ({
+  value,
+  onCommit,
+  label,
+  min = 5,
+  max = 150,
+  className,
+}: {
+  value: string;
+  onCommit: (value: string) => void;
+  label: string;
+  min?: number;
+  max?: number;
+  className?: string;
+}) => {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (editing) inputRef.current?.select();
+  }, [editing]);
+
+  const commit = () => {
+    const next = draft.trim();
+    if (next && next !== value) onCommit(next);
+    setEditing(false);
+  };
+
+  const tooShort = value.trim().length < min;
+
+  if (editing) {
+    return (
+      <div className='min-w-0 flex-1'>
+        <input
+          ref={inputRef}
+          value={draft}
+          maxLength={max}
+          aria-label={label}
+          onChange={e => setDraft(e.target.value)}
+          onBlur={commit}
+          onKeyDown={e => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              commit();
+            } else if (e.key === "Escape") {
+              e.preventDefault();
+              setDraft(value);
+              setEditing(false);
+            }
+          }}
+          className={inputClass(draft.trim().length > 0 && draft.trim().length < min, "py-1.5")}
+        />
+        <p className='mt-1 text-[11px] text-gray-400'>
+          Enter to save · Esc to cancel · {draft.trim().length}/{max}
+          {draft.trim().length < min && ` · at least ${min} characters`}
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <button
+      type='button'
+      onClick={() => {
+        setDraft(value);
+        setEditing(true);
+      }}
+      title={`Rename: ${value}`}
+      className={cx(
+        "group/title flex min-w-0 items-center gap-2 rounded-md px-1 py-0.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange",
+        className
+      )}
+    >
+      <span className={cx("truncate", tooShort ? "text-red-600" : "text-gray-900")}>{value || "Untitled"}</span>
+      <Pencil
+        className='h-3.5 w-3.5 shrink-0 text-gray-300 transition-colors group-hover/title:text-gray-500'
+        aria-hidden='true'
+      />
+      <span className='sr-only'>Rename {label}</span>
+    </button>
+  );
+};
+
+// ── Status badge ─────────────────────────────────────────────────────────────
+
+type Status = { tone: "ready" | "warning" | "neutral" | "progress" | "error"; label: string };
+
+const StatusBadge = ({ status }: { status: Status }) => {
+  const styles = {
+    ready: "bg-emerald-500/10 text-emerald-700",
+    warning: "bg-amber-500/10 text-amber-700",
+    neutral: "bg-gray-100 text-gray-500",
+    progress: "bg-blue-500/10 text-blue-600",
+    error: "bg-red-500/10 text-red-600",
+  }[status.tone];
+  const Icon =
+    status.tone === "ready"
+      ? CheckCircle2
+      : status.tone === "progress"
+        ? Loader2
+        : status.tone === "neutral"
+          ? CircleDashed
+          : AlertTriangle;
+  return (
+    <span
+      className={cx(
+        "inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold",
+        styles
+      )}
+    >
+      <Icon
+        className={cx("h-3 w-3", status.tone === "progress" && "animate-spin")}
+        aria-hidden='true'
+      />
+      {status.label}
+    </span>
+  );
+};
+
+// ── Attachments ──────────────────────────────────────────────────────────────
+
+const Attachments = ({
+  inputId,
+  files,
+  busy,
+  onSelect,
+  onRemove,
+}: {
+  inputId: string;
+  files: { name: string; url: string }[];
+  busy: boolean;
+  onSelect: (e: ChangeEvent<HTMLInputElement>) => void;
+  onRemove: (name: string) => void;
+}) => (
+  <div>
+    <div className='mb-1.5 flex items-center justify-between gap-3'>
+      <p className='text-[13px] font-medium text-gray-800'>
+        Downloadable files <span className='font-normal text-gray-400'>(optional)</span>
+      </p>
+      <span className='text-xs text-gray-400'>PDF, Word or PowerPoint</span>
+    </div>
+    {files.length > 0 && (
+      <ul className='mb-2 divide-y divide-gray-100 rounded-lg border border-gray-200'>
+        {files.map((file, index) => (
+          <li
+            key={`${file.name}-${index}`}
+            className='flex items-center gap-2.5 px-3 py-2'
+          >
+            <Paperclip
+              className='h-4 w-4 shrink-0 text-gray-400'
+              aria-hidden='true'
+            />
+            <span className='min-w-0 flex-1 truncate text-sm text-gray-700'>{file.name}</span>
+            <button
+              type='button'
+              onClick={() => onRemove(file.name)}
+              aria-label={`Remove ${file.name}`}
+              className={iconBtnDanger}
+            >
+              <Trash2
+                className='h-4 w-4'
+                aria-hidden='true'
+              />
+            </button>
+          </li>
+        ))}
+      </ul>
+    )}
+    {/* Bug 1 fix: every lesson gets its own input id, so files land on the right lesson. */}
+    <label
+      htmlFor={inputId}
+      className={cx(
+        "flex items-center justify-center gap-2 rounded-lg border border-dashed border-gray-300 px-3 py-3 text-sm font-medium text-gray-600 transition-colors",
+        busy ? "cursor-wait opacity-60" : "cursor-pointer hover:border-orange/60 hover:bg-orange-500/5 hover:text-gray-900"
+      )}
+    >
+      {busy ? (
+        <Loader2
+          className='h-4 w-4 animate-spin'
+          aria-hidden='true'
+        />
+      ) : (
+        <Upload
+          className='h-4 w-4'
+          aria-hidden='true'
+        />
+      )}
+      {busy ? "Uploading…" : files.length ? "Add more files" : "Attach files"}
+    </label>
+    <input
+      onChange={onSelect}
+      id={inputId}
+      multiple
+      type='file'
+      accept={ATTACHMENT_ACCEPT}
+      disabled={busy}
+      className='sr-only'
+    />
+  </div>
+);
+
+// ── Main component ───────────────────────────────────────────────────────────
+
 export default function CourseCurriculum({
   currentStep,
   setCurrentStep,
@@ -39,18 +328,15 @@ export default function CourseCurriculum({
   courseData: CreateCourseData;
   setCourseData: React.Dispatch<React.SetStateAction<CreateCourseData>>;
 }) {
-  const [openModal, setOpeModal] = useState<{
-    type: string;
-    sectionId?: number;
-    lectureId?: number;
-  }>({
-    type: "",
-    sectionId: undefined,
-    lectureId: undefined,
-  });
   const [uploadError, setUploadError] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(false);
   const [fileLoading, setFileLoading] = useState<boolean>(false);
+
+  // UI-only state
+  const [uploadErrorKey, setUploadErrorKey] = useState<string>("");
+  // Bug 7 fix: these used to be shared by every quiz on the page.
+  const [addQuestionFor, setAddQuestionFor] = useState<string | null>(null);
+  const [questionNotice, setQuestionNotice] = useState<Record<string, string>>({});
 
   const { user } = useSessionContext();
 
@@ -106,35 +392,24 @@ export default function CourseCurriculum({
     return () => { cancelled = true; clearInterval(timer); };
   }, [courseData.modules, setCourseData, loading]);
 
-  const [sections, setSections] = useState<ExtendedCourseModule[]>([
-    {
-      position: 1,
-      title: "Module 1",
-      lessons: [
-        {
-          position: 1,
-          title: "Lesson 1",
-          description: "",
-          notes: "",
-          type: null,
-          contentUrl: { name: "", url: "" },
-          files: [] as { name: string; url: string }[],
-          duration: null,
-          expanded: false,
-          lessonTypeSelection: true,
-        },
-      ],
-    },
-  ]);
-  const [showAddQuestions, setShowAddQuestions] = useState<boolean>(false);
-  const [quizOptionError, setQuizOptionError] = useState<string>("");
+  const validationSummary = useRef<HTMLDivElement>(null);
   const {
-    register,
-    unregister,
     handleSubmit,
-    setValue,
     formState: { errors, isSubmitting },
-  } = useForm();
+  } = useForm({
+    // Validate the same draft used by FinalStep. Mounted controls can be stale,
+    // and successful background uploads intentionally clear the file picker.
+    resolver: values => {
+      const errors = validateCurriculum(courseData.modules);
+      if (loading || fileLoading) errors.upload = {
+        type: 'validate', message: 'Wait for the current file upload to finish before continuing.',
+      };
+      if (Object.keys(errors).length) return { values: {}, errors };
+      return { values, errors: {} };
+    },
+    shouldFocusError: false,
+    reValidateMode: 'onSubmit',
+  });
 
   const addSection = () => {
     setCourseData(prev => ({
@@ -148,7 +423,7 @@ export default function CourseCurriculum({
           lessons: [
             {
               position: 1,
-              title: "Lecture 1",
+              title: "Lesson 1",
               description: "",
               notes: "",
               type: null,
@@ -251,7 +526,6 @@ export default function CourseCurriculum({
       "Are you sure you want to delete this section? All lectures within this section will also be deleted."
     );
     if (confirmPrompt) {
-      setSections(sections.filter(section => section.position !== moduleId));
       setCourseData(prev => ({
         ...prev,
         modules: prev.modules.filter(module => module.position !== moduleId),
@@ -462,12 +736,14 @@ export default function CourseCurriculum({
     sectionId: number,
     lectureId: number
   ) => {
+    setUploadErrorKey(`${sectionId}-${lectureId}`);
     if (e.target.files && e.target.files.length > 0) {
       const file = e.target.files[0];
 
       if (file) {
         const isVideo = file.type.startsWith("video/");
-        const isPDF = file.type.startsWith("application/pdf");
+        // Bug 11 fix: every type the picker accepts (PDF, Word, PowerPoint) is now handled.
+        const isPDF = isAttachmentFile(file);
 
         if (isVideo) {
           if (loading) return;
@@ -504,8 +780,19 @@ export default function CourseCurriculum({
         }
 
         if (isPDF) {
+          const documents = Array.from(e.target.files ?? []).filter(isAttachmentFile);
+          e.target.value = "";
           try {
-            const uploadResult = await uploadFileToBunny(Array.from(e.target.files ?? []));
+            const uploadResult = await uploadFileToBunny(documents);
+            const uploaded = uploadResult.filter(item => item.url);
+            if (uploaded.length < documents.length) {
+              setUploadError(
+                uploaded.length === 0
+                  ? "The file could not be uploaded. Try again."
+                  : `${documents.length - uploaded.length} of ${documents.length} files could not be uploaded. Try those again.`
+              );
+            }
+            if (uploaded.length === 0) return;
             setCourseData(prev => ({
               ...prev,
               modules: prev.modules.map(module => {
@@ -516,11 +803,13 @@ export default function CourseCurriculum({
                       if (lesson.position === lectureId) {
                         return {
                           ...lesson,
-                          files: uploadResult,
+                          files: [...(lesson.files ?? []), ...uploaded],
+                          // Reading time (5 min per document) only applies to article lessons;
+                          // a video lesson keeps the duration of its video.
                           duration:
-                            lesson.type === "ARTICLE" && lesson.duration
-                              ? lesson.duration + uploadResult.length * 5 * 60
-                              : uploadResult.length * 5 * 60,
+                            lesson.type === "ARTICLE"
+                              ? (lesson.duration ?? 0) + uploaded.length * 5 * 60
+                              : lesson.duration,
                         };
                       }
                       return lesson;
@@ -531,7 +820,7 @@ export default function CourseCurriculum({
               }),
             }));
           } catch (_error) {
-            // console.error("Error uploading file:", error);
+            setUploadError("The file could not be uploaded. Try again.");
           }
           return;
         }
@@ -616,7 +905,7 @@ export default function CourseCurriculum({
         return module;
       }),
     }));
-    setShowAddQuestions(false);
+    setAddQuestionFor(null);
   };
 
   const addQuizOption = (
@@ -645,19 +934,6 @@ export default function CourseCurriculum({
                   const updatedOptions = question.options.map(option =>
                     option.position === optionId ? { ...option, text: value } : option
                   );
-                  const normalizedValue = value.trim().toLowerCase();
-                  const isDuplicate =
-                    normalizedValue &&
-                    updatedOptions.some(
-                      option =>
-                        option.position !== optionId &&
-                        option.text.trim().toLowerCase() === normalizedValue
-                    );
-                  setQuizOptionError(
-                    isDuplicate
-                      ? "This option already exists. Please enter a different option."
-                      : ""
-                  );
                   return {
                     ...question,
                     options: updatedOptions,
@@ -671,141 +947,64 @@ export default function CourseCurriculum({
     }));
   };
 
+  // Bug 8 fix: a real radio (one answer / true-false) or checkbox (multiple answers).
+  // Picking a different radio option now moves the correct answer instead of
+  // showing alert(); the limits enforced by validation are unchanged.
   const updateQuizOptionCorrectAnswere = (
     moduleId: number,
     lessonId: number,
     questionId: number,
     optionId: number
   ) => {
-    setSections(
-      sections.map(section => {
-        if (section.position === moduleId) {
-          return {
-            ...section,
-            lessons: section.lessons.map(lesson => {
-              if (lesson.position === lessonId) {
-                if (lesson.quiz) {
-                  return {
-                    ...lesson,
-                    quiz: {
-                      ...lesson.quiz,
-                      questions: lesson.quiz?.questions.map(question => {
-                        if (question.position === questionId) {
-                          return {
-                            ...question,
-                            options: question.options.map(option => {
-                              if (option.position === optionId) {
-                                if (option.isCorrect) {
-                                  return { ...option, isCorrect: false };
-                                } else {
-                                  if (question.type === "MULTIPLE_CHOICE") {
-                                    if (question.options.filter(o => o.isCorrect).length >= 3) {
-                                      alert(
-                                        "You can select maximum three correct answer for multiple choice questions."
-                                      );
-                                    } else {
-                                      return { ...option, isCorrect: true };
-                                    }
-                                  } else if (question.type === "SINGLE_CHOICE") {
-                                    if (question.options.filter(o => o.isCorrect).length >= 1) {
-                                      alert(
-                                        "You can only select one correct answer for single choice questions."
-                                      );
-                                    } else {
-                                      return { ...option, isCorrect: true };
-                                    }
-                                  } else {
-                                    if (question.options.filter(o => o.isCorrect).length >= 1) {
-                                      alert(
-                                        "You can only select one correct answer for true false questions."
-                                      );
-                                    } else {
-                                      return { ...option, isCorrect: true };
-                                    }
-                                  }
-                                }
-                              }
-                              return option;
-                            }),
-                          };
-                        }
-                        return question;
-                      }),
-                    },
-                  };
-                }
-              }
-              return lesson;
-            }),
-          };
-        }
-        return section;
-      })
-    );
+    const noticeKey = `${moduleId}-${lessonId}-${questionId}`;
+    const question = courseData.modules
+      .find(m => m.position === moduleId)
+      ?.lessons.find(l => l.position === lessonId)
+      ?.quiz?.questions.find(q => q.position === questionId);
+    if (!question) return;
+    const target = question.options.find(o => o.position === optionId);
+    if (!target) return;
+
+    if (question.type === "MULTIPLE_CHOICE" && !target.isCorrect) {
+      if (question.options.filter(o => o.isCorrect).length >= 3) {
+        setQuestionNotice(prev => ({
+          ...prev,
+          [noticeKey]: "You can mark up to 3 correct answers. Unmark one first.",
+        }));
+        return;
+      }
+    }
+    setQuestionNotice(prev => ({ ...prev, [noticeKey]: "" }));
+
     setCourseData(prev => ({
       ...prev,
       modules: prev.modules.map(module => {
-        if (module.position === moduleId) {
-          return {
-            ...module,
-            lessons: module.lessons.map(lesson => {
-              if (lesson.position === lessonId) {
-                if (lesson.quiz) {
+        if (module.position !== moduleId) return module;
+        return {
+          ...module,
+          lessons: module.lessons.map(lesson => {
+            if (lesson.position !== lessonId || !lesson.quiz) return lesson;
+            return {
+              ...lesson,
+              quiz: {
+                ...lesson.quiz,
+                questions: lesson.quiz.questions.map(q => {
+                  if (q.position !== questionId) return q;
                   return {
-                    ...lesson,
-                    quiz: {
-                      ...lesson.quiz,
-                      questions: lesson.quiz?.questions.map(question => {
-                        if (question.position === questionId) {
-                          return {
-                            ...question,
-                            options: question.options.map(option => {
-                              if (option.position === optionId) {
-                                if (option.isCorrect) {
-                                  return { ...option, isCorrect: false };
-                                } else {
-                                  if (question.type === "MULTIPLE_CHOICE") {
-                                    if (question.options.filter(o => o.isCorrect).length >= 3) {
-                                      alert(
-                                        "You can select maximum three correct answer for multiple choice questions."
-                                      );
-                                    } else {
-                                      return { ...option, isCorrect: true };
-                                    }
-                                  } else if (question.type === "SINGLE_CHOICE") {
-                                    if (question.options.filter(o => o.isCorrect).length >= 1) {
-                                      alert(
-                                        "You can only select one correct answer for single choice questions."
-                                      );
-                                    } else {
-                                      return { ...option, isCorrect: true };
-                                    }
-                                  } else {
-                                    if (question.options.filter(o => o.isCorrect).length >= 1) {
-                                      alert(
-                                        "You can only select one correct answer for true false questions."
-                                      );
-                                    } else {
-                                      return { ...option, isCorrect: true };
-                                    }
-                                  }
-                                }
-                              }
-                              return option;
-                            }),
-                          };
-                        }
-                        return question;
-                      }),
-                    },
+                    ...q,
+                    options: q.options.map(option =>
+                      q.type === "MULTIPLE_CHOICE"
+                        ? option.position === optionId
+                          ? { ...option, isCorrect: !option.isCorrect }
+                          : option
+                        : { ...option, isCorrect: option.position === optionId }
+                    ),
                   };
-                }
-              }
-              return lesson;
-            }),
-          };
-        }
-        return module;
+                }),
+              },
+            };
+          }),
+        };
       }),
     }));
   };
@@ -865,7 +1064,6 @@ export default function CourseCurriculum({
   };
 
   const handleDeleteQuiz = (moduleId: number, lessonId: number, questionId: number) => {
-    unregister(`section_${moduleId}_lecture_${lessonId}_quiz_question_${questionId}`);
     setCourseData(prev => ({
       ...prev,
       modules: prev.modules.map(module => {
@@ -903,1457 +1101,1016 @@ export default function CourseCurriculum({
     setCurrentStep(currentStep + 1);
   };
 
-  const loadModalComponent = (type: string) => {
+  // ── UI helpers (no change to how data is stored) ───────────────────────────
+
+  const patchLesson = (moduleId: number, lessonId: number, patch: Partial<CourseLesson>) => {
+    setCourseData(prev => ({
+      ...prev,
+      modules: prev.modules.map(m => ({
+        ...m,
+        lessons: m.lessons.map(l =>
+          m.position === moduleId && l.position === lessonId ? { ...l, ...patch } : l
+        ),
+      })),
+    }));
+  };
+
+  // Change G: inline rename (same update the rename pop-up made, applied on save).
+  const renameModule = (moduleId: number, title: string) => {
+    setCourseData(prev => ({
+      ...prev,
+      modules: prev.modules.map(module => (module.position === moduleId ? { ...module, title } : module)),
+    }));
+  };
+  const renameLesson = (moduleId: number, lessonId: number, title: string) =>
+    patchLesson(moduleId, lessonId, { title });
+
+  const pickLessonType = (moduleId: number, lesson: CourseLesson, type: LessonType) => {
+    toggleLectureAndType(moduleId, lesson.position, "lessonTypeSelection", type);
+    if (!lesson.expanded) toggleLectureAndType(moduleId, lesson.position, "expanded");
+  };
+
+  // Bug 9 fix: a lesson's type can be changed after it was picked.
+  const resetLessonType = (moduleId: number, lesson: CourseLesson) => {
+    const ok = window.confirm(
+      "Change this lesson's type? The video or quiz you added for the current type will be removed from the draft. Notes, text and files are kept."
+    );
+    if (!ok) return;
+    patchLesson(moduleId, lesson.position, {
+      type: null,
+      lessonTypeSelection: true,
+      expanded: true,
+      quiz: undefined,
+      contentUrl: { name: "", url: "" },
+      videoUploadJobId: null,
+      hostingType: undefined,
+      requestedHostingType: undefined,
+      uploadProgress: undefined,
+      uploadMessage: undefined,
+      duration: null,
+    });
+  };
+
+  const hostingFor = (lesson: CourseLesson) =>
+    lesson.requestedHostingType ?? lesson.hostingType ?? courseData.defaultHosting ?? (courseData.originalPrice > 0 ? 'PREMIUM' : policy?.defaultHosting) ?? 'PREMIUM';
+
+  // Live check of the same rules the server applies, used for badges and hints.
+  const liveIssues = useMemo(() => validateCurriculum(courseData.modules), [courseData.modules]);
+  const issueEntries = (prefix: string) =>
+    Object.entries(liveIssues)
+      .filter(([key]) => key.startsWith(prefix))
+      .map(([key, error]) => [key, friendlyIssue(key, String(error?.message ?? ""))] as const);
+  const issuesWithPrefix = (prefix: string) => issueEntries(prefix).map(([, message]) => message);
+
+  const lessonStatus = (lesson: CourseLesson, issueCount: number): Status => {
+    if (lesson.pendingVideoUploadJobId) {
+      const stage = lesson.uploadProgress?.stage;
+      if (stage === "FAILED") return { tone: "error", label: "Upload failed" };
+      const pct = lesson.uploadProgress?.percent;
+      if (stage === "PROCESSING" || stage === "QUEUED") return { tone: "progress", label: "Processing" };
+      return { tone: "progress", label: pct !== null && pct !== undefined ? `Uploading ${Math.round(pct)}%` : "Uploading" };
+    }
+    if (lesson.type === null) return { tone: "neutral", label: "Choose type" };
+    if (issueCount > 0) return { tone: "warning", label: `${issueCount} to fix` };
+    return { tone: "ready", label: "Ready" };
+  };
+
+  const nodeTone: Record<Status["tone"], string> = {
+    ready: "border-emerald-500 text-emerald-600",
+    warning: "border-amber-400 text-amber-600",
+    neutral: "border-gray-300 text-gray-400",
+    progress: "border-blue-400 text-blue-500",
+    error: "border-red-400 text-red-600",
+  };
+
+  const allLessons = courseData.modules.flatMap(m => m.lessons);
+  const totalSeconds = allLessons.reduce((sum, l) => sum + (Number(l.duration) || 0), 0);
+
+  // ── Editors ────────────────────────────────────────────────────────────────
+
+  const renderTypePicker = (moduleId: number, lesson: CourseLesson) => (
+    <fieldset>
+      <legend className='mb-2 text-[13px] font-medium text-gray-800'>What kind of lesson is this?</legend>
+      <div className='grid gap-2.5 sm:grid-cols-3'>
+        {LESSON_TYPES.map(type => {
+          const Icon = type.icon;
+          return (
+            <button
+              key={type.value}
+              type='button'
+              onClick={() => pickLessonType(moduleId, lesson, type.value)}
+              className='flex items-start gap-3 rounded-xl border border-gray-200 bg-white p-3.5 text-left transition-colors hover:border-orange hover:bg-orange-500/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange'
+            >
+              <span className='flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-600'>
+                <Icon
+                  className='h-4 w-4'
+                  aria-hidden='true'
+                />
+              </span>
+              <span>
+                <span className='block text-sm font-semibold text-gray-900'>{type.label}</span>
+                <span className='mt-0.5 block text-xs text-gray-500'>{type.hint}</span>
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </fieldset>
+  );
+
+  const renderVideoEditor = (moduleId: number, lesson: CourseLesson) => {
+    const key = `${moduleId}-${lesson.position}`;
+    const hosting = hostingFor(lesson);
+    const videoInputId = `lessonVideo-${moduleId}-${lesson.position}`;
+    const startingHere = loading && uploadErrorKey === key;
+    const busyElsewhere = loading && !startingHere && !lesson.pendingVideoUploadJobId;
+    const progress = lesson.uploadProgress;
+
     return (
-      <CourseModal
-        modalType={type}
-        sections={sections}
-        setSections={setSections}
-        setOpeModal={setOpeModal}
-        sectionId={openModal.sectionId}
-        lectureId={openModal.lectureId}
-        courseData={courseData}
-        setCourseData={setCourseData}
-      />
+      <div className='space-y-5'>
+        {/* Hosting */}
+        <fieldset disabled={loading}>
+          <legend className='mb-2 text-[13px] font-medium text-gray-800'>Video hosting</legend>
+          <div className='grid gap-2.5 sm:grid-cols-2'>
+            {([['FREE', 'Free hosting', 'Standard hosting. Suits free lessons that do not need extra protection.', Youtube],
+              ['PREMIUM', 'Premium hosting', 'Protected hosting with stronger access security.', ShieldCheck]] as const).map(([value, label, description, Icon]) => {
+              const id = `hosting-${moduleId}-${lesson.position}-${value}`;
+              return (
+                <div key={value}>
+                  <input
+                    type='radio'
+                    id={id}
+                    name={`hosting-${moduleId}-${lesson.position}`}
+                    value={value}
+                    className='peer sr-only'
+                    checked={hosting === value}
+                    disabled={value === 'FREE' ? !policy?.freeEnabled || (courseData.originalPrice > 0 && !policy.allowFreePaid) : policy ? !policy.premiumEnabled : false}
+                    onChange={() => patchLesson(moduleId, lesson.position, { requestedHostingType: value, youtubeDisclosureAccepted: false })}
+                  />
+                  <label
+                    htmlFor={id}
+                    className={choiceCardClass}
+                  >
+                    <ChoiceDot />
+                    <span className='flex-1'>
+                      <span className='flex flex-wrap items-center gap-2 text-sm font-semibold text-gray-900'>
+                        <Icon
+                          className='h-4 w-4 text-gray-400'
+                          aria-hidden='true'
+                        />
+                        {label}
+                        {value === 'PREMIUM' && courseData.originalPrice > 0 && (
+                          <span className='rounded-full bg-emerald-500/10 px-2 py-0.5 text-[11px] font-semibold text-emerald-700'>
+                            Recommended
+                          </span>
+                        )}
+                      </span>
+                      <span className='mt-0.5 block text-xs leading-snug text-gray-500'>{description}</span>
+                    </span>
+                  </label>
+                </div>
+              );
+            })}
+          </div>
+
+          {hosting === 'FREE' && (
+            <div className='mt-3 space-y-3 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-xs leading-relaxed text-amber-800'>
+              <p>
+                Upload destination: the central ALOSKILL YouTube channel. Privacy: Unlisted; embedding enabled. Title: <strong>{lesson.title}</strong>. Description: {lesson.description || '(empty)'}. A private course playlist organizes these videos. Anyone with a video link may share it.
+              </p>
+              <label className='flex items-start gap-2.5 text-gray-800'>
+                <input
+                  type='checkbox'
+                  className='mt-0.5 h-4 w-4 shrink-0 accent-orange'
+                  checked={Boolean(lesson.youtubeDisclosureAccepted)}
+                  onChange={e => patchLesson(moduleId, lesson.position, { youtubeDisclosureAccepted: e.target.checked })}
+                />
+                <span>
+                  I authorize this upload to YouTube as Unlisted and agree to the{" "}
+                  <a className='font-semibold underline' href='https://www.youtube.com/t/terms' target='_blank' rel='noreferrer'>YouTube Terms</a> and{" "}
+                  <a className='font-semibold underline' href='https://policies.google.com/privacy' target='_blank' rel='noreferrer'>Google Privacy Policy</a>.
+                </span>
+              </label>
+              {courseData.originalPrice > 0 && (
+                <label className='flex items-start gap-2.5 text-gray-800'>
+                  <input
+                    type='checkbox'
+                    className='mt-0.5 h-4 w-4 shrink-0 accent-orange'
+                    checked={Boolean(lesson.freeHostingAcknowledged)}
+                    onChange={e => patchLesson(moduleId, lesson.position, { freeHostingAcknowledged: e.target.checked })}
+                  />
+                  <span>I understand that paid content links can be shared and access protection is limited.</span>
+                </label>
+              )}
+            </div>
+          )}
+        </fieldset>
+
+        {/* Video file */}
+        <div>
+          <p className='mb-1.5 text-[13px] font-medium text-gray-800'>Video file</p>
+          {lesson.contentUrl?.name ? (
+            <div className='flex flex-wrap items-center gap-3 rounded-lg border border-gray-200 px-3 py-2.5'>
+              <span className='flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-500'>
+                <Film
+                  className='h-4 w-4'
+                  aria-hidden='true'
+                />
+              </span>
+              <span className='min-w-0 flex-1'>
+                <span className='block truncate text-sm font-medium text-gray-900'>{lesson.contentUrl.name}</span>
+                <span className='text-xs text-gray-500'>
+                  {lesson.duration ? formatDuration(lesson.duration) : "Duration available after processing"}
+                  {lesson.hostingType ? ` · ${lesson.hostingType === "FREE" ? "Free" : "Premium"} hosting` : ""}
+                </span>
+              </span>
+              <label
+                htmlFor={videoInputId}
+                className={cx(
+                  "inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-500/10",
+                  loading ? "pointer-events-none opacity-50" : "cursor-pointer"
+                )}
+              >
+                <RefreshCw
+                  className='h-3.5 w-3.5'
+                  aria-hidden='true'
+                />
+                Replace
+              </label>
+              <button
+                type='button'
+                onClick={() => deleteLectureFile(moduleId, lesson.position, undefined, "video")}
+                aria-label='Remove video'
+                className={iconBtnDanger}
+              >
+                <Trash2
+                  className='h-4 w-4'
+                  aria-hidden='true'
+                />
+              </button>
+            </div>
+          ) : (
+            <label
+              htmlFor={videoInputId}
+              className={cx(
+                "flex flex-col items-center justify-center gap-1.5 rounded-xl border-2 border-dashed px-4 py-7 text-center transition-colors",
+                errors[`section_${moduleId}_lecture_${lesson.position}_video`] && !lesson.pendingVideoUploadJobId
+                  ? "border-red-200 bg-red-50"
+                  : "border-gray-200 bg-gray-50",
+                loading ? "cursor-not-allowed" : "cursor-pointer hover:border-orange/60 hover:bg-orange-500/5"
+              )}
+            >
+              {startingHere ? (
+                <>
+                  <Loader2
+                    className='h-6 w-6 animate-spin text-orange'
+                    aria-hidden='true'
+                  />
+                  <span className='text-sm font-medium text-gray-700'>Starting upload…</span>
+                </>
+              ) : (
+                <>
+                  <CloudUpload
+                    className='h-7 w-7 text-gray-400'
+                    aria-hidden='true'
+                  />
+                  <span className='text-sm font-semibold text-gray-800'>
+                    {lesson.pendingVideoUploadJobId ? "Select the same file to retry" : "Upload video"}
+                  </span>
+                  <span className='text-xs text-gray-500'>
+                    {busyElsewhere
+                      ? "Another video is uploading. Wait for it to finish."
+                      : `MP4, MOV or WebM${policy ? ` · up to ${formatVideoBytes(policy.maxUploadBytes)}` : ""}`}
+                  </span>
+                </>
+              )}
+            </label>
+          )}
+          <input
+            id={videoInputId}
+            type='file'
+            accept='.mp4,.mov,.webm'
+            className='sr-only'
+            disabled={loading}
+            onChange={e => void handleFileSelect(e, moduleId, lesson.position)}
+          />
+        </div>
+
+        {/* Upload progress */}
+        {progress ? (
+          <div
+            className='space-y-2 rounded-lg border border-gray-200 bg-gray-50 p-3'
+            role='status'
+            aria-live='polite'
+          >
+            <div className='flex flex-wrap justify-between gap-2 text-sm text-gray-700'>
+              <span>{progress.message}</span>
+              {progress.percent !== null && <strong className='tabular-nums'>{progress.percent.toFixed(1)}%</strong>}
+            </div>
+            {progress.percent !== null ? (
+              <div className='h-2 w-full overflow-hidden rounded-full bg-gray-200'>
+                <div
+                  className={cx(
+                    "h-full rounded-full transition-all duration-300",
+                    progress.stage === "FAILED" ? "bg-red-500" : progress.stage === "READY" ? "bg-emerald-500" : "bg-orange"
+                  )}
+                  style={{ width: `${progress.percent}%` }}
+                />
+              </div>
+            ) : (
+              <p className='text-xs text-gray-500'>Upload progress and video processing are separate stages. Your draft is saved.</p>
+            )}
+            {['SOURCE', 'TRANSFER'].includes(progress.stage) && (
+              <p className='text-xs tabular-nums text-gray-500'>
+                {formatVideoBytes(progress.bytes)} / {formatVideoBytes(progress.total)}
+                {progress.bytesPerSecond ? ` · ${formatVideoBytes(progress.bytesPerSecond)}/s` : ''}
+                {progress.remainingSeconds !== undefined ? ` · About ${Math.ceil(progress.remainingSeconds / 60)} min remaining` : ''}
+              </p>
+            )}
+          </div>
+        ) : (
+          lesson.uploadMessage && (
+            <p
+              role='status'
+              className='text-xs text-gray-600'
+            >
+              {lesson.uploadMessage}
+            </p>
+          )
+        )}
+
+        {uploadError && uploadErrorKey === key && (
+          <Callout
+            tone='error'
+            role='alert'
+          >
+            {uploadError}
+          </Callout>
+        )}
+
+        <Attachments
+          inputId={`lessonFile-${moduleId}-${lesson.position}`}
+          files={lesson.files ?? []}
+          busy={fileLoading && uploadErrorKey === key}
+          onSelect={e => void handleFileSelect(e, moduleId, lesson.position)}
+          onRemove={name => deleteLectureFile(moduleId, lesson.position, name)}
+        />
+
+        <div className='grid gap-5 lg:grid-cols-2'>
+          <Field
+            label='Lesson description'
+            htmlFor={`desc-${key}`}
+            optional
+            counter={{ value: lesson.description?.length ?? 0, min: 20 }}
+            hint='What this lesson covers. At least 20 characters if you add one.'
+          >
+            <TextArea
+              id={`desc-${key}`}
+              onChange={e => handleTextValueChange(moduleId, lesson.position, "description", e.target.value)}
+              defaultValue={lesson.description}
+              placeholder='In this lesson you will…'
+              rows={5}
+            />
+          </Field>
+          <Field
+            label='Lesson notes'
+            htmlFor={`notes-${key}`}
+            optional
+            counter={{ value: lesson.notes?.length ?? 0, max: 1000, min: 20 }}
+            hint='Key points, links or code students can read alongside the video.'
+          >
+            <TextArea
+              id={`notes-${key}`}
+              onChange={e => handleTextValueChange(moduleId, lesson.position, "notes", e.target.value)}
+              defaultValue={lesson.notes}
+              placeholder='Summary, commands, links…'
+              rows={5}
+              maxLength={1000}
+            />
+          </Field>
+        </div>
+      </div>
     );
   };
 
-  return (
-    <div className='w-full bg-white'>
-      {/* Header */}
-      <StepHeader headingText='Course Curriculum' />
-      {/* Form Content */}
-      <form
-        onSubmit={handleSubmit(onSubmitHandler)}
-        className='p-6'
-      >
-        {/* Sections */}
-        <div className='space-y-4'>
-          <label className='mb-4 block text-sm font-medium'>Default video hosting
-                <select value={courseData.defaultHosting ?? (courseData.originalPrice > 0 ? 'PREMIUM' : policy?.defaultHosting) ?? 'PREMIUM'} className='ml-2 rounded border p-2'
-                  onChange={e => setCourseData(prev => ({ ...prev, defaultHosting: e.target.value as "FREE" | "PREMIUM" }))}>
-                  <option value='FREE' disabled={!policy?.freeEnabled || (courseData.originalPrice > 0 && !policy.allowFreePaid)}>Free Hosting</option>
-                  <option value='PREMIUM' disabled={policy ? !policy.premiumEnabled : false}>Premium Hosting</option>
-                </select>
-              </label>
-              {policy && <p className='text-sm text-gray-600'>Maximum video size: {formatVideoBytes(policy.maxUploadBytes)}. Large files upload in resumable chunks.</p>}
-              {policy?.workerAvailable === false && <p role='alert' className='text-sm text-red-700'>The video worker is offline. Ask the administrator to start it before uploading. Existing uploaded files are saved.</p>}
-              {policyError ? <p role='alert' className='text-sm text-red-700'>{policyError}</p>
-                : !policy ? <p role='status' className='text-sm text-gray-500'>Checking video hosting availability…</p>
-                : !policy.freeEnabled ? <p role='status' className='text-sm text-gray-600'>{policy.freeUnavailableReason ?? 'Free Hosting is currently unavailable. Ask an administrator to check Video Hosting settings.'}</p>
-                : courseData.originalPrice > 0 && !policy.allowFreePaid ? <p role='status' className='text-sm text-gray-600'>Free Hosting is disabled for paid lessons by the administrator.</p> : null}
-              {courseData.modules.map((module, moduleIndex) => (
-            <div
-              key={module.position}
-              className='bg-gray-50 rounded p-4'
+  const renderArticleEditor = (moduleId: number, lesson: CourseLesson) => {
+    const key = `${moduleId}-${lesson.position}`;
+    return (
+      <div className='space-y-5'>
+        <Field
+          label='Article'
+          htmlFor={`article-${key}`}
+          counter={{ value: lesson.description?.length ?? 0, min: 20 }}
+          hint='Plain text. Use blank lines to separate paragraphs.'
+        >
+          <TextArea
+            id={`article-${key}`}
+            onChange={e => handleTextValueChange(moduleId, lesson.position, "description", e.target.value)}
+            placeholder='Write the lesson here…'
+            defaultValue={lesson.description}
+            rows={10}
+          />
+        </Field>
+        {uploadError && uploadErrorKey === key && (
+          <Callout
+            tone='error'
+            role='alert'
+          >
+            {uploadError}
+          </Callout>
+        )}
+        <Attachments
+          inputId={`lessonFile-${moduleId}-${lesson.position}`}
+          files={lesson.files ?? []}
+          busy={fileLoading && uploadErrorKey === key}
+          onSelect={e => void handleFileSelect(e, moduleId, lesson.position)}
+          onRemove={name => deleteLectureFile(moduleId, lesson.position, name)}
+        />
+      </div>
+    );
+  };
+
+  const renderQuizEditor = (moduleId: number, lesson: CourseLesson) => {
+    const key = `${moduleId}-${lesson.position}`;
+    const quiz = lesson.quiz;
+    if (!quiz) {
+      return (
+        <Callout
+          tone='warning'
+          title='This quiz has no settings yet'
+        >
+          <button
+            type='button'
+            onClick={() =>
+              patchLesson(moduleId, lesson.position, {
+                quiz: { title: "", description: "", duration: 0, passingScore: 0, attemptsAllowed: 1, questions: [] },
+              })
+            }
+            className='mt-1 font-semibold underline'
+          >
+            Set up this quiz
+          </button>
+        </Callout>
+      );
+    }
+    const totalPoints = quiz.questions.reduce((sum, q) => sum + (Number(q.points) || 0), 0);
+    const pickerOpen = addQuestionFor === key;
+
+    return (
+      <div className='space-y-5'>
+        {/* Settings */}
+        <div className='space-y-4 rounded-xl border border-gray-200 bg-gray-50 p-4'>
+          <p className='text-[13px] font-semibold text-gray-800'>Quiz settings</p>
+          <Field
+            label='Quiz title'
+            htmlFor={`quiz-title-${key}`}
+            counter={{ value: quiz.title?.length ?? 0, max: 500, min: 20 }}
+          >
+            <input
+              id={`quiz-title-${key}`}
+              type='text'
+              maxLength={500}
+              onChange={e => handleQuizInputChange(moduleId, lesson.position, "title", e.target.value)}
+              value={quiz.title || ""}
+              placeholder='e.g. Check your understanding of React state'
+              className={inputClass(false)}
+            />
+          </Field>
+          <Field
+            label='Instructions'
+            htmlFor={`quiz-desc-${key}`}
+            counter={{ value: quiz.description?.length ?? 0, min: 20 }}
+            hint='Tell students what the quiz covers and how it is scored.'
+          >
+            <TextArea
+              id={`quiz-desc-${key}`}
+              rows={3}
+              onChange={e => handleQuizInputChange(moduleId, lesson.position, "description", e.target.value)}
+              value={quiz.description || ""}
+              placeholder='Answer all questions. You need the pass mark to complete this lesson.'
+            />
+          </Field>
+          <div className='grid gap-4 sm:grid-cols-2'>
+            <Field
+              label='Time limit'
+              htmlFor={`quiz-duration-${key}`}
+              hint='Between 1 and 60 minutes.'
             >
-              {/* Section Header */}
-              <div className='flex items-center justify-between pb-4'>
-                <div className='w-[90%] flex items-center gap-3 overflow-hidden'>
-                  <Menu
-                    size={16}
-                    className='text-gray-500'
-                  />
-                  <span className='text-sm font-medium text-gray-800 whitespace-nowrap'>
-                    Module 0{moduleIndex + 1} :
-                  </span>
-                  <span
-                    className={`${module.title.length > 5 ? "text-gray-800" : "text-red-500"} text-sm whitespace-break-spaces`}
+              <div className='relative'>
+                <input
+                  id={`quiz-duration-${key}`}
+                  type='number'
+                  min={1}
+                  max={60}
+                  onChange={e => handleQuizInputChange(moduleId, lesson.position, "duration", Number(e.target.value))}
+                  value={quiz.duration || ""}
+                  placeholder='e.g. 15'
+                  className={inputClass(false, "pr-14 tabular-nums")}
+                />
+                <span className='pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-sm text-gray-400'>min</span>
+              </div>
+            </Field>
+            <Field
+              label='Pass mark'
+              htmlFor={`quiz-score-${key}`}
+              hint='Score needed to pass, 1–100%.'
+            >
+              <div className='relative'>
+                <input
+                  id={`quiz-score-${key}`}
+                  type='number'
+                  min={1}
+                  max={100}
+                  onChange={e => handleQuizInputChange(moduleId, lesson.position, "passingScore", Number(e.target.value))}
+                  value={quiz.passingScore || ""}
+                  placeholder='e.g. 70'
+                  className={inputClass(false, "pr-10 tabular-nums")}
+                />
+                <span className='pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-sm text-gray-400'>%</span>
+              </div>
+            </Field>
+          </div>
+        </div>
+
+        {/* Questions */}
+        <div>
+          <div className='mb-3 flex flex-wrap items-baseline justify-between gap-2'>
+            <p className='text-[13px] font-semibold text-gray-800'>
+              Questions <span className='font-normal text-gray-400'>({quiz.questions.length})</span>
+            </p>
+            {quiz.questions.length > 0 && (
+              <span className='text-xs tabular-nums text-gray-500'>
+                {totalPoints} {totalPoints === 1 ? "point" : "points"} in total
+              </span>
+            )}
+          </div>
+
+          {quiz.questions.length === 0 && (
+            <p className='mb-3 rounded-lg border border-dashed border-gray-200 px-4 py-5 text-center text-sm text-gray-500'>
+              No questions yet. Add the first one below.
+            </p>
+          )}
+
+          <ol className='space-y-4'>
+            {quiz.questions.map((question, qIndex) => {
+              const qKey = `${moduleId}-${lesson.position}-${question.position}`;
+              const qIssues = issuesWithPrefix(`section_${moduleId}_lecture_${lesson.position}_quiz_questions_${qIndex}_`);
+              const isMulti = question.type === "MULTIPLE_CHOICE";
+              const isTrueFalse = question.type === "TRUE_FALSE";
+              const texts = question.options.map(o => o.text.trim().toLowerCase()).filter(Boolean);
+              const hasDuplicate = texts.length !== new Set(texts).size;
+              const notice = questionNotice[qKey];
+
+              return (
+                <li
+                  key={question.position}
+                  className='rounded-xl border border-gray-200 bg-white p-4'
+                >
+                  <div className='mb-3 flex flex-wrap items-center gap-2'>
+                    <span className='text-sm font-semibold text-gray-900'>Question {qIndex + 1}</span>
+                    <span className='rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-semibold text-gray-600'>
+                      {questionTypeLabel(question.type)}
+                    </span>
+                    <label className='ml-auto flex items-center gap-2 text-xs text-gray-500'>
+                      Points
+                      <input
+                        type='number'
+                        min={1}
+                        max={10}
+                        onChange={e => handleQuestionInputChange(moduleId, lesson.position, question.position, "points", e.target.value)}
+                        value={question.points || ""}
+                        aria-label={`Points for question ${qIndex + 1}`}
+                        className={inputClass(false, "w-16 px-2 py-1.5 text-center tabular-nums")}
+                      />
+                    </label>
+                    <button
+                      type='button'
+                      onClick={() => handleDeleteQuiz(moduleId, lesson.position, question.position)}
+                      aria-label={`Delete question ${qIndex + 1}`}
+                      className={iconBtnDanger}
+                    >
+                      <Trash2
+                        className='h-4 w-4'
+                        aria-hidden='true'
+                      />
+                    </button>
+                  </div>
+
+                  <Field
+                    label='Question'
+                    htmlFor={`q-text-${qKey}`}
+                    counter={{ value: question.text.length, max: 200, min: 10 }}
                   >
-                    {module.title}
-                  </span>
+                    <TextArea
+                      id={`q-text-${qKey}`}
+                      onChange={e => handleQuestionInputChange(moduleId, lesson.position, question.position, "text", e.target.value)}
+                      placeholder={isTrueFalse ? "Write a statement students mark as true or false" : "Write your question"}
+                      value={question.text}
+                      rows={2}
+                      maxLength={200}
+                    />
+                  </Field>
+
+                  <fieldset className='mt-4'>
+                    <legend className='mb-2 text-[13px] font-medium text-gray-800'>
+                      Answers
+                      <span className='ml-1.5 font-normal text-gray-500'>
+                        {isMulti ? "— tick every correct answer (up to 3)" : "— select the correct answer"}
+                      </span>
+                    </legend>
+                    <div className={cx("grid gap-2", !isTrueFalse && "sm:grid-cols-2")}>
+                      {question.options.map((option, oIndex) => {
+                        const inputId = `q-${qKey}-opt-${option.position}`;
+                        return (
+                          <div
+                            key={option.position}
+                            className={cx(
+                              "flex items-center gap-2.5 rounded-lg border px-3 py-2 transition-colors",
+                              option.isCorrect ? "border-emerald-500/60 bg-emerald-500/10" : "border-gray-200 bg-white"
+                            )}
+                          >
+                            <input
+                              id={inputId}
+                              type={isMulti ? "checkbox" : "radio"}
+                              name={`correct-${qKey}`}
+                              checked={option.isCorrect}
+                              onChange={() => updateQuizOptionCorrectAnswere(moduleId, lesson.position, question.position, option.position)}
+                              aria-label={`Mark ${isTrueFalse ? option.text : `option ${oIndex + 1}`} as correct`}
+                              className='h-4 w-4 shrink-0 cursor-pointer accent-emerald-600'
+                            />
+                            {isTrueFalse ? (
+                              <label
+                                htmlFor={inputId}
+                                className='flex-1 cursor-pointer py-1 text-sm font-medium capitalize text-gray-800'
+                              >
+                                {option.text}
+                              </label>
+                            ) : (
+                              <input
+                                type='text'
+                                value={option.text}
+                                onChange={e => addQuizOption(moduleId, lesson.position, question.position, option.position, e.target.value)}
+                                placeholder={`Option ${oIndex + 1}`}
+                                aria-label={`Option ${oIndex + 1} text`}
+                                maxLength={50}
+                                className='bare-input min-w-0 flex-1 border-0 bg-transparent py-1 text-sm text-gray-900 outline-none placeholder:text-gray-400'
+                              />
+                            )}
+                            {option.isCorrect && (
+                              <span className='shrink-0 text-[11px] font-semibold text-emerald-700'>Correct</span>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </fieldset>
+
+                  {(hasDuplicate || notice || qIssues.length > 0) && (
+                    <ul className='mt-3 space-y-1 text-xs text-amber-700'>
+                      {hasDuplicate && <li>Two options have the same text. Make each option different.</li>}
+                      {notice && <li>{notice}</li>}
+                      {[...new Set(qIssues)].filter(m => !(hasDuplicate && m === "Option texts must be unique")).map(message => (
+                        <li key={message}>{message}</li>
+                      ))}
+                    </ul>
+                  )}
+                </li>
+              );
+            })}
+          </ol>
+
+          {/* Add question */}
+          <div className='mt-4'>
+            {pickerOpen ? (
+              <div className='rounded-xl border border-gray-200 bg-gray-50 p-3'>
+                <div className='mb-2 flex items-center justify-between'>
+                  <p className='text-[13px] font-medium text-gray-800'>Choose a question type</p>
+                  <button
+                    type='button'
+                    onClick={() => setAddQuestionFor(null)}
+                    className='text-xs font-semibold text-gray-500 hover:text-gray-800'
+                  >
+                    Cancel
+                  </button>
                 </div>
-                <div className='w-[10%] flex items-center gap-2'>
-                  <button
-                    type='button'
-                    onClick={() => addLesson(module.position)}
-                    className='p-1.5 hover:bg-gray-200 rounded transition-colors'
-                  >
-                    <Plus
-                      size={18}
-                      className='text-gray-600'
+                <div className='grid gap-2 sm:grid-cols-3'>
+                  {QUESTION_TYPES.map(type => (
+                    <button
+                      key={type.value}
+                      type='button'
+                      onClick={() => addQuizQuestion(moduleId, lesson.position, type.value)}
+                      className='rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-left transition-colors hover:border-orange hover:bg-orange-500/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange'
+                    >
+                      <span className='block text-sm font-semibold text-gray-900'>{type.label}</span>
+                      <span className='block text-xs text-gray-500'>{type.hint}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <button
+                type='button'
+                onClick={() => setAddQuestionFor(key)}
+                className='flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-gray-300 py-3 text-sm font-semibold text-gray-600 transition-colors hover:border-orange/60 hover:bg-orange-500/5 hover:text-gray-900'
+              >
+                <Plus
+                  className='h-4 w-4'
+                  aria-hidden='true'
+                />
+                Add question
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // ── Render ─────────────────────────────────────────────────────────────────
+
+  const defaultHostingValue = courseData.defaultHosting ?? (courseData.originalPrice > 0 ? 'PREMIUM' : policy?.defaultHosting) ?? 'PREMIUM';
+
+  return (
+    <div className='w-full'>
+      <StepHeader
+        headingText='Curriculum'
+        description='Group lessons into modules. Click any title to rename it.'
+        aside={
+          <div className='flex flex-wrap gap-2 text-xs font-medium text-gray-600'>
+            <span className='rounded-full bg-gray-100 px-2.5 py-1 tabular-nums'>
+              {courseData.modules.length} {courseData.modules.length === 1 ? "module" : "modules"}
+            </span>
+            <span className='rounded-full bg-gray-100 px-2.5 py-1 tabular-nums'>
+              {allLessons.length} {allLessons.length === 1 ? "lesson" : "lessons"}
+            </span>
+            {totalSeconds > 0 && (
+              <span className='rounded-full bg-gray-100 px-2.5 py-1 tabular-nums'>{formatDuration(totalSeconds)}</span>
+            )}
+          </div>
+        }
+      />
+
+      <form
+        noValidate
+        onSubmit={handleSubmit(onSubmitHandler, () => {
+          requestAnimationFrame(() => {
+            validationSummary.current?.focus();
+            validationSummary.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          });
+        })}
+      >
+        {Object.keys(errors).length > 0 && (
+          <ErrorSummary
+            ref={validationSummary}
+            title='Fix these lessons before continuing'
+            messages={[...new Set(Object.entries(errors).map(([key, error]) => friendlyIssue(key, String(error?.message ?? 'Check this lesson.'), true)))]}
+          />
+        )}
+
+        {/* ── Default hosting ── */}
+        <section className='border-b border-gray-100 px-4 py-5 sm:px-8'>
+          <div className='flex flex-wrap items-center justify-between gap-4'>
+            <div className='max-w-prose'>
+              <h3 className='text-[15px] font-semibold text-gray-900'>Default video hosting</h3>
+              <p className='mt-1 text-sm text-gray-500'>
+                Used for new video uploads. You can choose differently for any lesson.
+                {policy && ` Maximum file size ${formatVideoBytes(policy.maxUploadBytes)}; large files upload in resumable chunks.`}
+              </p>
+            </div>
+            <SelectInput
+              aria-label='Default video hosting'
+              value={defaultHostingValue}
+              className='sm:!w-60'
+              onChange={e => setCourseData(prev => ({ ...prev, defaultHosting: e.target.value as "FREE" | "PREMIUM" }))}
+            >
+              <option value='FREE' disabled={!policy?.freeEnabled || (courseData.originalPrice > 0 && !policy.allowFreePaid)}>Free hosting</option>
+              <option value='PREMIUM' disabled={policy ? !policy.premiumEnabled : false}>Premium hosting</option>
+            </SelectInput>
+          </div>
+          <div className='mt-3 space-y-2'>
+            {policy?.workerAvailable === false && (
+              <Callout tone='error' role='alert'>
+                The video worker is offline. Ask the administrator to start it before uploading. Existing uploaded files are saved.
+              </Callout>
+            )}
+            {policyError ? (
+              <Callout tone='error' role='alert'>{policyError}</Callout>
+            ) : !policy ? (
+              <p role='status' className='flex items-center gap-2 text-xs text-gray-500'>
+                <Loader2 className='h-3.5 w-3.5 animate-spin' aria-hidden='true' />
+                Checking video hosting availability…
+              </p>
+            ) : !policy.freeEnabled ? (
+              <p role='status' className='text-xs text-gray-500'>
+                {policy.freeUnavailableReason ?? 'Free Hosting is currently unavailable. Ask an administrator to check Video Hosting settings.'}
+              </p>
+            ) : courseData.originalPrice > 0 && !policy.allowFreePaid ? (
+              <p role='status' className='text-xs text-gray-500'>Free Hosting is disabled for paid lessons by the administrator.</p>
+            ) : null}
+          </div>
+        </section>
+
+        {/* ── Modules ── */}
+        <div className='space-y-5 px-4 py-6 sm:px-8'>
+          {courseData.modules.length === 0 && (
+            <div className='rounded-2xl border border-dashed border-gray-300 px-6 py-10 text-center'>
+              <ListChecks className='mx-auto h-8 w-8 text-gray-300' aria-hidden='true' />
+              <p className='mt-2 text-sm font-semibold text-gray-800'>No modules yet</p>
+              <p className='mt-1 text-sm text-gray-500'>Add a module to start building your curriculum.</p>
+            </div>
+          )}
+
+          {courseData.modules.map((module, moduleIndex) => {
+            const moduleIssue = liveIssues[`section_${module.position}`];
+            const moduleSeconds = module.lessons.reduce((sum, l) => sum + (Number(l.duration) || 0), 0);
+
+            return (
+              <section
+                key={module.position}
+                aria-label={`Module ${moduleIndex + 1}: ${module.title}`}
+                className='rounded-2xl border border-gray-200 bg-gray-50 p-3 sm:p-5'
+              >
+                <div className='flex items-start gap-3'>
+                  <div className='min-w-0 flex-1'>
+                    <p className='px-1 text-xs font-semibold text-orange'>Module {moduleIndex + 1}</p>
+                    <InlineTitle
+                      value={module.title}
+                      onCommit={title => renameModule(module.position, title)}
+                      label={`module ${moduleIndex + 1}`}
+                      className='text-base font-semibold'
                     />
-                  </button>
-                  <button
-                    type='button'
-                    onClick={() => setOpeModal({ type: "sectionName", sectionId: module.position })}
-                    className='p-1.5 hover:bg-gray-200 rounded transition-colors'
-                  >
-                    <Pencil
-                      size={18}
-                      className='text-gray-600'
-                    />
-                  </button>
+                    <p className='mt-0.5 px-1 text-xs text-gray-500'>
+                      {module.lessons.length} {module.lessons.length === 1 ? "lesson" : "lessons"}
+                      {moduleSeconds > 0 && ` · ${formatDuration(moduleSeconds)}`}
+                    </p>
+                  </div>
                   <button
                     type='button'
                     onClick={() => deleteSection(module.position)}
-                    className='p-1.5 hover:bg-gray-200 rounded transition-colors'
+                    aria-label={`Delete module ${moduleIndex + 1}`}
+                    className={iconBtnDanger}
                   >
-                    <Trash2
-                      size={18}
-                      className='text-gray-600'
-                    />
+                    <Trash2 className='h-4 w-4' aria-hidden='true' />
                   </button>
                 </div>
-              </div>
 
-              {/* Lectures */}
-              <div className='flex flex-col gap-4'>
-                {module.lessons.map((lesson, index) => (
-                  <div key={index}>
-                    <div className='flex items-center justify-between px-4 py-2 bg-white relative'>
-                      <div className='flex items-center gap-3 overflow-hidden'>
-                        <Menu
-                          size={16}
-                          className='text-gray-500'
-                        />
+                {moduleIssue && (
+                  <p className='mt-2 px-1 text-xs text-amber-700'>
+                    {friendlyIssue(`section_${module.position}`, String(moduleIssue.message ?? ""))}
+                  </p>
+                )}
+
+                {/* Lessons — change K: no fake drag handles */}
+                <ol className='mt-4 space-y-3'>
+                  {module.lessons.map((lesson, lessonIndex) => {
+                    const issues = issueEntries(`section_${module.position}_lecture_${lesson.position}_`);
+                    // Question-level issues are shown on each question card instead.
+                    const lessonOnlyIssues = issues
+                      .filter(([key]) => !key.includes("_quiz_questions_"))
+                      .map(([, message]) => message);
+                    const status = lessonStatus(lesson, issues.length);
+                    const typeMeta = LESSON_TYPES.find(t => t.value === lesson.type);
+                    const TypeIcon = typeMeta?.icon ?? CircleDashed;
+                    const open = lesson.expanded || lesson.type === null;
+                    const isLast = lessonIndex === module.lessons.length - 1;
+
+                    return (
+                      <li
+                        key={lesson.position}
+                        className='relative sm:pl-11'
+                      >
+                        {!isLast && (
+                          <span
+                            aria-hidden='true'
+                            className='absolute -bottom-3 left-[15px] top-11 hidden w-0.5 bg-gray-200 sm:block'
+                          />
+                        )}
                         <span
-                          className={`${lesson.title.length > 5 ? "text-gray-800" : "text-red-500"} text-sm whitespace-break-spaces`}
+                          aria-hidden='true'
+                          className={cx(
+                            "absolute left-0 top-2.5 hidden h-8 w-8 items-center sm:flex justify-center rounded-full border-2 bg-white",
+                            nodeTone[status.tone]
+                          )}
                         >
-                          {lesson.title}
+                          <TypeIcon className='h-4 w-4' />
                         </span>
-                      </div>
-                      <div className='flex items-center gap-3'>
-                        <button
-                          type='button'
-                          onClick={() =>
-                            toggleLectureAndType(module.position, lesson.position, "expanded")
-                          }
-                          className='flex items-center gap-2 px-2 py-1.5 bg-orange-50 text-orange-500 rounded text-sm hover:bg-orange-100 transition-colors'
-                        >
-                          Contents
-                          {lesson.expanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                        </button>
-                        <button
-                          type='button'
-                          onClick={() =>
-                            setOpeModal({
-                              type: "lectureName",
-                              sectionId: module.position,
-                              lectureId: lesson.position,
-                            })
-                          }
-                          className='p-1.5 hover:bg-gray-100 rounded transition-colors'
-                        >
-                          <Pencil
-                            size={16}
-                            className='text-gray-500'
-                          />
-                        </button>
-                        <button
-                          type='button'
-                          onClick={() => deleteLecture(module.position, lesson.position)}
-                          className='p-1.5 hover:bg-gray-100 rounded transition-colors'
-                        >
-                          <Trash2
-                            size={16}
-                            className='text-gray-500'
-                          />
-                        </button>
-                      </div>
-                    </div>
-                    <input
-                      type='hidden'
-                      {...register(`section_${module.position}_lecture_${lesson.position}_type`, {
-                        required: `Please select a content type for Module ${module.position} lesson ${lesson.position}.`,
-                      })}
-                      value={lesson.type || ""}
-                    />
-                    {lesson.type === null &&
-                      errors[`section_${module.position}_lecture_${lesson.position}_type`] && (
-                        <p className='text-red-500 text-sm mt-1'>
-                          {
-                            errors[`section_${module.position}_lecture_${lesson.position}_type`]
-                              ?.message as string
-                          }
-                        </p>
-                      )}
-                    {lesson.type === "QUIZ" && (
-                      <>
-                        <input
-                          type='hidden'
-                          {...register(
-                            `section_${module.position}_lecture_${lesson.position}_addQuiz_type`,
-                            {
-                              required: `Please Add a Quiz for Module ${module.position} lesson ${lesson.position}.`,
-                            }
-                          )}
-                          value={lesson.quiz ? "added" : ""}
-                        />
-                        {lesson.quiz &&
-                          !showAddQuestions &&
-                          lesson.quiz?.questions.length === 0 &&
-                          errors[
-                            `section_${module.position}_lecture_${lesson.position}_addQuiz_type`
-                          ] && (
-                            <p className='text-red-500 text-sm mt-1'>
-                              {
-                                errors[
-                                  `section_${module.position}_lecture_${lesson.position}_addQuiz_type`
-                                ]?.message as string
-                              }
-                            </p>
-                          )}
 
-                        <input
-                          type='hidden'
-                          {...register(
-                            `section_${module.position}_lecture_${lesson.position}_quiz_type`,
-                            {
-                              required: `Please select a Quiz type for Module ${module.position} lesson ${lesson.position}.`,
-                            }
-                          )}
-                          value={lesson.quiz && lesson.quiz.questions.length > 0 ? "added" : ""}
-                        />
-                        {lesson.quiz &&
-                          lesson.quiz?.questions.length <= 0 &&
-                          showAddQuestions &&
-                          errors[
-                            `section_${module.position}_lecture_${lesson.position}_quiz_type`
-                          ] && (
-                            <p className='text-red-500 text-sm mt-1'>
-                              {
-                                errors[
-                                  `section_${module.position}_lecture_${lesson.position}_quiz_type`
-                                ]?.message as string
-                              }
-                            </p>
-                          )}
-                      </>
-                    )}
-                    {lesson.type === "QUIZ" && !lesson.expanded && (
-                      <>
-                        <input
-                          type='hidden'
-                          {...register(
-                            `section_${module.position}_lecture_${lesson.position}_quiz_title`,
-                            {
-                              required: `Please Add Quiz title for Module ${module.position} lesson ${lesson.position}.`,
-                            }
-                          )}
-                          value={lesson.quiz && lesson.quiz.title ? lesson.quiz.title : ""}
-                        />
-                        {lesson.quiz &&
-                          lesson.quiz?.questions.length <= 0 &&
-                          errors[
-                            `section_${module.position}_lecture_${lesson.position}_quiz_title`
-                          ] && (
-                            <p className='text-red-500 text-sm mt-1'>
-                              {
-                                errors[
-                                  `section_${module.position}_lecture_${lesson.position}_quiz_title`
-                                ]?.message as string
-                              }
-                            </p>
-                          )}
-
-                        <input
-                          type='hidden'
-                          {...register(
-                            `section_${module.position}_lecture_${lesson.position}_quiz_description`,
-                            {
-                              required: `Please Add Quiz description for Module ${module.position} lesson ${lesson.position}.`,
-                            }
-                          )}
-                          value={
-                            lesson.quiz && lesson.quiz.description ? lesson.quiz.description : ""
-                          }
-                        />
-                        {lesson.quiz &&
-                          lesson.quiz?.questions.length <= 0 &&
-                          errors[
-                            `section_${module.position}_lecture_${lesson.position}_quiz_description`
-                          ] && (
-                            <p className='text-red-500 text-sm mt-1'>
-                              {
-                                errors[
-                                  `section_${module.position}_lecture_${lesson.position}_quiz_description`
-                                ]?.message as string
-                              }
-                            </p>
-                          )}
-
-                        <input
-                          type='hidden'
-                          {...register(
-                            `section_${module.position}_lecture_${lesson.position}_quiz_score`,
-                            {
-                              required: `Please Add Quiz passing score for Module ${module.position} lesson ${lesson.position}.`,
-                            }
-                          )}
-                          value={
-                            lesson.quiz && lesson.quiz.passingScore ? lesson.quiz.passingScore : ""
-                          }
-                        />
-                        {lesson.quiz &&
-                          lesson.quiz?.questions.length <= 0 &&
-                          errors[
-                            `section_${module.position}_lecture_${lesson.position}_quiz_score`
-                          ] && (
-                            <p className='text-red-500 text-sm mt-1'>
-                              {
-                                errors[
-                                  `section_${module.position}_lecture_${lesson.position}_quiz_score`
-                                ]?.message as string
-                              }
-                            </p>
-                          )}
-                      </>
-                    )}
-                    {/* Expanded Content */}
-                    {lesson.expanded && (
-                      <div className='h-auto bg-white p-4 pt-0'>
-                        {/* Contents Type Selection */}
-                        {lesson.lessonTypeSelection && (
-                          <div>
-                            <span className='text-sm text-gray-600 mb-1'>
-                              Select a content type :
+                        <div className='rounded-xl border border-gray-200 bg-white shadow-sm'>
+                          <div className='flex flex-wrap items-center gap-x-2 gap-y-1 px-3 py-2.5 sm:px-4'>
+                            <span className='shrink-0 text-xs font-semibold tabular-nums text-gray-400'>
+                              {moduleIndex + 1}.{lessonIndex + 1}
                             </span>
-                            <div className='flex items-center justify-center gap-10 border border-dashed border-gray-200 p-2'>
-                              <button
-                                type='button'
-                                onClick={() => {
-                                  toggleLectureAndType(
-                                    module.position,
-                                    lesson.position,
-                                    "lessonTypeSelection",
-                                    "VIDEO"
-                                  );
-                                  setValue(
-                                    `section_${module.position}_lecture_${lesson.position}_type`,
-                                    "VIDEO"
-                                  );
-                                }}
-                                className='px-3 py-1.5 border border-gray-100 text-gray-800 rounded text-sm hover:bg-gray-100 transition-colors duration-500 cursor-pointer'
-                              >
-                                Video
-                              </button>
-                              <button
-                                type='button'
-                                onClick={() => {
-                                  toggleLectureAndType(
-                                    module.position,
-                                    lesson.position,
-                                    "lessonTypeSelection",
-                                    "ARTICLE"
-                                  );
-                                  setValue(
-                                    `section_${module.position}_lecture_${lesson.position}_type`,
-                                    "ARTICLE"
-                                  );
-                                }}
-                                className='px-3 py-1.5 border border-gray-100 text-gray-800 rounded text-sm hover:bg-gray-100 transition-colors duration-500 cursor-pointer'
-                              >
-                                Article
-                              </button>
-                              <button
-                                type='button'
-                                onClick={() => {
-                                  toggleLectureAndType(
-                                    module.position,
-                                    lesson.position,
-                                    "lessonTypeSelection",
-                                    "QUIZ"
-                                  );
-                                  setValue(
-                                    `section_${module.position}_lecture_${lesson.position}_type`,
-                                    "QUIZ"
-                                  );
-                                }}
-                                className='px-3 py-1.5 border border-gray-100 text-gray-800 rounded text-sm hover:bg-gray-100 transition-colors duration-500 cursor-pointer'
-                              >
-                                Quiz
-                              </button>
+                            <div className='min-w-0 flex-1'>
+                              <InlineTitle
+                                value={lesson.title}
+                                onCommit={title => renameLesson(module.position, lesson.position, title)}
+                                label={`lesson ${moduleIndex + 1}.${lessonIndex + 1}`}
+                                className='text-sm font-medium'
+                              />
                             </div>
+                            {typeMeta && (
+                              <span className='hidden text-xs text-gray-400 sm:inline'>{typeMeta.label}</span>
+                            )}
+                            <StatusBadge status={status} />
+                            {lesson.type !== null && (
+                              <button
+                                type='button'
+                                onClick={() => toggleLectureAndType(module.position, lesson.position, "expanded")}
+                                aria-expanded={Boolean(lesson.expanded)}
+                                aria-label={lesson.expanded ? "Collapse lesson" : "Edit lesson content"}
+                                className={iconBtn}
+                              >
+                                <ChevronDown
+                                  className={cx("h-4 w-4 transition-transform", lesson.expanded && "rotate-180")}
+                                  aria-hidden='true'
+                                />
+                              </button>
+                            )}
+                            <button
+                              type='button'
+                              onClick={() => deleteLecture(module.position, lesson.position)}
+                              aria-label={`Delete lesson ${moduleIndex + 1}.${lessonIndex + 1}`}
+                              className={iconBtnDanger}
+                            >
+                              <Trash2 className='h-4 w-4' aria-hidden='true' />
+                            </button>
                           </div>
-                        )}
-                        {/* Contents Details */}
-                        {lesson.type === "VIDEO" && (
-                          <div className='bg-gray-100/20 w-full h-full p-2 pb-0 flex flex-col gap-1 rounded'>
-                            <fieldset disabled={loading} className='mb-3 space-y-2 rounded border border-gray-200 bg-white p-3 text-sm'>
-                              <legend className='px-1 font-semibold'>Video hosting</legend>
-                              {([['FREE', 'Free Hosting', 'Standard video hosting. Suitable for free lessons and content that does not require advanced protection.'],
-                                ['PREMIUM', 'Premium Hosting', 'Protected video hosting with enhanced access security.']] as const).map(([value, label, description]) => (
-                                <label key={value} className='flex items-start gap-2 p-2'>
-                                  <input type='radio' name={`hosting-${module.position}-${lesson.position}`} value={value}
-                                    checked={(lesson.requestedHostingType ?? lesson.hostingType ?? courseData.defaultHosting ?? (courseData.originalPrice > 0 ? 'PREMIUM' : policy?.defaultHosting) ?? 'PREMIUM') === value}
-                                    disabled={value === 'FREE' ? !policy?.freeEnabled || (courseData.originalPrice > 0 && !policy.allowFreePaid) : policy ? !policy.premiumEnabled : false}
-                                    onChange={() => setCourseData(prev => ({ ...prev, modules: prev.modules.map(m => ({ ...m, lessons: m.lessons.map(l =>
-                                      m.position === module.position && l.position === lesson.position ? { ...l, requestedHostingType: value, youtubeDisclosureAccepted: false } : l) })) }))} />
-                                  <span><strong>{label}</strong>{value === 'PREMIUM' && courseData.originalPrice > 0 ? ' (Recommended)' : ''}<span className='block text-xs text-gray-500'>{description}</span></span>
-                                </label>
-                              ))}
-                              {(lesson.requestedHostingType ?? lesson.hostingType ?? courseData.defaultHosting ?? (courseData.originalPrice > 0 ? 'PREMIUM' : policy?.defaultHosting) ?? 'PREMIUM') === 'FREE' && <>
-                                <div className='rounded bg-orange-50 p-3 text-xs'>
-                                  Upload destination: the central ALOSKILL YouTube channel. Privacy: Unlisted; embedding enabled. Title: {lesson.title}. Description: {lesson.description || '(empty)'}. A private course playlist organizes these videos. Anyone with a video link may share it.
-                                  <label className='mt-2 flex gap-2'><input type='checkbox' checked={Boolean(lesson.youtubeDisclosureAccepted)} onChange={e => {
-                                    const checked = e.target.checked;
-                                    setCourseData(prev => ({ ...prev, modules: prev.modules.map(m => ({ ...m, lessons: m.lessons.map(l => m.position === module.position && l.position === lesson.position ? { ...l, youtubeDisclosureAccepted: checked } : l) })) }));
-                                  }} />I authorize this upload to YouTube as Unlisted and agree to the <a className='underline' href='https://www.youtube.com/t/terms' target='_blank' rel='noreferrer'>YouTube Terms</a> and <a className='underline' href='https://policies.google.com/privacy' target='_blank' rel='noreferrer'>Google Privacy Policy</a>.</label>
-                                </div>
-                                {courseData.originalPrice > 0 && <label className='flex gap-2 text-xs text-orange-700'><input type='checkbox' checked={Boolean(lesson.freeHostingAcknowledged)} onChange={e => {
-                                  const checked = e.target.checked;
-                                  setCourseData(prev => ({ ...prev, modules: prev.modules.map(m => ({ ...m, lessons: m.lessons.map(l => m.position === module.position && l.position === lesson.position ? { ...l, freeHostingAcknowledged: checked } : l) })) }));
-                                }} />I understand that paid content links can be shared and access protection is limited.</label>}
-                              </>}
-                              {(lesson.contentUrl?.url || lesson.pendingVideoUploadJobId) && <label className='block cursor-pointer rounded border border-dashed p-2 text-center'>
-                                {lesson.contentUrl?.url ? 'Replace video / change hosting (select source file)' : 'Select video / retry upload'}
-                                <input type='file' accept='.mp4,.mov,.webm' className='block w-full text-xs' disabled={loading}
-                                  onChange={e => void handleFileSelect(e, module.position, lesson.position)} />
-                              </label>}
-                              {lesson.uploadProgress ? <div className='space-y-2 rounded border bg-gray-50 p-3' role='status' aria-live='polite'>
-                                <div className='flex flex-wrap justify-between gap-2 text-sm'>
-                                  <span>{lesson.uploadProgress.message}</span>
-                                  {lesson.uploadProgress.percent !== null && <strong>{lesson.uploadProgress.percent.toFixed(1)}%</strong>}
-                                </div>
-                                {lesson.uploadProgress.percent !== null ? <progress className='h-2 w-full accent-orange-500' max={100} value={lesson.uploadProgress.percent} aria-label='Current video upload stage progress' />
-                                  : <p className='text-xs text-gray-500'>Upload progress and video processing are separate stages. Your draft is saved.</p>}
-                                {['SOURCE', 'TRANSFER'].includes(lesson.uploadProgress.stage) && <p className='text-xs text-gray-600'>
-                                  {formatVideoBytes(lesson.uploadProgress.bytes)} / {formatVideoBytes(lesson.uploadProgress.total)}
-                                  {lesson.uploadProgress.bytesPerSecond ? ` · ${formatVideoBytes(lesson.uploadProgress.bytesPerSecond)}/s` : ''}
-                                  {lesson.uploadProgress.remainingSeconds !== undefined ? ` · About ${Math.ceil(lesson.uploadProgress.remainingSeconds / 60)} min remaining` : ''}
-                                </p>}
-                              </div> : lesson.uploadMessage && <p role='status' className='text-xs'>{lesson.uploadMessage}</p>}
-                            </fieldset>
-                            {/* Video and Files */}
-                            <div className='flex items-center justify-center gap-3'>
-                              {/* Add Video For Lessons */}
-                              {lesson.contentUrl?.name ? (
-                                <>
-                                  <div className='w-full rounded border border-dashed border-gray-200 p-3 flex items-center justify-start hover:bg-gray-100/40 transition-colors relative'>
-                                    <span className='text-sm w-[95%]'>
-                                      {lesson.contentUrl.name}
-                                    </span>
-                                    <span
-                                      onClick={() =>
-                                        deleteLectureFile(
-                                          module.position,
-                                          lesson.position,
-                                          undefined,
-                                          "video"
-                                        )
-                                      }
-                                      className='absolute right-2 h-full w-fit flex items-center cursor-pointer'
-                                    >
-                                      <Trash className='w-4 h-4' />
-                                    </span>
-                                  </div>
-                                </>
+
+                          {open && (
+                            <div className='space-y-5 border-t border-gray-100 px-3 py-4 sm:px-5 sm:py-5'>
+                              {lesson.type === null ? (
+                                renderTypePicker(module.position, lesson)
                               ) : (
                                 <>
-                                  <div
-                                    className={`w-full rounded border border-dashed border-gray-200 p-3 flex items-center justify-center hover:bg-gray-100/40 transition-colors ${
-                                      errors[
-                                        `section_${module.position}_lecture_${lesson.position}_video`
-                                      ] && "bg-red-50"
-                                    }`}
-                                  >
-                                    {loading ? (
-                                      <Loader className='w-4 h-4 animate-spin mx-auto my-auto' />
-                                    ) : (
-                                      <>
-                                            <label
-                                              htmlFor={`lessonVideo-${module.position}-${lesson.position}`}
-                                              className={`flex items-center justify-center gap-2 text-sm w-full cursor-pointer`}
-                                            >
-                                              <Upload className='w-3 h-3' /> Add Video
-                                            </label>
-                                            <input
-                                              {...register(
-                                                `section_${module.position}_lecture_${lesson.position}_video`,
-                                                {
-                                                  required: "Video is required for this lesson",
-                                                }
-                                              )}
-                                              onChange={e =>
-                                                handleFileSelect(
-                                                  e,
-                                                  module.position,
-                                                  lesson.position
-                                                )
-                                              }
-                                              id={`lessonVideo-${module.position}-${lesson.position}`}
-                                              type='file'
-                                              accept='.mp4,.mov,.webm'
-                                              className='hidden'
-                                            />
-
-                                      </>
-                                    )}
+                                  <div className='flex flex-wrap items-center justify-between gap-2'>
+                                    <span className='inline-flex items-center gap-2 text-xs font-semibold text-gray-600'>
+                                      <TypeIcon className='h-3.5 w-3.5' aria-hidden='true' />
+                                      {typeMeta?.label} lesson
+                                    </span>
+                                    <button
+                                      type='button'
+                                      onClick={() => resetLessonType(module.position, lesson)}
+                                      disabled={Boolean(lesson.pendingVideoUploadJobId) || (loading && uploadErrorKey === `${module.position}-${lesson.position}`)}
+                                      title={lesson.pendingVideoUploadJobId ? "Wait for the video upload to finish first" : undefined}
+                                      className='inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-semibold text-gray-500 hover:bg-gray-500/10 hover:text-gray-800 disabled:cursor-not-allowed disabled:opacity-40'
+                                    >
+                                      <Repeat className='h-3.5 w-3.5' aria-hidden='true' />
+                                      Change type
+                                    </button>
                                   </div>
+                                  {lesson.type === "VIDEO" && renderVideoEditor(module.position, lesson)}
+                                  {lesson.type === "ARTICLE" && renderArticleEditor(module.position, lesson)}
+                                  {lesson.type === "QUIZ" && renderQuizEditor(module.position, lesson)}
                                 </>
                               )}
 
-                              {/* Add File For Lessons */}
-                              {fileLoading ? (
-                                <div className='w-full rounded border border-dashed border-gray-200 p-3 flex flex-col items-center justify-start hover:bg-gray-100/40 transition-colors'>
-                                  <Loader className='w-4 h-4 animate-spin mx-auto my-auto' />
-                                </div>
-                              ) : lesson.files && lesson.files.length > 0 ? (
-                                <>
-                                  <div className='w-full rounded border border-dashed border-gray-200 p-2 flex flex-col items-center justify-start hover:bg-gray-100/40 transition-colors'>
-                                    {lesson.files.map((fileName, index) => (
-                                      <div
-                                        key={index}
-                                        className='w-full p-1 flex items-center'
-                                      >
-                                        <span className='text-sm w-[95%]'>{fileName.name}</span>
-                                        <span
-                                          onClick={() =>
-                                            deleteLectureFile(
-                                              module.position,
-                                              lesson.position,
-                                              fileName.name
-                                            )
-                                          }
-                                          className='h-full w-fit flex items-center cursor-pointer'
-                                        >
-                                          <Trash className='w-4 h-4' />
-                                        </span>
-                                      </div>
+                              {lesson.type !== null && lessonOnlyIssues.length > 0 && !lesson.pendingVideoUploadJobId && (
+                                <Callout tone='warning' title='To finish this lesson'>
+                                  <ul className='list-disc space-y-0.5 pl-4'>
+                                    {lessonOnlyIssues.map((message, i) => (
+                                      <li key={i}>{message}</li>
                                     ))}
-                                  </div>
-                                </>
-                              ) : (
-                                <>
-                                  <div className='w-full rounded border border-dashed border-gray-200 p-3 flex items-center justify-center cursor-pointer hover:bg-gray-100/40 transition-colors'>
-                                    <label
-                                      htmlFor='lessonfile'
-                                      className='flex items-center justify-center gap-2 text-sm w-full cursor-pointer'
-                                    >
-                                      <Upload className='w-3 h-3' /> Attach File
-                                    </label>
-                                    <input
-                                      onChange={e =>
-                                        handleFileSelect(e, module.position, lesson.position)
-                                      }
-                                      id='lessonfile'
-                                      multiple={true}
-                                      type='file'
-                                      accept='.pdf,.doc,.docx,.ppt,.pptx'
-                                      className='hidden'
-                                    />
-                                  </div>
-                                </>
+                                  </ul>
+                                </Callout>
                               )}
                             </div>
-                            {errors[
-                              `section_${module.position}_lecture_${lesson.position}_video`
-                            ] && (
-                              <p className='text-red-500 text-sm mt-1'>
-                                {
-                                  errors[
-                                    `section_${module.position}_lecture_${lesson.position}_video`
-                                  ]?.message as string
-                                }
-                              </p>
-                            )}
-                            {uploadError && (
-                              <p className='text-red-500 text-sm mt-1'>{uploadError}</p>
-                            )}
-                            {/* Notes for Lesson */}
-                            <div>
-                              <span className='text-sm text-gray-600 mb-1'>Lecture Note:</span>
-                              <textarea
-                                {...register(
-                                  `section_${module.position}_lecture_${lesson.position}_notes`,
-                                  {
-                                    required: "Lecture notes are required",
-                                    maxLength: {
-                                      value: 1000,
-                                      message: "Lecture notes cannot exceed 1000 characters",
-                                    },
-                                    minLength: {
-                                      value: 20,
-                                      message: "Lecture notes must be greater than 20 characters",
-                                    },
-                                    pattern: {
-                                      value: /^[^<>]*$/,
-                                      message:
-                                        "Lecture notes must not contain any opening or closing HTML tags",
-                                    },
-                                  }
-                                )}
-                                onChange={e =>
-                                  handleTextValueChange(
-                                    module.position,
-                                    lesson.position,
-                                    "notes",
-                                    e.target.value
-                                  )
-                                }
-                                defaultValue={lesson.notes}
-                                className={`w-full p-2 border border-dashed border-gray-200 rounded resize-none focus:outline-none focus:border-orange ${
-                                  errors[
-                                    `section_${module.position}_lecture_${lesson.position}_notes`
-                                  ] && "border-red-400 bg-red-50"
-                                }`}
-                                placeholder='Add lecture notes here...'
-                                rows={5}
-                                maxLength={1000}
-                              ></textarea>
-                              {errors[
-                                `section_${module.position}_lecture_${lesson.position}_notes`
-                              ] && (
-                                <p className='text-red-500 text-sm mt-1'>
-                                  {
-                                    errors[
-                                      `section_${module.position}_lecture_${lesson.position}_notes`
-                                    ]?.message as string
-                                  }
-                                </p>
-                              )}
-                            </div>
-                            {/* Description for Lesson */}
-                            <div>
-                              <span className='text-sm text-gray-600 mb-1'>
-                                Lecture Description:
-                              </span>
-                              <textarea
-                                {...register(
-                                  `section_${module.position}_lecture_${lesson.position}_description`,
-                                  {
-                                    required: "Lecture description is required",
-                                    minLength: {
-                                      value: 20,
-                                      message:
-                                        "Lecture description must be greater than 20 characters",
-                                    },
-                                    pattern: {
-                                      value: /^[^<>]*$/,
-                                      message:
-                                        "Lecture description must not contain any opening or closing HTML tags",
-                                    },
-                                  }
-                                )}
-                                onChange={e =>
-                                  handleTextValueChange(
-                                    module.position,
-                                    lesson.position,
-                                    "description",
-                                    e.target.value
-                                  )
-                                }
-                                defaultValue={lesson.description}
-                                className={`w-full p-2 border border-dashed border-gray-200 rounded resize-none focus:outline-none focus:border-orange ${
-                                  errors[
-                                    `section_${module.position}_lecture_${lesson.position}_description`
-                                  ] && "border-red-400 bg-red-50"
-                                }`}
-                                placeholder='Add lecture Description here...'
-                                rows={5}
-                              ></textarea>
-                              {errors[
-                                `section_${module.position}_lecture_${lesson.position}_description`
-                              ] && (
-                                <p className='text-red-500 text-sm mt-1'>
-                                  {
-                                    errors[
-                                      `section_${module.position}_lecture_${lesson.position}_description`
-                                    ]?.message as string
-                                  }
-                                </p>
-                              )}
-                            </div>
-                          </div>
-                        )}
-                        {lesson.type === "ARTICLE" && (
-                          <div className='bg-gray-100/20 w-full h-full p-2 pb-0 flex flex-col gap-1 rounded'>
-                            {/* Add File For Lessons */}
-                            {lesson.files && lesson.files.length > 0 ? (
-                              <>
-                                <div className='w-full rounded border border-dashed border-gray-200 p-2 flex flex-col items-center justify-start hover:bg-gray-100/40 transition-colors'>
-                                  {lesson.files.map((fileName, index) => (
-                                    <div
-                                      key={index}
-                                      className='p-1 flex items-center w-full border-b border-gray-200 last:border-0'
-                                    >
-                                      <span className='text-sm w-[98%]'>{fileName.name}</span>
-                                      <span
-                                        onClick={() =>
-                                          deleteLectureFile(
-                                            module.position,
-                                            lesson.position,
-                                            fileName.name
-                                          )
-                                        }
-                                        className='h-full w-fit flex items-center cursor-pointer'
-                                      >
-                                        <Trash className='w-4 h-4' />
-                                      </span>
-                                    </div>
-                                  ))}
-                                </div>
-                              </>
-                            ) : (
-                              <>
-                                <div className='w-full rounded border border-dashed border-gray-200 p-3 flex items-center justify-center cursor-pointer hover:bg-gray-100/40 transition-colors'>
-                                  <label
-                                    htmlFor='lessonfile'
-                                    className='flex items-center justify-center gap-2 text-sm w-full cursor-pointer'
-                                  >
-                                    <Upload className='w-3 h-3' /> Attach File
-                                  </label>
-                                  <input
-                                    onChange={e =>
-                                      handleFileSelect(e, module.position, lesson.position)
-                                    }
-                                    id='lessonfile'
-                                    multiple={true}
-                                    type='file'
-                                    accept='.pdf,.doc,.docx,.ppt,.pptx'
-                                    className='hidden'
-                                  />
-                                </div>
-                              </>
-                            )}
-                            <div className='mt-2'>
-                              <span className='text-sm text-gray-600 mb-1'>Article Content:</span>
-                              <textarea
-                                onChange={e =>
-                                  handleTextValueChange(
-                                    module.position,
-                                    lesson.position,
-                                    "description",
-                                    e.target.value
-                                  )
-                                }
-                                className='w-full p-2 border border-dashed border-gray-200 rounded resize-none focus:outline-none focus:border-orange'
-                                placeholder='Add article content here...'
-                                defaultValue={lesson.description}
-                                rows={8}
-                              ></textarea>
-                            </div>
-                          </div>
-                        )}
-                        {lesson.type === "QUIZ" && (
-                          <div className='bg-gray-100/40 w-full p-4 rounded flex flex-col gap-3'>
-                            <div>
-                              {/* Quiz Title */}
-                              <div>
-                                <span className='text-sm text-gray-600 mb-1'>Quiz Title :</span>
-                                <input
-                                  type='text'
-                                  {...register(
-                                    `section_${module.position}_lecture_${lesson.position}_quiz_title`,
-                                    {
-                                      required: "Quiz title is required for this lesson",
-                                      minLength: {
-                                        value: 20,
-                                        message: "Quiz title must be greater than 20 characters",
-                                      },
-                                      maxLength: {
-                                        value: 500,
-                                        message: "Quiz title cannot exceed 500 characters",
-                                      },
-                                      pattern: {
-                                        value: /^[^<>]*$/,
-                                        message:
-                                          "Quiz title must not contain any opening or closing HTML tags",
-                                      },
-                                    }
-                                  )}
-                                  maxLength={500}
-                                  onChange={e =>
-                                    handleQuizInputChange(
-                                      module.position,
-                                      lesson.position,
-                                      "title",
-                                      e.target.value
-                                    )
-                                  }
-                                  value={lesson.quiz?.title || ""}
-                                  placeholder='Enter quiz title...'
-                                  className={`w-full px-2 py-2 border border-gray-200 focus:outline-none focus:border-orange text-sm appearance-none rounded ${
-                                    errors[
-                                      `section_${module.position}_lecture_${lesson.position}_quiz_title`
-                                    ] && "border-red-400 bg-red-50"
-                                  }`}
-                                ></input>
-                                {errors[
-                                  `section_${module.position}_lecture_${lesson.position}_quiz_title`
-                                ] && (
-                                  <p className='text-red-500 text-sm mt-1'>
-                                    {
-                                      errors[
-                                        `section_${module.position}_lecture_${lesson.position}_quiz_title`
-                                      ]?.message as string
-                                    }
-                                  </p>
-                                )}
-                              </div>
+                          )}
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ol>
 
-                              {/* Quiz Description */}
-                              <div>
-                                <span className='text-sm text-gray-600 mb-1'>
-                                  Quiz Description :
-                                </span>
-                                <textarea
-                                  {...register(
-                                    `section_${module.position}_lecture_${lesson.position}_quiz_description`,
-                                    {
-                                      required: "Quiz Description is required for this lesson",
-                                      minLength: {
-                                        value: 20,
-                                        message: "Quiz description must be at least 20 characters",
-                                      },
-                                      pattern: {
-                                        value: /^[^<>]*$/,
-                                        message:
-                                          "Quiz description must not contain any opening or closing HTML tags",
-                                      },
-                                    }
-                                  )}
-                                  rows={3}
-                                  onChange={e =>
-                                    handleQuizInputChange(
-                                      module.position,
-                                      lesson.position,
-                                      "description",
-                                      e.target.value
-                                    )
-                                  }
-                                  value={lesson.quiz?.description || ""}
-                                  placeholder='Enter quiz description...'
-                                  className={`w-full px-2 py-2 border border-gray-200 focus:outline-none focus:border-orange text-sm appearance-none rounded resize-none ${
-                                    errors[
-                                      `section_${module.position}_lecture_${lesson.position}_quiz_description`
-                                    ] && "border-red-400 bg-red-50"
-                                  }`}
-                                ></textarea>
-                                {errors[
-                                  `section_${module.position}_lecture_${lesson.position}_quiz_description`
-                                ] && (
-                                  <p className='text-red-500 text-sm mt-1'>
-                                    {
-                                      errors[
-                                        `section_${module.position}_lecture_${lesson.position}_quiz_description`
-                                      ]?.message as string
-                                    }
-                                  </p>
-                                )}
-                              </div>
+                <div className='mt-3 sm:pl-11'>
+                  <button
+                    type='button'
+                    onClick={() => addLesson(module.position)}
+                    className='flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-gray-300 bg-white py-2.5 text-sm font-semibold text-gray-600 transition-colors hover:border-orange/60 hover:bg-orange-500/5 hover:text-gray-900'
+                  >
+                    <Plus className='h-4 w-4' aria-hidden='true' />
+                    Add lesson
+                  </button>
+                </div>
+              </section>
+            );
+          })}
 
-                              <div className='flex items-baseline gap-3'>
-                                {/* Quiz Duration */}
-                                <div className='w-full'>
-                                  <span className='text-sm text-gray-600 mb-1'>
-                                    Quiz Duration (in minutes) :
-                                  </span>
-                                  <input
-                                    {...register(
-                                      `section_${module.position}_lecture_${lesson.position}_quiz_duration`,
-                                      {
-                                        maxLength: {
-                                          value: 60,
-                                          message: "Quiz duration cannot exceed 60 minutes",
-                                        },
-                                      }
-                                    )}
-                                    type='number'
-                                    min={1}
-                                    max={60}
-                                    onChange={e =>
-                                      handleQuizInputChange(
-                                        module.position,
-                                        lesson.position,
-                                        "duration",
-                                        Number(e.target.value)
-                                      )
-                                    }
-                                    value={lesson.quiz?.duration || ""}
-                                    placeholder='Enter quiz duration in minutes...'
-                                    className={`w-full px-2 py-2 border border-gray-200 focus:outline-none focus:border-orange text-sm appearance-none rounded ${
-                                      errors[
-                                        `section_${module.position}_lecture_${lesson.position}_quiz_duration`
-                                      ] && "border-red-400 bg-red-50"
-                                    }`}
-                                  ></input>
-                                  {errors[
-                                    `section_${module.position}_lecture_${lesson.position}_quiz_duration`
-                                  ] && (
-                                    <p className='text-red-500 text-sm mt-1'>
-                                      {
-                                        errors[
-                                          `section_${module.position}_lecture_${lesson.position}_quiz_duration`
-                                        ]?.message as string
-                                      }
-                                    </p>
-                                  )}
-                                </div>
-
-                                {/* Quiz passing score */}
-                                <div className='w-full'>
-                                  <span className='text-sm text-gray-600 mb-1'>
-                                    Quiz Passing Score (% ) :
-                                  </span>
-                                  <input
-                                    {...register(
-                                      `section_${module.position}_lecture_${lesson.position}_quiz_score`,
-                                      {
-                                        required: "Quiz passing score is required for this lesson",
-                                        maxLength: {
-                                          value: 100,
-                                          message: "Quiz passing score cannot exceed 100 percent",
-                                        },
-                                      }
-                                    )}
-                                    type='number'
-                                    min={1}
-                                    max={100}
-                                    onChange={e =>
-                                      handleQuizInputChange(
-                                        module.position,
-                                        lesson.position,
-                                        "passingScore",
-                                        Number(e.target.value)
-                                      )
-                                    }
-                                    value={lesson.quiz?.passingScore || ""}
-                                    placeholder='Enter quiz passing score in percentage...'
-                                    className={`w-full px-2 py-2 border border-gray-200 focus:outline-none focus:border-orange text-sm appearance-none rounded ${
-                                      errors[
-                                        `section_${module.position}_lecture_${lesson.position}_quiz_score`
-                                      ] && "border-red-400 bg-red-50"
-                                    }`}
-                                  ></input>
-                                  {errors[
-                                    `section_${module.position}_lecture_${lesson.position}_quiz_score`
-                                  ] && (
-                                    <p className='text-red-500 text-sm mt-1'>
-                                      {
-                                        errors[
-                                          `section_${module.position}_lecture_${lesson.position}_quiz_score`
-                                        ]?.message as string
-                                      }
-                                    </p>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-
-                            {lesson.quiz?.questions &&
-                              lesson.quiz.questions.length > 0 &&
-                              lesson.quiz.questions.map((question, index) => (
-                                <div
-                                  key={index}
-                                  className='bg-white p-3 group'
-                                >
-                                  <div className='flex items-center justify-between mb-2'>
-                                    <span className='text-sm text-gray-600'>
-                                      {`Question ${index + 1} : ${question.type}`}
-                                    </span>
-                                    <Trash
-                                      onClick={() =>
-                                        handleDeleteQuiz(
-                                          module.position,
-                                          lesson.position,
-                                          question.position
-                                        )
-                                      }
-                                      className='w-3.5 h-3.5 hidden group-hover:block cursor-pointer'
-                                    />
-                                  </div>
-                                  <div className='grid grid-cols-4 gap-2'>
-                                    {/* Quiz Points */}
-                                    <div className=''>
-                                      <span className='text-sm text-gray-600 mb-1'>
-                                        Points of this Qustion :
-                                      </span>
-                                      <input
-                                        type='number'
-                                        min={1}
-                                        max={10}
-                                        onChange={e =>
-                                          handleQuestionInputChange(
-                                            module.position,
-                                            lesson.position,
-                                            question.position,
-                                            "points",
-                                            e.target.value
-                                          )
-                                        }
-                                        defaultValue={question.points}
-                                        placeholder='Enter a number upto 10'
-                                        className='w-full px-2 py-1.5 border border-gray-200 focus:outline-none focus:border-orange text-sm appearance-none rounded'
-                                      ></input>
-                                    </div>
-                                    {/* Quiz Qustion */}
-                                    <textarea
-                                      {...register(
-                                        `section_${module.position}_lecture_${lesson.position}_quiz_question_${question.position}_text`,
-                                        {
-                                          required: "Must be add question title",
-                                          minLength: {
-                                            value: 10,
-                                            message:
-                                              "Question title must be at least 10 characters",
-                                          },
-                                          maxLength: {
-                                            value: 200,
-                                            message: "Question title cannot exceed 200 characters",
-                                          },
-                                          pattern: {
-                                            value: /^[^<>]*$/,
-                                            message:
-                                              "Question title must not contain any opening or closing HTML tags",
-                                          },
-                                        }
-                                      )}
-                                      onChange={e =>
-                                        handleQuestionInputChange(
-                                          module.position,
-                                          lesson.position,
-                                          question.position,
-                                          "text",
-                                          e.target.value
-                                        )
-                                      }
-                                      placeholder='Enter your qustion title...'
-                                      value={question.text}
-                                      rows={3}
-                                      className='w-full px-2 py-1.5 border border-gray-200 focus:outline-none focus:border-orange text-sm col-span-4 resize-none rounded'
-                                    ></textarea>
-                                    <input
-                                      type='hidden'
-                                      {...register(
-                                        `section_${module.position}_lecture_${lesson.position}_${question.position}_type`,
-                                        {
-                                          required: `Please Choose a option for correct answere for lesson ${lesson.position} Qustion ${question.position}.`,
-                                        }
-                                      )}
-                                      value={
-                                        question.options.findIndex(o => o.isCorrect) > -1
-                                          ? "valid"
-                                          : ""
-                                      }
-                                    />
-                                    {/* Quiz Options */}
-                                    {question.type === "MULTIPLE_CHOICE" ||
-                                    question.type === "SINGLE_CHOICE" ? (
-                                      <>
-                                        {/* Option 1 */}
-                                        <div className='col-span-2 flex'>
-                                          <span
-                                            onClick={() => {
-                                              updateQuizOptionCorrectAnswere(
-                                                module.position,
-                                                lesson.position,
-                                                question.position,
-                                                1
-                                              );
-                                              setValue(
-                                                `section_${module.position}_lecture_${lesson.position}_${question.position}_type`,
-                                                1
-                                              );
-                                            }}
-                                            className={`w-7 h-full border border-r-0 border-gray-200 rounded-l text-center cursor-pointer ${question.options[0]?.isCorrect && "bg-orange"}`}
-                                          ></span>
-                                          <input
-                                            {...register(
-                                              `section_${module.position}_lecture_${lesson.position}_quiz_option_${question.position}_option_1`,
-                                              {
-                                                required: `${`section_${module.position}_lecture_${lesson.position}_quiz_option_${question.position}_option_1`} must be add option`,
-                                                minLength: {
-                                                  value: 1,
-                                                  message:
-                                                    "Option text must be at least 1 character",
-                                                },
-                                                maxLength: {
-                                                  value: 50,
-                                                  message:
-                                                    "Option text cannot exceed 50 characters",
-                                                },
-                                                pattern: {
-                                                  value: /^[^<>]*$/,
-                                                  message:
-                                                    "Option text must not contain any opening or closing HTML tags",
-                                                },
-                                              }
-                                            )}
-                                            type='text'
-                                            value={question.options && question.options[0]?.text}
-                                            onChange={e =>
-                                              addQuizOption(
-                                                module.position,
-                                                lesson.position,
-                                                question.position,
-                                                1,
-                                                e.target.value
-                                              )
-                                            }
-                                            placeholder='Enter Opton 1'
-                                            className='w-full px-2 py-1.5 border border-gray-200 focus:outline-none focus:border-orange text-sm rounded-r'
-                                          ></input>
-                                        </div>
-                                        {/* Option 2 */}
-                                        <div className='col-span-2 flex'>
-                                          <span
-                                            onClick={() => {
-                                              updateQuizOptionCorrectAnswere(
-                                                module.position,
-                                                lesson.position,
-                                                question.position,
-                                                2
-                                              );
-                                              setValue(
-                                                `section_${module.position}_lecture_${lesson.position}_${question.position}_type`,
-                                                2
-                                              );
-                                            }}
-                                            className={`w-7 h-full border border-r-0 border-gray-200 rounded-l text-center cursor-pointer ${question.options[1]?.isCorrect && "bg-orange"}`}
-                                          ></span>
-                                          <input
-                                            {...register(
-                                              `section_${module.position}_lecture_${lesson.position}_quiz_option_${question.position}_option_2`,
-                                              {
-                                                required: `${`section_${module.position}_lecture_${lesson.position}_quiz_option_${question.position}_option_2`} must be add option`,
-                                                minLength: {
-                                                  value: 1,
-                                                  message:
-                                                    "Option text must be at least 1 character",
-                                                },
-                                                maxLength: {
-                                                  value: 50,
-                                                  message:
-                                                    "Option text cannot exceed 50 characters",
-                                                },
-                                                pattern: {
-                                                  value: /^[^<>]*$/,
-                                                  message:
-                                                    "Option text must not contain any opening or closing HTML tags",
-                                                },
-                                              }
-                                            )}
-                                            type='text'
-                                            value={question.options && question.options[1]?.text}
-                                            onChange={e =>
-                                              addQuizOption(
-                                                module.position,
-                                                lesson.position,
-                                                question.position,
-                                                2,
-                                                e.target.value
-                                              )
-                                            }
-                                            placeholder='Enter Opton 2'
-                                            className='w-full px-2 py-1.5 border border-gray-200 focus:outline-none focus:border-orange text-sm rounded-r'
-                                          ></input>
-                                        </div>
-                                        {/* Option 3 */}
-                                        <div className='col-span-2 flex'>
-                                          <span
-                                            onClick={() => {
-                                              updateQuizOptionCorrectAnswere(
-                                                module.position,
-                                                lesson.position,
-                                                question.position,
-                                                3
-                                              );
-                                              setValue(
-                                                `section_${module.position}_lecture_${lesson.position}_${question.position}_type`,
-                                                3
-                                              );
-                                            }}
-                                            className={`w-7 h-full border border-r-0 border-gray-200 rounded-l text-center cursor-pointer ${question.options[2]?.isCorrect && "bg-orange"}`}
-                                          ></span>
-                                          <input
-                                            {...register(
-                                              `section_${module.position}_lecture_${lesson.position}_quiz_option_${question.position}_option_3`,
-                                              {
-                                                required: `${`section_${module.position}_lecture_${lesson.position}_quiz_option_${question.position}_option_3`} must be add option`,
-                                                minLength: {
-                                                  value: 1,
-                                                  message:
-                                                    "Option text must be at least 1 character",
-                                                },
-                                                maxLength: {
-                                                  value: 50,
-                                                  message:
-                                                    "Option text cannot exceed 50 characters",
-                                                },
-                                                pattern: {
-                                                  value: /^[^<>]*$/,
-                                                  message:
-                                                    "Option text must not contain any opening or closing HTML tags",
-                                                },
-                                              }
-                                            )}
-                                            type='text'
-                                            value={question.options && question.options[2]?.text}
-                                            onChange={e =>
-                                              addQuizOption(
-                                                module.position,
-                                                lesson.position,
-                                                question.position,
-                                                3,
-                                                e.target.value
-                                              )
-                                            }
-                                            placeholder='Enter Opton 3'
-                                            className='w-full px-2 py-1.5 border border-gray-200 focus:outline-none focus:border-orange text-sm rounded-r'
-                                          ></input>
-                                        </div>
-                                        {/* Option 4 */}
-                                        <div className='col-span-2 flex'>
-                                          <span
-                                            onClick={() => {
-                                              updateQuizOptionCorrectAnswere(
-                                                module.position,
-                                                lesson.position,
-                                                question.position,
-                                                4
-                                              );
-                                              setValue(
-                                                `section_${module.position}_lecture_${lesson.position}_${question.position}_type`,
-                                                4
-                                              );
-                                            }}
-                                            className={`w-7 h-full border border-r-0 border-gray-200 rounded-l text-center cursor-pointer ${question.options[3]?.isCorrect && "bg-orange"}`}
-                                          ></span>
-                                          <input
-                                            {...register(
-                                              `section_${module.position}_lecture_${lesson.position}_quiz_option_${question.position}_option_4`,
-                                              {
-                                                required: `${`section_${module.position}_lecture_${lesson.position}_quiz_option_${question.position}_option_4`} must be add option`,
-                                                minLength: {
-                                                  value: 1,
-                                                  message:
-                                                    "Option text must be at least 1 character",
-                                                },
-                                                maxLength: {
-                                                  value: 50,
-                                                  message:
-                                                    "Option text cannot exceed 50 characters",
-                                                },
-                                                pattern: {
-                                                  value: /^[^<>]*$/,
-                                                  message:
-                                                    "Option text must not contain any opening or closing HTML tags",
-                                                },
-                                              }
-                                            )}
-                                            type='text'
-                                            value={question.options && question.options[3]?.text}
-                                            onChange={e =>
-                                              addQuizOption(
-                                                module.position,
-                                                lesson.position,
-                                                question.position,
-                                                4,
-                                                e.target.value
-                                              )
-                                            }
-                                            placeholder='Enter Opton 4'
-                                            className='w-full px-2 py-1.5 border border-gray-200 focus:outline-none focus:border-orange text-sm rounded-r'
-                                          ></input>
-                                        </div>
-                                      </>
-                                    ) : (
-                                      <>
-                                        {/* True False Answer */}
-                                        <div className='col-span-2 flex'>
-                                          <span
-                                            onClick={() => {
-                                              updateQuizOptionCorrectAnswere(
-                                                module.position,
-                                                lesson.position,
-                                                question.position,
-                                                1
-                                              );
-                                              setValue(
-                                                `section_${module.position}_lecture_${lesson.position}_${question.position}_type`,
-                                                1
-                                              );
-                                            }}
-                                            className={`w-7 h-full border border-r-0 border-gray-200 rounded-l text-center cursor-pointer ${question.options[0]?.isCorrect && "bg-orange"}`}
-                                          ></span>
-                                          <input
-                                            type='text'
-                                            value={question.options && question?.options[0]?.text}
-                                            readOnly
-                                            className='w-full px-2 py-1.5 border border-gray-200 focus:outline-none focus:border-orange text-sm rounded-r'
-                                          ></input>
-                                        </div>
-
-                                        <div className='col-span-2 flex'>
-                                          <span
-                                            onClick={() => {
-                                              updateQuizOptionCorrectAnswere(
-                                                module.position,
-                                                lesson.position,
-                                                question.position,
-                                                2
-                                              );
-                                              setValue(
-                                                `section_${module.position}_lecture_${lesson.position}_${question.position}_type`,
-                                                2
-                                              );
-                                            }}
-                                            className={`w-7 h-full border border-r-0 border-gray-200 rounded-l text-center cursor-pointer ${question.options[1]?.isCorrect && "bg-orange"}`}
-                                          ></span>
-                                          <input
-                                            type='text'
-                                            value={question.options && question?.options[1]?.text}
-                                            readOnly
-                                            className='w-full px-2 py-1.5 border border-gray-200 focus:outline-none focus:border-orange text-sm rounded-r'
-                                          ></input>
-                                        </div>
-                                      </>
-                                    )}
-                                    {question.options.filter(o => o.text.length > 0).length >=
-                                      (question.type === "TRUE_FALSE" ? 2 : 4) &&
-                                      errors[
-                                        `section_${module.position}_lecture_${lesson.position}_${question.position}_type`
-                                      ] && (
-                                        <p className='text-red-500 text-sm mt-1 col-span-4'>
-                                          {
-                                            errors[
-                                              `section_${module.position}_lecture_${lesson.position}_${question.position}_type`
-                                            ]?.message as string
-                                          }
-                                        </p>
-                                      )}
-                                    {quizOptionError && (
-                                      <p className='text-red-500 text-sm mt-1 col-span-4'>
-                                        {quizOptionError}
-                                      </p>
-                                    )}
-                                  </div>
-                                </div>
-                              ))}
-                            {/* Add Quiz */}
-                            <div>
-                              <span className='text-sm text-gray-600 mb-1'>Add a Quiz :</span>
-                              <div className='flex items-center justify-center gap-10 border border-dashed border-gray-200 p-2'>
-                                <button
-                                  type='button'
-                                  onClick={() => {
-                                    setShowAddQuestions(true);
-                                    setValue(
-                                      `section_${module.position}_lecture_${lesson.position}_addQuiz_type`,
-                                      "ADD_QUIZ"
-                                    );
-                                  }}
-                                  className='flex items-center gap-2 px-3 py-1.5 border border-gray-100 text-gray-800 rounded! text-sm hover:bg-gray-100 transition-colors duration-500 cursor-pointer'
-                                >
-                                  <Plus className='w-4 h-4' />
-                                  Add Quiz Question
-                                </button>
-                              </div>
-                            </div>
-
-                            {showAddQuestions && (
-                              <>
-                                <div>
-                                  <span className='text-sm text-gray-600 mb-1'>
-                                    Select Question type :
-                                  </span>
-                                  <div className='flex items-center justify-center gap-10 border border-dashed border-gray-200 p-2'>
-                                    <button
-                                      type='button'
-                                      onClick={() => {
-                                        addQuizQuestion(
-                                          module.position,
-                                          lesson.position,
-                                          "MULTIPLE_CHOICE"
-                                        );
-                                        setValue(
-                                          `section_${module.position}_lecture_${lesson.position}_quiz_type`,
-                                          "MULTIPLE_CHOICE"
-                                        );
-                                      }}
-                                      className='px-3 py-1.5 border border-gray-100 text-gray-800 rounded text-sm hover:bg-gray-100 transition-colors duration-500 cursor-pointer'
-                                    >
-                                      MULTIPLE_CHOICE
-                                    </button>
-                                    <button
-                                      type='button'
-                                      onClick={() => {
-                                        addQuizQuestion(
-                                          module.position,
-                                          lesson.position,
-                                          "SINGLE_CHOICE"
-                                        );
-                                        setValue(
-                                          `section_${module.position}_lecture_${lesson.position}_quiz_type`,
-                                          "SINGLE_CHOICE"
-                                        );
-                                      }}
-                                      className='px-3 py-1.5 border border-gray-100 text-gray-800 rounded text-sm hover:bg-gray-100 transition-colors duration-500 cursor-pointer'
-                                    >
-                                      SINGLE_CHOICE
-                                    </button>
-                                    <button
-                                      type='button'
-                                      onClick={() => {
-                                        addQuizQuestion(
-                                          module.position,
-                                          lesson.position,
-                                          "TRUE_FALSE"
-                                        );
-                                        setValue(
-                                          `section_${module.position}_lecture_${lesson.position}_quiz_type`,
-                                          "TRUE_FALSE"
-                                        );
-                                      }}
-                                      className='px-3 py-1.5 border border-gray-100 text-gray-800 rounded text-sm hover:bg-gray-100 transition-colors duration-500 cursor-pointer'
-                                    >
-                                      TRUE_FALSE
-                                    </button>
-                                  </div>
-                                </div>
-                              </>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
+          <button
+            type='button'
+            onClick={addSection}
+            className='flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-orange/40 bg-orange-500/5 py-4 text-sm font-semibold text-orange transition-colors hover:border-orange hover:bg-orange-500/10'
+          >
+            <Plus className='h-4 w-4' aria-hidden='true' />
+            Add module
+          </button>
         </div>
-        {/* Add Sections Button */}
-        <button
-          type='button'
-          onClick={addSection}
-          className='w-full py-2 bg-orange-50 text-orange-500 rounded font-medium hover:bg-orange-100 transition-colors mt-4 cursor-pointer'
-        >
-          Add Sections
-        </button>
 
-        {/* Footer Actions */}
-        <div className='py-6'>
-          <CourseFooter
-            handlePrevious={handlePrevious}
-            isSubmitting={isSubmitting}
-            currentStep={currentStep}
-          />
-        </div>
+        <CourseFooter
+          handlePrevious={handlePrevious}
+          isSubmitting={isSubmitting}
+          currentStep={currentStep}
+        />
       </form>
-      {(() => {
-        switch (openModal.type) {
-          case "sectionName":
-            return loadModalComponent("sectionName");
-          case "lectureName":
-            return loadModalComponent("lectureName");
-          case "videoUpload":
-            return loadModalComponent("videoUpload");
-          case "fileUpload":
-            return loadModalComponent("fileUpload");
-          case "caption":
-            return loadModalComponent("caption");
-          case "description":
-            return loadModalComponent("description");
-          case "notes":
-            return loadModalComponent("notes");
-          default:
-            return null;
-        }
-      })()}
     </div>
   );
 }
-
