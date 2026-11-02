@@ -87,7 +87,7 @@ const CourseDescriptionSchema = z.object({
 function collectValidationMessages(value: unknown): string[] {
   if (!value || typeof value !== "object") return [];
   const record = value as Record<string, unknown>;
-  if (typeof record.message === "string") return [record.message];
+  if (typeof record['message'] === "string") return [record['message']];
   return Object.entries(record)
     .filter(([key]) => !["ref", "type", "types"].includes(key))
     .flatMap(([, child]) => collectValidationMessages(child));
@@ -574,7 +574,7 @@ function AdvanceInformation({
             },
             metadata: { filetype: file.type, title: file.name, collection: collectionId },
             onError: (error: Error) => {
-              setTrailerUploadError("Failed to upload video. " + error.message);
+              setTrailerUploadError("Failed to upload video. " + error['message']);
               setLoading(false);
               setUploadPercentage("");
               reject(error);
@@ -605,7 +605,7 @@ function AdvanceInformation({
       }
       return { name: "", url: "" };
     } catch (error: unknown) {
-      setTrailerUploadError(error instanceof Error ? error.message : "An unknown error occurred.");
+      setTrailerUploadError(error instanceof Error ? error['message'] : "An unknown error occurred.");
       return { name: "", url: "" };
     } finally {
       setLoading(false);
@@ -662,7 +662,7 @@ function AdvanceInformation({
       }
       return { name: file.name, url: response.data };
     } catch (error: unknown) {
-      setUploadError(error instanceof Error ? error.message : "An unknown error occurred.");
+      setUploadError(error instanceof Error ? error['message'] : "An unknown error occurred.");
       return { name: "", url: "" };
     } finally {
       setImageUploadLoading(false);

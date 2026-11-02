@@ -1,5 +1,7 @@
 "use client";
 
+import NotificationCenter from "@/components/realtime/NotificationCenter";
+
 import {
   BarChart3,
   BookIcon,
@@ -34,11 +36,52 @@ const navItems = [
   { icon: BookIcon, label: "Create Course", path: "/dashboard/instructor/create-course" },
   { icon: BookOpen, label: "My Courses", path: "/dashboard/instructor/course" },
   { icon: LibraryBig, label: "My Books", path: "/dashboard/instructor/books" },
+  { icon: LibraryBig, label: "My Products", path: "/dashboard/instructor/products" },
   { icon: DollarSign, label: "Earnings", path: "/dashboard/instructor/earning" },
   { icon: DollarSign, label: "Payouts", path: "/dashboard/instructor/payouts" },
   { icon: MessageSquare, label: "Messages", path: "/dashboard/instructor/message" },
   { icon: Settings, label: "Settings", path: "/dashboard/instructor/settings" },
 ] as const;
+
+const isInstructorPathActive = (path: string, pathname: string) =>
+  path === "/dashboard/instructor"
+    ? pathname === path
+    : pathname === path || pathname.startsWith(`${path}/`);
+
+function InstructorNavigation({ pathname }: { pathname: string }) {
+  return (
+    <nav
+      aria-label='Instructor navigation'
+      className='min-h-0 flex-1 space-y-1.5 overflow-y-auto px-4 pb-4'
+    >
+      {navItems.map(item => {
+        const active = isInstructorPathActive(item.path, pathname);
+        return (
+          <Link
+            key={item.path}
+            href={item.path}
+            aria-current={active ? "page" : undefined}
+            className={`group flex w-full items-center justify-between rounded-xl px-3.5 py-3 text-sm font-medium transition-all duration-200 ${
+              active
+                ? "bg-orange-500 text-white shadow-lg shadow-orange-950/20"
+                : "text-slate-400 hover:bg-white/[0.06] hover:text-white"
+            }`}
+          >
+            <div className='flex items-center gap-3'>
+              <item.icon
+                className={`h-[18px] w-[18px] shrink-0 ${
+                  active ? "text-white" : "text-slate-500 group-hover:text-slate-300"
+                }`}
+              />
+              <span>{item.label}</span>
+            </div>
+            {active ? <ChevronRight className='h-4 w-4 text-white/75' /> : null}
+          </Link>
+        );
+      })}
+    </nav>
+  );
+}
 
 const InstructorsLayout = ({ children }: { children: React.ReactNode }) => {
   const pathname = usePathname();
@@ -46,12 +89,10 @@ const InstructorsLayout = ({ children }: { children: React.ReactNode }) => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [profile, setProfile] = useState<InstructorShellProfile | null>(null);
 
-  const isActive = (path: string) =>
-    path === "/dashboard/instructor"
-      ? pathname === path
-      : pathname === path || pathname.startsWith(`${path}/`);
-
-  const currentPage = navItems.find(item => isActive(item.path))?.label ?? "Instructor";
+  const currentPage =
+    pathname === "/dashboard/instructor/products/upload-products"
+      ? "Upload Product"
+      : (navItems.find(item => isInstructorPathActive(item.path, pathname))?.label ?? "Instructor");
 
   useEffect(() => {
     setMobileOpen(false);
@@ -95,37 +136,8 @@ const InstructorsLayout = ({ children }: { children: React.ReactNode }) => {
     await signOut({ callbackUrl: "/" });
   };
 
-  const Navigation = () => (
-    <nav className='flex-1 space-y-1.5 overflow-y-auto px-4 pb-4'>
-      {navItems.map(item => {
-        const active = isActive(item.path);
-        return (
-          <Link
-            key={item.path}
-            href={item.path}
-            className={`group flex w-full items-center justify-between rounded-xl px-3.5 py-3 text-sm font-medium transition-all duration-200 ${
-              active
-                ? "bg-orange-500 text-white shadow-lg shadow-orange-950/20"
-                : "text-slate-400 hover:bg-white/[0.06] hover:text-white"
-            }`}
-          >
-            <div className='flex items-center gap-3'>
-              <item.icon
-                className={`h-[18px] w-[18px] shrink-0 ${
-                  active ? "text-white" : "text-slate-500 group-hover:text-slate-300"
-                }`}
-              />
-              <span>{item.label}</span>
-            </div>
-            {active ? <ChevronRight className='h-4 w-4 text-white/75' /> : null}
-          </Link>
-        );
-      })}
-    </nav>
-  );
-
   const ProfileBlock = () => (
-    <div className='m-4 rounded-2xl border border-white/[0.08] bg-white/[0.04] p-3'>
+    <div className='m-4 shrink-0 rounded-2xl border border-white/[0.08] bg-white/[0.04] p-3'>
       <Link
         href={
           session?.user?.id ? `/instructors/${session.user.id}` : "/dashboard/instructor/settings"
@@ -169,12 +181,9 @@ const InstructorsLayout = ({ children }: { children: React.ReactNode }) => {
   return (
     <div className='min-h-screen w-full bg-[#F7F8FC] text-slate-900 lg:flex'>
       {/* Desktop Sidebar */}
-      <aside className='hidden border-r border-white/10 bg-[#111827] text-white lg:fixed lg:inset-y-0 lg:left-0 lg:z-30 lg:flex lg:w-72 lg:flex-col'>
-        <div className='px-5 pb-5 pt-6'>
-          <Link
-            href='/'
-            className='flex items-center gap-3 rounded-2xl px-2 py-1'
-          >
+      <aside className='hidden min-h-0 overflow-hidden border-r border-white/10 bg-[#111827] text-white lg:fixed lg:inset-y-0 lg:left-0 lg:z-30 lg:flex lg:w-72 lg:flex-col'>
+        <div className='shrink-0 px-5 pb-5 pt-6'>
+          <Link href='/' className='flex items-center gap-3 rounded-2xl px-2 py-1'>
             <span className='flex h-10 w-10 items-center justify-center rounded-xl bg-orange-500 shadow-lg shadow-orange-950/20'>
               <Sparkles className='h-5 w-5' />
             </span>
@@ -187,13 +196,13 @@ const InstructorsLayout = ({ children }: { children: React.ReactNode }) => {
           </Link>
         </div>
 
-        <div className='px-5 pb-3'>
+        <div className='shrink-0 px-5 pb-3'>
           <p className='px-3 text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500'>
             Workspace
           </p>
         </div>
 
-        <Navigation />
+        <InstructorNavigation pathname={pathname} />
         <ProfileBlock />
       </aside>
 
@@ -206,12 +215,9 @@ const InstructorsLayout = ({ children }: { children: React.ReactNode }) => {
             className='fixed inset-0 z-40 bg-slate-950/45 backdrop-blur-[2px] lg:hidden'
             onClick={() => setMobileOpen(false)}
           />
-          <aside className='fixed inset-y-0 left-0 z-50 flex w-[86%] max-w-80 flex-col bg-[#111827] text-white shadow-2xl lg:hidden'>
-            <div className='flex items-center justify-between px-5 pb-5 pt-5'>
-              <Link
-                href='/'
-                className='flex items-center gap-3'
-              >
+          <aside className='fixed inset-y-0 left-0 z-50 flex min-h-0 w-[86%] max-w-80 flex-col overflow-hidden bg-[#111827] text-white shadow-2xl lg:hidden'>
+            <div className='flex shrink-0 items-center justify-between px-5 pb-5 pt-5'>
+              <Link href='/' className='flex items-center gap-3'>
                 <span className='flex h-10 w-10 items-center justify-center rounded-xl bg-orange-500'>
                   <Sparkles className='h-5 w-5' />
                 </span>
@@ -232,13 +238,13 @@ const InstructorsLayout = ({ children }: { children: React.ReactNode }) => {
               </button>
             </div>
 
-            <div className='px-5 pb-3'>
+            <div className='shrink-0 px-5 pb-3'>
               <p className='px-3 text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500'>
                 Workspace
               </p>
             </div>
 
-            <Navigation />
+            <InstructorNavigation pathname={pathname} />
             <ProfileBlock />
           </aside>
         </>
@@ -269,6 +275,7 @@ const InstructorsLayout = ({ children }: { children: React.ReactNode }) => {
             </div>
 
             <div className='flex items-center gap-2 sm:gap-3'>
+              <NotificationCenter />
               <Link
                 href={
                   session?.user?.id

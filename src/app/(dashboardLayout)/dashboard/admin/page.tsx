@@ -24,7 +24,7 @@ import type { ProductPerformance } from "./dashboard.types";
 
 export const dynamic = "force-dynamic";
 
-const money = (value: number) =>
+const money = (value: number | string) =>
   `৳ ${Number(value).toLocaleString("en-BD", { maximumFractionDigits: 0 })}`;
 const number = (value: number) => Number(value).toLocaleString("en-BD");
 const percent = (value: number) => `${Number(value).toFixed(1)}%`;

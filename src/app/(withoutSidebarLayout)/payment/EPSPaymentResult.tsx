@@ -13,15 +13,9 @@ import {
   XCircle,
 } from "lucide-react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
 import { apiClient } from "../../../lib/api/client";
-import {
-  bookDraftStorage,
-  checkoutDataStorage,
-  courseDraftStorage,
-} from "../../../lib/storage/courseDraftStorage";
-import { useSessionContext } from "../../contexts/SessionContext";
 
 type ExpectedOutcome = "success" | "fail" | "cancel";
 
@@ -63,8 +57,6 @@ export default function EPSPaymentResult({
   expectedOutcome: ExpectedOutcome;
 }) {
   const searchParams = useSearchParams();
-  const { setCartUpdate } = useSessionContext();
-  const cartCleared = useRef(false);
   const [state, setState] = useState<ViewState>({ kind: "verifying" });
 
   const merchantTransactionId =
@@ -118,16 +110,11 @@ export default function EPSPaymentResult({
   const cancelled = status === "CANCELLED";
   const failed = status === "FAILED";
 
+  const router = useRouter();
   useEffect(() => {
-    if (!paid || cartCleared.current) return;
-
-    // Clear cart data only after the backend verifies the payment as PAID.
-    courseDraftStorage.clear();
-    bookDraftStorage.clear();
-    checkoutDataStorage.clear();
-    cartCleared.current = true;
-    setCartUpdate?.(previous => !previous);
-  }, [paid, setCartUpdate]);
+    if (!paid || state.kind !== 'result') return;
+    router.replace(`/checkout/complete/${encodeURIComponent(state.data.orderId)}`);
+  }, [paid, state, router]);
 
   const heading = paid
     ? "Payment successful"
@@ -298,7 +285,7 @@ export default function EPSPaymentResult({
 
             {state.kind === "result" && (
               <Link
-                href={`/dashboard/student/orders/${state.data.orderId}`}
+                href={`/checkout/complete/${state.data.orderId}`}
                 className='inline-flex items-center justify-center gap-2 rounded-xl bg-[#0d1f3c] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#132b50] focus:outline-none focus:ring-4 focus:ring-slate-200'
               >
                 <ShoppingBag className='h-4 w-4' />

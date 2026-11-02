@@ -149,11 +149,18 @@ function EmptyState({ onReset }: { onReset: () => void }) {
 export default function BooksClient({
   initialBooks,
   booksCategories,
+  initialGenre,
 }: {
   initialBooks: BookResponse;
   booksCategories: { id: string; name: string }[];
+  /** Pre-selects a category, e.g. from `/books?genre=Fiction` breadcrumb links. */
+  initialGenre?: string;
 }) {
-  const [filters, setFilters] = useState<FilterState>(initialFilters);
+  const [filters, setFilters] = useState<FilterState>(() =>
+    initialGenre && booksCategories.some(c => c.name === initialGenre)
+      ? { ...initialFilters, genres: [initialGenre] }
+      : initialFilters
+  );
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
   const [cartItems, setCartItems] = useState<{ bookId: string; quantity: number }[]>([]);
   const [updateCart, setUpdateCart] = useState<boolean>(false);
@@ -336,7 +343,7 @@ export default function BooksClient({
             {filteredBooks.length === 0 ? (
               <EmptyState onReset={handleReset} />
             ) : (
-              <div className='grid grid-cols-2 sm:grid-cols-4 gap-4 lg:gap-5'>
+              <div className='grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-4 lg:gap-5'>
                 {filteredBooks.map((book, index) => (
                   <BookCard
                     key={book.id}

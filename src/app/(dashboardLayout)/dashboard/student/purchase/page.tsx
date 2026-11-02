@@ -5,29 +5,34 @@ import { Download, Eye, FileText, PackageSearch, RefreshCw, Search, Truck } from
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import DashboardState from "../components/DashboardState";
-import InvoiceModal from "./components/InvoiceModal";
-import SummaryCards from "./components/SummaryCards";
+
+import InvoiceModal from "../components/InvoiceModal.tsx";
+import SummaryCards from "../components/SummaryCards.tsx";
 import { openInvoiceForPrint } from "./invoice-generator";
 import {
   orderItemType,
   orderStatusLabel,
+  paymentMethodLabel,
+  purchaseStatusLabel,
   type OrderStatus,
   type SortOrder,
   type StudentOrder,
 } from "./types";
 import { fmt, fmtDate } from "./utils";
 
-type ProductFilter = "ALL" | "COURSE" | "EBOOK" | "PHYSICAL_BOOK";
+type ProductFilter = "ALL" | "COURSE" | "EBOOK" | "PHYSICAL_BOOK" | "PRODUCT";
 const productFilters: { value: ProductFilter; label: string }[] = [
   { value: "ALL", label: "All purchases" },
   { value: "COURSE", label: "Courses" },
   { value: "EBOOK", label: "eBooks" },
   { value: "PHYSICAL_BOOK", label: "Physical books" },
+  { value: "PRODUCT", label: "Products" },
 ];
 
 function matchesType(order: StudentOrder, filter: ProductFilter) {
   if (filter === "ALL") return true;
   return order.orderItems.some(item => {
+    if (filter === "PRODUCT") return Boolean(item.product);
     if (filter === "COURSE") return Boolean(item.course);
     if (filter === "PHYSICAL_BOOK") return Boolean(item.book) && item.format === "PHYSICAL";
     return Boolean(item.book) && item.format === "DIGITAL";
@@ -73,7 +78,11 @@ export default function PurchaseHistoryPage() {
     () => ({
       totalOrders: orders.length,
       totalSpent: orders
-        .filter(order => ["PAID", "CONFIRMED", "PROCESSING", "SHIPPED", "OUT_FOR_DELIVERY", "DELIVERED"].includes(order.status))
+        .filter(order =>
+          ["PAID", "CONFIRMED", "PROCESSING", "SHIPPED", "OUT_FOR_DELIVERY", "DELIVERED"].includes(
+            order.status
+          )
+        )
         .reduce((sum, order) => sum + Number(order.totalAmount), 0),
       inTransit: orders.filter(
         order =>
@@ -98,8 +107,9 @@ export default function PurchaseHistoryPage() {
           order.courierConsignmentId?.toLowerCase().includes(query) ||
           order.orderItems.some(
             item =>
-              (item.book?.title ?? item.course?.title ?? "").toLowerCase().includes(query) ||
-              item.trackingNumber?.toLowerCase().includes(query)
+              (item.product?.title ?? item.book?.title ?? item.course?.title ?? "")
+                .toLowerCase()
+                .includes(query) || item.trackingNumber?.toLowerCase().includes(query)
           )
       )
       .sort((a, b) =>
@@ -269,7 +279,7 @@ export default function PurchaseHistoryPage() {
                             <span
                               className={`rounded-full px-2.5 py-1 text-xs font-semibold ${statusTone(order.status)}`}
                             >
-                              {orderStatusLabel[order.status]}
+                              {purchaseStatusLabel(order)}
                             </span>
                           </div>
                           <div className='mt-3 space-y-1.5'>
@@ -280,7 +290,10 @@ export default function PurchaseHistoryPage() {
                               >
                                 <div className='min-w-0'>
                                   <p className='truncate font-semibold text-gray-900'>
-                                    {item.book?.title ?? item.course?.title ?? "Order item"}
+                                    {item.product?.title ??
+                                      item.book?.title ??
+                                      item.course?.title ??
+                                      "Order item"}
                                   </p>
                                   <p className='text-xs text-gray-500'>
                                     {orderItemType(item)}
@@ -294,10 +307,7 @@ export default function PurchaseHistoryPage() {
                             ))}
                           </div>
                           <p className='mt-3 text-xs text-gray-500'>
-                            {fmtDate(order.createdAt)} ·{" "}
-                            {order.paymentMethod === "CASH_ON_DELIVERY"
-                              ? "Cash on Delivery"
-                              : "Online Payment"}
+                            {fmtDate(order.createdAt)} · {paymentMethodLabel(order.paymentMethod)}
                           </p>
                         </div>
                         <div className='flex flex-col gap-3 border-t border-gray-100 pt-4 lg:w-64 lg:border-l lg:border-t-0 lg:pl-5 lg:pt-0'>

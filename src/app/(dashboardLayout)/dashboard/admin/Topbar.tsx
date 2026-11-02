@@ -1,8 +1,9 @@
 "use client";
 
-import { Bell, ChevronRight, Menu, Settings } from "lucide-react";
+import { ChevronRight, Menu, Settings } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { Avatar } from "./Components";
+import NotificationCenter from "@/components/realtime/NotificationCenter";
 
 const PAGE_LABELS: Record<string, string> = {
   "": "Dashboard",
@@ -62,12 +63,7 @@ export default function Topbar({ onMenuClick }: { onMenuClick?: () => void }) {
 
       {/* Actions */}
       <div className='flex gap-2'>
-        {/* Bell */}
-        <div className='relative w-[38px] h-[38px] rounded-[9px] border border-[#1a3158] bg-[#070f1e] flex items-center justify-center cursor-pointer text-[#3d5a80] flex-shrink-0 transition-all duration-[180ms] hover:border-[#2a4a78] hover:text-[#7a9cc4]'>
-          <Bell size={16} />
-          {/* notification dot */}
-          <div className='absolute top-2 right-2 w-[7px] h-[7px] rounded-full bg-[#da7c36] border-2 border-[#070f1e]' />
-        </div>
+        <NotificationCenter theme="dark" />
 
         {/* Settings */}
         <div className='hidden sm:flex w-[38px] h-[38px] rounded-[9px] border border-[#1a3158] bg-[#070f1e] items-center justify-center cursor-pointer text-[#3d5a80] flex-shrink-0 transition-all duration-[180ms] hover:border-[#2a4a78] hover:text-[#7a9cc4]'>

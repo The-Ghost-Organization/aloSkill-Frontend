@@ -14,7 +14,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
         <AnnouncementBar />
         <NavBar onMenuToggle={() => setIsSidebarOpen(prev => !prev)} />
       </div>
-      <div className='flex flex-1 pt-12 lg:hidden '>
+      <div className='flex flex-1 pt-12 md:pt-0 lg:hidden'>
         <LeftSidebar
           isOpen={isSidebarOpen}
           onClose={() => setIsSidebarOpen(false)}

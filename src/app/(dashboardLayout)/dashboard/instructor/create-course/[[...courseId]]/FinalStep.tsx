@@ -1,5 +1,6 @@
 import { useDebounce } from "@/hooks/useDebounce.ts";
 import { apiClient } from "@/lib/api/client.ts";
+import { saveCourse } from "@/lib/course/saveCourse";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Crown, Gift, Loader2, Search, Tag, UserCircleIcon, Users, X } from "lucide-react";
 import Image from "next/image";
@@ -126,6 +127,11 @@ const FinalStep = ({
   adminMode?: boolean;
 }) => {
   const { user } = useSessionContext();
+  const savedCourseId = useRef(courseData.id);
+  const saving = useRef(false);
+  useEffect(() => {
+    if (courseData.id) savedCourseId.current = courseData.id;
+  }, [courseData.id]);
   // An existing course saved with price 0 opens on "Free"; everything else opens on "Paid" as before.
   const [paymentSelection, setPaymentSelection] = useState<"paid" | "free">(
     isParamsExisting && Number(courseData.originalPrice) === 0 ? "free" : "paid"
@@ -266,8 +272,9 @@ const FinalStep = ({
     }
     const { originalPrice, discountPrice } = data;
     const { allCategory: _allCategory, ...restCourseData } = courseData;
-    const courseSaveToDB = await apiClient.post(`/course/create-course`, {
+    const courseSaveToDB = await saveCourse<{ id: string }>({
       ...restCourseData,
+      id: courseData.id ?? savedCourseId.current,
       originalPrice: Number(originalPrice),
       discountPrice: Number(discountPrice),
       discountEndDate: data.discountEndDate ? new Date(data.discountEndDate) : null,
@@ -276,6 +283,10 @@ const FinalStep = ({
       courseInstructors: data.courseInstructors,
       status: status,
     });
+    if (courseSaveToDB.success && courseSaveToDB.data?.id) {
+      savedCourseId.current = courseSaveToDB.data.id;
+      setCourseData(previous => ({ ...previous, id: courseSaveToDB.data!.id }));
+    }
     return courseSaveToDB;
   };
 
@@ -300,100 +311,32 @@ const FinalStep = ({
       setCourseUploadError("Select an approved primary instructor before saving this course.");
       return;
     }
-    const { originalPrice, discountPrice } = data;
-    const { allCategory: _allCategory, ...restCourseData } = courseData;
-    setCourseData(prev => ({
-      ...prev,
-      originalPrice: Number(originalPrice),
-      discountPrice: Number(discountPrice),
-      discountEndDate: data.discountEndDate ? new Date(data.discountEndDate) : null,
-      welcomeMessage: data.welcomeMessage,
-      congratulationsMessage: data.congratulationsMessage,
-      courseInstructors: data.courseInstructors,
-    }));
-    if (dataSaveMode === "publish") {
-      const backendData = await handleCourseSaveToDb(data, "PUBLISHED");
-      if (!backendData.success) {
-        const message =
-          backendData.message && typeof backendData.message === "string"
-            ? errorMessages[backendData.message as keyof typeof errorMessages] ||
-              backendData.message
-            : "Unknown error occurred";
-        setCourseUploadError(message);
-      }
-      // console.log("Response from DB : ", backendData);
-      if (backendData.success) {
-        try { localStorage.removeItem(`aloskill:curriculum:${user?.id ?? ""}:${courseData.id ?? "new"}`); } catch {}
-        redirect(adminMode ? "/dashboard/admin/courses" : "/dashboard/instructor/course");
-      }
+    if (saving.current) return;
+    if (isParamsExisting && !courseData.id && !savedCourseId.current) {
+      setCourseUploadError("The existing course has not loaded. Reload the course editor before saving.");
+      return;
     }
-    if (dataSaveMode === "draft") {
-      const backendData = await handleCourseSaveToDb(data, "DRAFT");
+    saving.current = true;
+    setCourseUploadError("");
+    try {
+      const requestedStatus = dataSaveMode === "publish" || dataSaveMode === "updateAndPublish"
+        ? "PUBLISHED"
+        : dataSaveMode === "draft" ? "DRAFT" : courseData.status;
+      const backendData = await handleCourseSaveToDb(data, requestedStatus);
       if (!backendData.success) {
-        const message =
-          backendData.message && typeof backendData.message === "string"
-            ? errorMessages[backendData.message as keyof typeof errorMessages] ||
-              backendData.message
-            : "Unknown error occurred";
+        const message = backendData.message
+          ? errorMessages[backendData.message as keyof typeof errorMessages] || backendData.message
+          : "Your course could not be saved. Please try again.";
         setCourseUploadError(message);
+        return;
       }
-      // console.log("Response from DB : ", backendData);
-      if (backendData.success) {
-        try { localStorage.removeItem(`aloskill:curriculum:${user?.id ?? ""}:${courseData.id ?? "new"}`); } catch {}
-        redirect(adminMode ? "/dashboard/admin/courses" : "/dashboard/instructor/course");
-      }
+      try {
+        localStorage.removeItem(`aloskill:curriculum:${user?.id ?? ""}:${courseData.id ?? "new"}`);
+      } catch { /* Saving the course does not depend on local draft storage. */ }
+      redirect(adminMode ? "/dashboard/admin/courses" : "/dashboard/instructor/course");
+    } finally {
+      saving.current = false;
     }
-    if (dataSaveMode === "update") {
-      const backendData = await apiClient.patch(`/course/editOrUpdate-course`, {
-        ...restCourseData,
-        originalPrice: Number(originalPrice),
-        discountPrice: Number(discountPrice),
-        discountEndDate: data.discountEndDate ? new Date(data.discountEndDate) : null,
-        welcomeMessage: data.welcomeMessage,
-        congratulationsMessage: data.congratulationsMessage,
-        courseInstructors: data.courseInstructors,
-        status: courseData.status,
-      });
-      if (!backendData.success) {
-        const message =
-          backendData.message && typeof backendData.message === "string"
-            ? errorMessages[backendData.message as keyof typeof errorMessages] ||
-              backendData.message
-            : "Unknown error occurred";
-        setCourseUploadError(message);
-      }
-      // console.log("Response from DB for update: ", backendData);
-      if (backendData.success) {
-        try { localStorage.removeItem(`aloskill:curriculum:${user?.id ?? ""}:${courseData.id ?? "new"}`); } catch {}
-        redirect(adminMode ? "/dashboard/admin/courses" : "/dashboard/instructor/course");
-      }
-    }
-    if (dataSaveMode === "updateAndPublish") {
-      const backendData = await apiClient.patch(`/course/editOrUpdate-course`, {
-        ...restCourseData,
-        originalPrice: Number(originalPrice),
-        discountPrice: Number(discountPrice),
-        discountEndDate: data.discountEndDate ? new Date(data.discountEndDate) : null,
-        welcomeMessage: data.welcomeMessage,
-        congratulationsMessage: data.congratulationsMessage,
-        courseInstructors: data.courseInstructors,
-        status: "PUBLISHED",
-      });
-      if (!backendData.success) {
-        const message =
-          backendData.message && typeof backendData.message === "string"
-            ? errorMessages[backendData.message as keyof typeof errorMessages] ||
-              backendData.message
-            : "Unknown error occurred";
-        setCourseUploadError(message);
-      }
-      // console.log("Response from DB for update: ", backendData);
-      if (backendData.success) {
-        try { localStorage.removeItem(`aloskill:curriculum:${user?.id ?? ""}:${courseData.id ?? "new"}`); } catch {}
-        redirect(adminMode ? "/dashboard/admin/courses" : "/dashboard/instructor/course");
-      }
-    }
-    // console.log("courseData : ", courseData, "data : ", data);
   };
 
   // ── Derived display values ───────────────────────────────────────────────

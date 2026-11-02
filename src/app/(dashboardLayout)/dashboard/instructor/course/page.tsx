@@ -1,4 +1,5 @@
 "use client";
+import InstructorPricing from "@/components/finance/InstructorPricing";
 
 import type { CourseType } from "@/app/(withoutSidebarLayout)/courses/allCourses.types.ts";
 import CourseCard from "@/app/(withoutSidebarLayout)/courses/CourseCard.tsx";
@@ -22,7 +23,7 @@ const InstructorCoursePage = () => {
     const getCourses = async () => {
       setApiError("");
       const coursesFromDB = await apiClient.get<CourseType[]>(
-        `/course/instructor/allCourses?userId=${user?.id}`
+        `/course/instructor/allCourses?userId=${user?.id}`,
       );
 
       try {
@@ -51,10 +52,14 @@ const InstructorCoursePage = () => {
   }
 
   return (
-    <div className='w-full'>
+    <div className='w-full space-y-5'>
+      <h1 className='text-2xl font-bold text-slate-900'>My Courses</h1>
+      <InstructorPricing type='course' />
       {/* Courses Grid */}
       {apiError ? (
-        <div className='rounded-2xl border border-red-200 bg-red-50 p-5 text-sm font-medium text-red-700'>{apiError}</div>
+        <div className='rounded-2xl border border-red-200 bg-red-50 p-5 text-sm font-medium text-red-700'>
+          {apiError}
+        </div>
       ) : (
         <>
           <div className='grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3'>

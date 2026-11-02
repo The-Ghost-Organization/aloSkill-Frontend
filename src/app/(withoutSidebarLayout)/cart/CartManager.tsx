@@ -1,9 +1,11 @@
 "use client";
 
 import { useSessionContext } from "@/app/contexts/SessionContext.tsx";
+import { resetCheckoutRequest } from "@/lib/course/checkout";
 import { apiClient } from "@/lib/api/client";
 import {
   bookDraftStorage,
+  productDraftStorage,
   checkoutDataStorage,
   courseDraftStorage,
 } from "@/lib/storage/courseDraftStorage";
@@ -14,6 +16,15 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 type CartResponse = {
+  products: {
+    id: string;
+    title: string;
+    thumbnailUrl: string;
+    category: string;
+    weight: number;
+    stock: number;
+    approvedPrice: number;
+  }[];
   books: {
     id: string;
     title: string;
@@ -28,7 +39,7 @@ type CartResponse = {
   }[];
   courses: {
     category: string | undefined;
-    discountPrice: number;
+    discountPrice: number | null;
     id: string;
     title: string;
     originalPrice: number;
@@ -37,6 +48,7 @@ type CartResponse = {
 };
 
 type StoredItem = {
+  products: { productId: string; quantity: number }[];
   courses: { courseId: string; quantity: number }[];
   books: { bookId: string; format: "PHYSICAL" | "EBOOK"; quantity: number }[];
 };
@@ -45,34 +57,46 @@ export default function CartManager() {
   const [cartItems, setCartItems] = useState<CartResponse>({
     books: [],
     courses: [],
+    products: [],
   });
   const [storedCartItems, setStoredCartItems] = useState<StoredItem>({
     courses: [],
     books: [],
+    products: [],
   });
   const [couponCode, setCouponCode] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
   const router = useRouter();
 
-  const { setCartUpdate } = useSessionContext();
+  const { setCartUpdate, user } = useSessionContext();
 
   useEffect(() => {
     const storedCart = courseDraftStorage.get<StoredItem["courses"]>();
     const bookCart = bookDraftStorage.get<StoredItem["books"]>();
-    if ((!storedCart || storedCart.length === 0) && (!bookCart || bookCart.length === 0)) {
-      setCartItems({ courses: [], books: [] });
+    const productCart = productDraftStorage.get<StoredItem["products"]>();
+    if (
+      (!storedCart || storedCart.length === 0) &&
+      (!bookCart || bookCart.length === 0) &&
+      !productCart?.length
+    ) {
+      setCartItems({ courses: [], books: [], products: [] });
       setIsLoading(false);
       return;
     }
     setStoredCartItems({
-      courses: storedCart || [],
+      courses: (storedCart || []).map(item => ({ ...item, quantity: 1 })),
       books: bookCart || [],
+      products: productCart || [],
     });
 
     const fetchFreshPrices = async () => {
       try {
-        const payload: { courses?: string[]; books?: { bookId: string; format: string }[] } = {};
+        const payload: {
+          courses?: string[];
+          books?: { bookId: string; format: string }[];
+          products?: { productId: string }[];
+        } = { products: productCart || [] };
 
         if (storedCart && storedCart.length > 0) {
           payload.courses = storedCart.map(item => item.courseId);
@@ -85,9 +109,9 @@ export default function CartManager() {
         const response = await apiClient.post<CartResponse>("/cart/get-cart-items/", payload);
 
         if (response.success && response.data) {
-          setCartItems(response.data);
+          setCartItems({ ...response.data, products: response.data.products || [] });
         } else {
-          setCartItems({ courses: [], books: [] });
+          setCartItems({ courses: [], books: [], products: [] });
         }
       } catch (error) {
         console.error("Failed to sync cart items:", error);
@@ -160,6 +184,7 @@ export default function CartManager() {
   const handleProceedToCheckout = async () => {
     setIsProcessing(true);
     try {
+      if (user) resetCheckoutRequest(user.id);
       checkoutDataStorage.save({
         items: cartItems,
         quantities: storedCartItems,
@@ -177,12 +202,15 @@ export default function CartManager() {
   const getBookFormatPricing = (
     book: CartResponse["books"][0],
     format: "PHYSICAL" | "EBOOK",
-    hasBothFormatsInCart: boolean
+    hasBothFormatsInCart: boolean,
   ) => {
     if (format === "PHYSICAL") {
-      const sale = book.physicalSalePrice ?? 0;
       const reg = book.physicalRegularPrice ?? 0;
-      const price = sale > 0 ? sale : reg;
+      const price = Number(
+        format === "PHYSICAL"
+          ? (book.physicalSalePrice ?? book.physicalRegularPrice ?? 0)
+          : (book.digitalSalePrice ?? book.digitalRegularPrice ?? 0),
+      );
       return { price, originalPrice: reg, isFree: false };
     }
 
@@ -190,17 +218,16 @@ export default function CartManager() {
       return { price: 0, originalPrice: book.digitalRegularPrice ?? 0, isFree: true };
     }
 
-    const sale = book.digitalSalePrice ?? 0;
     const reg = book.digitalRegularPrice ?? 0;
-    const price = sale > 0 ? sale : reg;
+    const price = Number(book.digitalSalePrice ?? book.digitalRegularPrice ?? 0);
     return { price, originalPrice: reg, isFree: false };
   };
 
   const courseSubtotal =
     cartItems.courses?.reduce((sum, item) => {
       const qty = storedCartItems.courses.find(ci => ci.courseId === item.id)?.quantity || 1;
-      const price = item.discountPrice > 0 ? item.discountPrice : item.originalPrice;
-      return sum + price * qty;
+      const price = Number(item.discountPrice ?? item.originalPrice);
+      return sum + price;
     }, 0) || 0;
 
   const bookSubtotal = storedCartItems.books.reduce((sum, storedBook) => {
@@ -215,7 +242,26 @@ export default function CartManager() {
     return sum + pricing.price * storedBook.quantity;
   }, 0);
 
-  const subtotal = courseSubtotal + bookSubtotal;
+  const productSubtotal = storedCartItems.products.reduce(
+    (sum, row) =>
+      sum +
+      Number(cartItems.products.find(product => product.id === row.productId)?.approvedPrice || 0) *
+        row.quantity,
+    0,
+  );
+  const subtotal = courseSubtotal + bookSubtotal + productSubtotal;
+  const unavailableProducts = storedCartItems.products.some(row => {
+    const product = cartItems.products.find(item => item.id === row.productId);
+    return !product || product.approvedPrice === null || row.quantity > product.stock;
+  });
+  function changeProduct(id: string, quantity: number) {
+    const products = storedCartItems.products
+      .map(row => (row.productId === id ? { ...row, quantity } : row))
+      .filter(row => row.quantity > 0);
+    setStoredCartItems(current => ({ ...current, products }));
+    productDraftStorage.save(products);
+    setCartUpdate?.(value => !value);
+  }
 
   if (isLoading) {
     return (
@@ -225,7 +271,11 @@ export default function CartManager() {
     );
   }
 
-  if (cartItems.courses?.length === 0 && cartItems.books?.length === 0) {
+  if (
+    cartItems.courses?.length === 0 &&
+    cartItems.books?.length === 0 &&
+    storedCartItems.products.length === 0
+  ) {
     return (
       <div className='text-center py-16 bg-white rounded shadow-sm'>
         <h2 className='text-xl font-semibold text-gray-700 mb-4'>Your cart is empty</h2>
@@ -251,7 +301,11 @@ export default function CartManager() {
     <>
       <div className='mb-6'>
         <h2 className='text-xl font-semibold text-[#074079] mb-2'>
-          Shopping Cart ({cartItems.courses?.length + storedCartItems.books?.length})
+          Shopping Cart (
+          {cartItems.courses?.length +
+            storedCartItems.books?.length +
+            storedCartItems.products.length}
+          )
         </h2>
       </div>
 
@@ -265,6 +319,70 @@ export default function CartManager() {
             <div className='col-span-2 text-center'>SUBTOTAL</div>
           </div>
 
+          {unavailableProducts && (
+            <p
+              role='alert'
+              className='rounded border border-red-200 bg-red-50 p-3 text-sm text-red-800'
+            >
+              A product is unavailable or has insufficient stock. Reduce its quantity or remove it
+              to continue.
+            </p>
+          )}
+          {storedCartItems.products.map(row => {
+            const product = cartItems.products.find(item => item.id === row.productId);
+            return (
+              <div
+                key={row.productId}
+                className='flex flex-wrap items-center gap-4 rounded-lg border border-slate-200 bg-white p-4'
+              >
+                {product?.thumbnailUrl && (
+                  <img
+                    src={product.thumbnailUrl}
+                    alt={product.title}
+                    className='h-16 w-16 rounded object-cover'
+                  />
+                )}
+                <div className='min-w-0 flex-1'>
+                  <Link
+                    href={`/products/${row.productId}`}
+                    className='font-semibold text-slate-800'
+                  >
+                    {product?.title || "Unavailable product"}
+                  </Link>
+                  <p className='mt-1 text-xs text-slate-500'>
+                    Physical product · {product?.stock ?? 0} in stock · Shipped by Aloskill
+                  </p>
+                </div>
+                <label className='text-xs text-slate-600'>
+                  Quantity
+                  <input
+                    type='number'
+                    min='1'
+                    max={Math.min(product?.stock ?? 0, 100)}
+                    step='1'
+                    className='ml-2 w-16 rounded border p-2 text-sm'
+                    value={row.quantity}
+                    onChange={e => {
+                      const quantity = Number(e.target.value);
+                      if (Number.isInteger(quantity) && quantity >= 1 && quantity <= 100)
+                        changeProduct(row.productId, quantity);
+                    }}
+                  />
+                </label>
+                <span className='text-sm font-semibold text-orange-700'>
+                  ৳{(Number(product?.approvedPrice || 0) * row.quantity).toFixed(2)}
+                </span>
+                <button
+                  type='button'
+                  aria-label={`Remove ${product?.title || "product"}`}
+                  className='text-red-600'
+                  onClick={() => changeProduct(row.productId, 0)}
+                >
+                  <X size={18} />
+                </button>
+              </div>
+            );
+          })}
           {/* Book Items Mapping */}
           {storedCartItems.books.map(storedBook => {
             const item = cartItems.books.find(b => b.id === storedBook.bookId);
@@ -371,7 +489,7 @@ export default function CartManager() {
                   <div className='col-span-1 md:col-span-2 flex md:justify-center items-center gap-2'>
                     <span className='md:hidden text-sm text-gray-600 font-medium'>Subtotal:</span>
                     <span className='text-[#074079] font-bold'>
-                      ${(pricing.price * currentQty).toFixed(2)}
+                      ৳{(pricing.price * currentQty).toFixed(2)}
                     </span>
                   </div>
                 </div>
@@ -383,13 +501,10 @@ export default function CartManager() {
           {cartItems.courses?.map(item => {
             const currentQty =
               storedCartItems.courses.find(ci => ci.courseId === item.id)?.quantity || 1;
-            const activePrice = item.discountPrice > 0 ? item.discountPrice : item.originalPrice;
+            const activePrice = Number(item.discountPrice ?? item.originalPrice);
 
             return (
-              <div
-                key={item.id}
-                className='bg-white rounded shadow-sm p-4'
-              >
+              <div key={item.id} className='bg-white rounded shadow-sm p-4'>
                 <div className='grid grid-cols-1 md:grid-cols-12 gap-4 items-center'>
                   {/* Product Info */}
                   <div className='col-span-1 md:col-span-6 flex gap-4'>
@@ -419,15 +534,16 @@ export default function CartManager() {
                   <div className='col-span-1 md:col-span-2 flex md:justify-center items-center gap-2'>
                     <span className='md:hidden text-sm text-gray-600 font-medium'>Price:</span>
                     <div className='flex gap-2 items-center'>
-                      {item.discountPrice > 0 ? (
+                      {item.discountPrice !== null &&
+                      Number(item.discountPrice) < Number(item.originalPrice) ? (
                         <>
-                          <span className='text-[#DA7C36] font-bold'>${item.discountPrice}</span>
+                          <span className='text-[#DA7C36] font-bold'>৳{item.discountPrice}</span>
                           <span className='text-gray-400 line-through text-xs'>
-                            ${item.originalPrice}
+                            ৳{item.originalPrice}
                           </span>
                         </>
                       ) : (
-                        <span className='text-[#DA7C36] font-bold'>${item.originalPrice}</span>
+                        <span className='text-[#DA7C36] font-bold'>৳{item.originalPrice}</span>
                       )}
                     </div>
                   </div>
@@ -445,9 +561,7 @@ export default function CartManager() {
                   {/* Subtotal Item */}
                   <div className='col-span-1 md:col-span-2 flex md:justify-center items-center gap-2'>
                     <span className='md:hidden text-sm text-gray-600 font-medium'>Subtotal:</span>
-                    <span className='text-[#074079] font-bold'>
-                      ${(activePrice * currentQty).toFixed(2)}
-                    </span>
+                    <span className='text-[#074079] font-bold'>৳{activePrice.toFixed(2)}</span>
                   </div>
                 </div>
               </div>
@@ -455,10 +569,7 @@ export default function CartManager() {
           })}
 
           <div className='flex gap-4 pt-4'>
-            <Link
-              href='/courses'
-              className='flex-1 sm:flex-none'
-            >
+            <Link href='/courses' className='flex-1 sm:flex-none'>
               <button className='w-full flex items-center justify-center gap-2 px-6 py-2 border-2 border-[#DA7C36] text-[#DA7C36] rounded hover:bg-[#DA7C36] hover:text-white transition-all font-medium'>
                 <ArrowLeft className='w-4 h-4' /> RETURN TO SHOP
               </button>
@@ -490,14 +601,19 @@ export default function CartManager() {
             <div className='space-y-4 border-t border-gray-200 pt-4 text-sm'>
               <div className='flex justify-between text-gray-700'>
                 <span>Subtotal</span>
-                <span className='font-semibold'>${subtotal.toFixed(2)} BDT</span>
+                <span className='font-semibold'>৳{subtotal.toFixed(2)} BDT</span>
               </div>
             </div>
 
             <button
               onClick={handleProceedToCheckout}
-              disabled={cartItems.courses.length === 0 && storedCartItems.books.length === 0}
-              className={`w-full mt-4 py-2.5 bg-linear-to-r from-[#DA7C36] to-orange-dark text-white rounded font-bold transition-all flex items-center justify-center gap-2 shadow-sm hover:shadow-md ${cartItems.courses.length === 0 && storedCartItems.books.length === 0 ? "cursor-not-allowed opacity-50" : "cursor-pointer"}`}
+              disabled={
+                (cartItems.courses.length === 0 &&
+                  storedCartItems.books.length === 0 &&
+                  storedCartItems.products.length === 0) ||
+                unavailableProducts
+              }
+              className={`w-full mt-4 py-2.5 bg-linear-to-r from-[#DA7C36] to-orange-dark text-white rounded font-bold transition-all flex items-center justify-center gap-2 shadow-sm hover:shadow-md ${(cartItems.courses.length === 0 && storedCartItems.books.length === 0 && storedCartItems.products.length === 0) || unavailableProducts ? "cursor-not-allowed opacity-50" : "cursor-pointer"}`}
             >
               {isProcessing ? "Securing Session..." : "Proceed to Checkout"}
             </button>

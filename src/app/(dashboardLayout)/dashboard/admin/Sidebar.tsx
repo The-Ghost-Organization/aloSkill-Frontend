@@ -34,6 +34,7 @@ const NAV_ICONS: Record<string, React.ReactNode> = {
   authors: <BookText size={17} />,
   courses: <BookOpen size={17} />,
   books: <ShoppingBag size={17} />,
+  products: <ShoppingBag size={17} />,
   finance: <DollarSign size={17} />,
   reviews: <Star size={17} />,
   badges: <Award size={17} />,
@@ -127,10 +128,7 @@ export default function Sidebar({
         >
           {/* Logo mark */}
           <div className='w-[38px] h-[38px] rounded-[10px] bg-[linear-gradient(135deg,#da7c36,#d15100)] flex items-center justify-center flex-shrink-0 shadow-[0_0_20px_rgba(218,124,54,0.4)]'>
-            <Zap
-              size={18}
-              color='white'
-            />
+            <Zap size={18} color='white' />
           </div>
 
           {/* Brand text — only when expanded */}
@@ -157,16 +155,13 @@ export default function Sidebar({
               "transition-colors duration-150",
             ].join(" ")}
           >
-            <Menu
-              size={16}
-              color='currentColor'
-            />
+            <Menu size={16} color='currentColor' />
           </button>
         </div>
 
         {/* Nav */}
         <nav className='flex-1 overflow-y-auto py-2.5 px-2'>
-          {NAV_ITEMS.map(item => {
+          {NAV_ITEMS.map((item) => {
             const isActive = activeId === item.id;
             return (
               <div
@@ -218,11 +213,7 @@ export default function Sidebar({
         {/* Profile */}
         <div className='px-2 py-3 border-t border-[#1a3158]'>
           <div className='flex items-center gap-2.5 p-2.5 rounded-[10px] bg-[#0d1f3c] border border-[#1a3158]'>
-            <Avatar
-              name='Super Admin'
-              size={34}
-              gradient='135deg, #da7c36, #d15100'
-            />
+            <Avatar name='Super Admin' size={34} gradient='135deg, #da7c36, #d15100' />
 
             {showLogoText && (
               <>
@@ -234,11 +225,7 @@ export default function Sidebar({
                     FULL ACCESS
                   </div>
                 </div>
-                <LogOut
-                  size={15}
-                  color='#3d5a80'
-                  className='cursor-pointer flex-shrink-0'
-                />
+                <LogOut size={15} color='#3d5a80' className='cursor-pointer flex-shrink-0' />
               </>
             )}
           </div>

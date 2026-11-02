@@ -63,6 +63,7 @@ export type CourseLesson = {
   files?: { name: string; url: string }[];
   duration?: number | null;
   quiz?: Quiz;
+  assignment?: import("@/components/assessments/types").AssignmentConfig;
   expanded: boolean;
   lessonTypeSelection: boolean;
 };
@@ -240,8 +241,8 @@ const CourseChecklist = ({
         items: [
           { label: "Thumbnail", done: Boolean(courseData.thumbnailUrl) },
           { label: "Trailer", done: Boolean(courseData.trailerUrl), detail: "Optional" },
-          { label: "Description", done: (description.description ?? "").trim().length >= 10 },
-          { label: "Learning outcomes", done: Boolean(description.whatYouTeach) },
+          { label: "Description", done: (description['description'] ?? "").trim().length >= 10 },
+          { label: "Learning outcomes", done: Boolean(description['whatYouTeach']) },
         ],
       },
       {

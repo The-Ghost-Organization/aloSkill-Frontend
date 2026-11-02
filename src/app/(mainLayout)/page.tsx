@@ -13,13 +13,14 @@ import GCommunitySection from "../(HomePageComponents)/(CommunitySection)/GCommu
 import ProcessPerfect from "../(HomePageComponents)/(Process)/Process.tsx";
 import TestimonialSlider from "../(HomePageComponents)/(TestimonialSection)/TestimonialSlider";
 import { DiscoverBooksSectionCarousel } from "../(HomePageComponents)/DiscoverBooksSectionCarousel.tsx";
+import HomepageProductsSection from "../(HomePageComponents)/HomepageProductsSection";
 import FAQStickyStack from "../(HomePageComponents)/FAQStickyStack.tsx";
 import StdTestimonials from "../(HomePageComponents)/StdTestimonials.tsx";
 
 const MobileMenuWrapper = dynamic(() => import("../(HomePageComponents)/MobileMenuWrapper.tsx"));
 
 const ContactSection = dynamic(
-  () => import("../(HomePageComponents)/(ContactSection)/ContactSection.tsx")
+  () => import("../(HomePageComponents)/(ContactSection)/ContactSection.tsx"),
 );
 
 export default function HomePage() {
@@ -31,12 +32,13 @@ export default function HomePage() {
       <WhyLearnSectionAnimated />
       <PopularCoursesSection />
       <DiscoverBooksSectionCarousel />
+      <HomepageProductsSection />
       <InstructorsSectionAdvanced />
       <StdTestimonials />
       <ProcessPerfect />
       <FAQStickyStack />
       <TestimonialSlider />
-      <GCommunitySection />
+     
       <CertificateSectionSimple />
       {/* <ContactSection /> */}
       {/* <Newsletter /> */}

@@ -1,5 +1,7 @@
 "use client";
 
+import NotificationCenter from "@/components/realtime/NotificationCenter";
+
 import { useSessionContext } from "@/app/contexts/SessionContext.tsx";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import Image from "next/image";
@@ -29,7 +31,7 @@ export default function StudentLayout({ children }: { children: React.ReactNode 
 
       <div className='relative -mt-20 sm:-mt-24 md:-mt-32 min-h-screen w-full max-w-7xl mx-auto px-3 sm:px-6'>
         {/* Back Home */}
-        <div className='w-full pt-4'>
+        <div className='flex w-full items-center justify-between gap-3 pt-4'>
           <Link
             href='/'
             className='hover:text-orange-dark'
@@ -38,6 +40,7 @@ export default function StudentLayout({ children }: { children: React.ReactNode 
               <ChevronLeft /> Back to the Home
             </p>
           </Link>
+          <NotificationCenter />
         </div>
 
         <div className='w-full py-4'>

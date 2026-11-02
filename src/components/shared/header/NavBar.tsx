@@ -32,8 +32,13 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { useSessionContext } from "../../../app/contexts/SessionContext.tsx";
-import { bookDraftStorage, courseDraftStorage } from "../../../lib/storage/courseDraftStorage.ts";
+import {
+  bookDraftStorage,
+  courseDraftStorage,
+  productDraftStorage,
+} from "../../../lib/storage/courseDraftStorage.ts";
 import Logo from "./Logo.tsx";
+import NotificationCenter from "@/components/realtime/NotificationCenter";
 
 const ROLE_DASHBOARD_PATHS: Record<string, string> = {
   STUDENT: "/dashboard/student",
@@ -65,6 +70,7 @@ const ROLE_MENU_ITEMS = {
       icon: Upload,
     },
     { label: "My Books", path: "/dashboard/instructor/books", icon: LibraryBig },
+    { label: "My Products", path: "/dashboard/instructor/products", icon: ShoppingBag },
     {
       label: "Upload Book",
       path: "/dashboard/instructor/books/upload-books",
@@ -79,6 +85,7 @@ const ROLE_MENU_ITEMS = {
     { label: "Settings", path: "/dashboard/instructor/settings", icon: Settings },
   ],
   ADMIN: [
+    { label: "Products", path: "/dashboard/admin/products", icon: ShoppingBag },
     { label: "Dashboard", path: "/dashboard/admin", icon: LayoutDashboard },
     { label: "Students", path: "/dashboard/admin/students", icon: Users },
     {
@@ -88,7 +95,7 @@ const ROLE_MENU_ITEMS = {
     },
     { label: "Courses", path: "/dashboard/admin/courses", icon: BookOpen },
     {
-      label: "Books & Products",
+      label: "Books",
       path: "/dashboard/admin/books",
       icon: ShoppingBag,
     },
@@ -161,7 +168,11 @@ export default function NavBar({ onMenuToggle }: HeaderProps) {
     }
     const getLocalData = courseDraftStorage.get<{ courseId: string; quantity: number }[]>();
     const getBookData = bookDraftStorage.get<{ bookId: string; quantity: number }[]>();
-    setCartCount((getLocalData?.length || 0) + (getBookData?.length || 0));
+    setCartCount(
+      (getLocalData?.length || 0) +
+        (getBookData?.length || 0) +
+        (productDraftStorage.get<unknown[]>()?.length || 0),
+    );
   }, [user, isCartUpdate]);
 
   const handleSignIn = () => {
@@ -332,26 +343,13 @@ export default function NavBar({ onMenuToggle }: HeaderProps) {
               <Heart className='w-6 h-6 text-gray-700 group-hover:text-orange-500 transition-colors' />
             </button>
 
-            {/* Notification Icon */}
-            <button className='relative p-2 hover:bg-gray-100 rounded-lg transition-colors group'>
-              <Bell className='w-5 h-5 text-gray-700 group-hover:text-orange-500 transition-colors' />
-              {(user as any)?.unreadNotifications && (user as any).unreadNotifications > 0 ? (
-                <span className='absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center'>
-                  {(user as any).unreadNotifications > 9 ? "9+" : (user as any).unreadNotifications}
-                </span>
-              ) : (
-                <span className='absolute top-1 right-1 w-2 h-2 bg-orange-500 rounded-full'></span>
-              )}
-            </button>
+            <NotificationCenter />
 
             {/* User Profile, Skeleton, or Login Button */}
             {isLoading ? (
               <SkeletonLoader />
             ) : isAuthenticated && user ? (
-              <div
-                className='relative'
-                ref={dropdownRef}
-              >
+              <div className='relative' ref={dropdownRef}>
                 <button
                   onClick={() => setIsDropdownOpen(!isDropdownOpen)}
                   className='flex items-center gap-2 p-1.5 hover:bg-gray-100 rounded-lg transition-colors'
@@ -507,13 +505,7 @@ export default function NavBar({ onMenuToggle }: HeaderProps) {
           </div>
         </div>
       </header>
-      {toast && (
-        <Toast
-          message={toast.message}
-          type={toast.type}
-          onClose={() => setToast(null)}
-        />
-      )}
+      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
     </>
   );
 }

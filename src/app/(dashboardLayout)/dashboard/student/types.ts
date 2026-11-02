@@ -1,0 +1,97 @@
+export type OrderStatus =
+  | "PENDING"
+  | "CONFIRMED"
+  | "PROCESSING"
+  | "SHIPPED"
+  | "OUT_FOR_DELIVERY"
+  | "DELIVERED"
+  | "PAID"
+  | "FAILED"
+  | "CANCELLED"
+  | "REFUNDED";
+
+export type OrderItem = {
+  id: string;
+  quantity: number;
+  format: "PHYSICAL" | "DIGITAL";
+  price: number;
+  status: string;
+  courierName?: string | null;
+  trackingNumber?: string | null;
+  shippedAt?: string | null;
+  deliveredAt?: string | null;
+  product?: { id: string; title: string; imageUrls: string[] } | null;
+  book?: { id?: string; title: string; author: string; coverImage: string } | null;
+  course?: { id?: string; title: string; thumbnailUrl: string | null } | null;
+};
+
+export type StudentOrder = {
+  id: string;
+  totalAmount: number;
+  shippingCost: number;
+  totalWeight: number;
+  currency: string;
+  status: OrderStatus;
+  provider: string | null;
+  paymentMethod: "CASH_ON_DELIVERY" | "ONLINE_PAYMENT" | "NO_PAYMENT_REQUIRED" | null;
+  providerOrderId?: string | null;
+  courierName?: "STEADFAST" | string | null;
+  courierConsignmentId?: string | null;
+  courierTrackingCode?: string | null;
+  courierStatus?: string | null;
+  courierStatusUpdatedAt?: string | null;
+  courierLastError?: string | null;
+  createdAt: string;
+  updatedAt?: string;
+  shippingAddress?: {
+    fullName: string;
+    addressLine: string;
+    city: string;
+    postalCode: string;
+    country: string;
+    phone: string;
+    deliveryArea: "INSIDE_DHAKA" | "DHAKA_SUBURBAN" | "OUTSIDE_DHAKA" | null;
+  } | null;
+  orderItems: OrderItem[];
+};
+
+export type SortOrder = "newest" | "oldest";
+
+export type SummaryStats = {
+  totalOrders: number;
+  totalSpent: number;
+  inTransit: number;
+};
+
+export const orderStatusLabel: Record<OrderStatus, string> = {
+  PENDING: "Order placed",
+  CONFIRMED: "Confirmed",
+  PROCESSING: "Processing",
+  SHIPPED: "Shipped",
+  OUT_FOR_DELIVERY: "Out for delivery",
+  DELIVERED: "Delivered",
+  PAID: "Paid",
+  FAILED: "Failed",
+  CANCELLED: "Cancelled",
+  REFUNDED: "Refunded",
+};
+
+export function orderItemType(item: OrderItem) {
+  if (item.course) return "Course";
+  if (item.product) return "Product";
+  return item.format === "PHYSICAL" ? "Physical book" : "eBook";
+}
+
+export function paymentMethodLabel(method: StudentOrder["paymentMethod"]) {
+  return method === "NO_PAYMENT_REQUIRED"
+    ? "No payment required"
+    : method === "CASH_ON_DELIVERY"
+      ? "Cash on Delivery"
+      : "Online Payment";
+}
+
+export function purchaseStatusLabel(order: StudentOrder) {
+  return order.paymentMethod === "NO_PAYMENT_REQUIRED" && order.status === "PAID"
+    ? "Completed"
+    : orderStatusLabel[order.status];
+}

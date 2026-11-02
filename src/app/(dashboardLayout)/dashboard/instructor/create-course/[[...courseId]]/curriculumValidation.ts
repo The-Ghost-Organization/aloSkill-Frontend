@@ -50,7 +50,7 @@ const quizQuestionSchema = z
         path: ['options'],
       });
     }
-    if (data.type === 'SINGLE_CHOICE' && correctOptions.length > 1) {
+    if ((data.type === 'SINGLE_CHOICE' || data.type === 'TRUE_FALSE') && correctOptions.length > 1) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: 'Only one option can be marked as correct for SINGLE_CHOICE questions.',
@@ -157,6 +157,16 @@ const courseLessonSchema = z.object({
     .nullable()
     .optional(),
   quiz: courseQuizSchema.optional(),
+  assignment: z.object({
+    title: z.string().trim().min(5).max(150),
+    instructions: z.string().trim().min(20).max(10000),
+    submissionTypes: z.array(z.enum(['TEXT', 'LINK', 'FILE'])).min(1, 'Choose at least one submission format').max(3).refine(types => new Set(types).size === types.length, 'Submission formats must be unique'),
+    maxScore: z.literal(100).default(100),
+    passingScore: z.number().int().min(0).max(100).optional(),
+    dueAt: z.string().datetime().optional(),
+    allowLate: z.boolean().optional(),
+    maxAttempts: z.number().int().min(1).max(10).optional(),
+  }).optional(),
 });
 
 const courseModuleSchema = z.object({

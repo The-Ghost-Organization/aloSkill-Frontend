@@ -117,9 +117,10 @@ const BasicInformaton = ({
   const checkUniqueSlug = useCallback(
     async (slug: string) => {
       if (!slug) return false;
-      if (courseData.slug === slug) return true;
       try {
-        const response = await apiClient.get<{ canProceed: boolean }>(`/course/slug-check/${slug}`);
+        const response = await apiClient.get<{ canProceed: boolean }>(
+          `/course/slug-check/${encodeURIComponent(slug)}${courseData.id ? `?courseId=${encodeURIComponent(courseData.id)}` : ''}`
+        );
         if (response.success && response.data) {
           const userData = response.data;
           if (!userData?.canProceed) {
@@ -130,6 +131,7 @@ const BasicInformaton = ({
             return true;
           }
         } else {
+          setSlugError(response.message ?? 'Could not check this course URL. Please try again.');
           return false;
         }
       } catch (_error) {
@@ -137,7 +139,7 @@ const BasicInformaton = ({
         return false;
       }
     },
-    [courseData.slug]
+    [courseData.id]
   );
 
   const {

@@ -20,6 +20,7 @@ export type OrderItem = {
   trackingNumber?: string | null;
   shippedAt?: string | null;
   deliveredAt?: string | null;
+  product?: { id: string; title: string; imageUrls: string[] } | null;
   book?: { id?: string; title: string; author: string; coverImage: string } | null;
   course?: { id?: string; title: string; thumbnailUrl: string | null } | null;
 };
@@ -32,7 +33,7 @@ export type StudentOrder = {
   currency: string;
   status: OrderStatus;
   provider: string | null;
-  paymentMethod: "CASH_ON_DELIVERY" | "ONLINE_PAYMENT" | null;
+  paymentMethod: "CASH_ON_DELIVERY" | "ONLINE_PAYMENT" | "NO_PAYMENT_REQUIRED" | null;
   providerOrderId?: string | null;
   courierName?: "STEADFAST" | string | null;
   courierConsignmentId?: string | null;
@@ -77,5 +78,20 @@ export const orderStatusLabel: Record<OrderStatus, string> = {
 
 export function orderItemType(item: OrderItem) {
   if (item.course) return "Course";
+  if (item.product) return "Product";
   return item.format === "PHYSICAL" ? "Physical book" : "eBook";
+}
+
+export function paymentMethodLabel(method: StudentOrder["paymentMethod"]) {
+  return method === "NO_PAYMENT_REQUIRED"
+    ? "No payment required"
+    : method === "CASH_ON_DELIVERY"
+      ? "Cash on Delivery"
+      : "Online Payment";
+}
+
+export function purchaseStatusLabel(order: StudentOrder) {
+  return order.paymentMethod === "NO_PAYMENT_REQUIRED" && order.status === "PAID"
+    ? "Completed"
+    : orderStatusLabel[order.status];
 }

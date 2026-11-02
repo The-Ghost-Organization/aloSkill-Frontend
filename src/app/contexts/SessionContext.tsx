@@ -4,7 +4,6 @@ import { SessionProvider as NextAuthSessionProvider, useSession } from "next-aut
 import { createContext, useContext, useEffect, useState } from "react";
 import { apiClient } from "../../lib/api/client";
 import { RealtimeProvider } from "@/components/realtime/RealtimeProvider";
-import NotificationCenter from "@/components/realtime/NotificationCenter";
 
 interface SessionType {
   user: any;
@@ -35,7 +34,6 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     <NextAuthSessionProvider>
       <RealtimeProvider>
         <SessionContextProvider>{children}</SessionContextProvider>
-        <NotificationCenter />
       </RealtimeProvider>
     </NextAuthSessionProvider>
   );

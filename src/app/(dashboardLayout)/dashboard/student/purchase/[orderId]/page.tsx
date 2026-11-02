@@ -1,12 +1,20 @@
 "use client";
 
+import { clearPurchasedCartItems } from "@/lib/course/checkout";
+import { useSessionContext } from "@/app/contexts/SessionContext";
 import { apiClient } from "@/lib/api/client";
 import { ArrowLeft, Check, MapPin, PackageCheck, Phone, RefreshCw, Truck } from "lucide-react";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import DashboardState from "../../components/DashboardState";
-import { orderStatusLabel, type OrderStatus, type StudentOrder } from "../../orders/types";
+import {
+  paymentMethodLabel,
+  purchaseStatusLabel,
+  orderStatusLabel,
+  type OrderStatus,
+  type StudentOrder,
+} from "../../orders/types";
 
 const trackingSteps: { status: OrderStatus; label: string }[] = [
   { status: "PENDING", label: "Order placed" },
@@ -41,6 +49,8 @@ function formatDate(value?: string | null) {
 export default function OrderTrackingPage() {
   const { orderId } = useParams<{ orderId: string }>();
   const searchParams = useSearchParams();
+  const { setCartUpdate } = useSessionContext();
+  const cleared = useRef<string | null>(null);
   const [order, setOrder] = useState<StudentOrder | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -77,12 +87,25 @@ export default function OrderTrackingPage() {
       await loadOrder();
     } catch {
       setTrackingError(
-        "Live Steadfast tracking is temporarily unavailable. Please try again shortly."
+        "Live Steadfast tracking is temporarily unavailable. Please try again shortly.",
       );
     } finally {
       setRefreshingTracking(false);
     }
   };
+
+  useEffect(() => {
+    if (
+      !order ||
+      cleared.current === order.id ||
+      !["PAID", "PROCESSING", "SHIPPED", "OUT_FOR_DELIVERY", "DELIVERED"].includes(order.status)
+    )
+      return;
+    // This follows an owned order response, never a success query parameter.
+    clearPurchasedCartItems(order.orderItems, order.id);
+    cleared.current = order.id;
+    setCartUpdate?.((previous) => !previous);
+  }, [order, setCartUpdate]);
 
   const currentRank = useMemo(() => {
     if (!order) return 0;
@@ -119,9 +142,13 @@ export default function OrderTrackingPage() {
       />
     );
 
+  const physical = order.orderItems.some((item) => item.format === "PHYSICAL");
+  const fulfilled = ["PAID", "PROCESSING", "SHIPPED", "OUT_FOR_DELIVERY", "DELIVERED"].includes(
+    order.status,
+  );
   const cancelled = order.status === "CANCELLED" || order.status === "FAILED";
   const subtotal = Number(order.totalAmount) - Number(order.shippingCost);
-  const courierItem = order.orderItems.find(item => item.trackingNumber || item.courierName);
+  const courierItem = order.orderItems.find((item) => item.trackingNumber || item.courierName);
   const courierName = order.courierName ?? courierItem?.courierName;
   const trackingCode = order.courierTrackingCode ?? courierItem?.trackingNumber;
   const courierStatus = order.courierStatus?.replaceAll("_", " ");
@@ -135,7 +162,7 @@ export default function OrderTrackingPage() {
         <ArrowLeft className='h-4 w-4' /> Purchases & Orders
       </Link>
 
-      {searchParams.get("placed") === "true" && (
+      {searchParams.get("placed") === "true" && order.paymentMethod === "CASH_ON_DELIVERY" && (
         <div className='flex gap-3 rounded-xl border border-green-200 bg-green-50 p-4 text-green-800'>
           <PackageCheck className='h-5 w-5 shrink-0' />
           <div>
@@ -147,6 +174,36 @@ export default function OrderTrackingPage() {
         </div>
       )}
 
+      {fulfilled && (
+        <div
+          role='status'
+          className='rounded-xl border border-green-200 bg-green-50 p-5 text-green-900'
+        >
+          <h1 className='text-xl font-bold'>Order confirmed</h1>
+          <p className='mt-2 text-sm'>
+            {order.paymentMethod === "NO_PAYMENT_REQUIRED"
+              ? "No payment was required. Your courses and digital products are ready."
+              : "Your payment is confirmed. Your digital products are ready."}
+          </p>
+        </div>
+      )}
+      {!fulfilled && !cancelled && (
+        <div
+          role='status'
+          className='rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900'
+        >
+          {order.paymentMethod === "CASH_ON_DELIVERY"
+            ? "Your order is placed. Payment is due on delivery."
+            : "Your order is pending payment. Access will be available after payment is confirmed."}
+          <button
+            type='button'
+            className='ml-3 font-semibold underline'
+            onClick={() => void loadOrder()}
+          >
+            Refresh order status
+          </button>
+        </div>
+      )}
       <section className='rounded-xl border border-gray-200 bg-white p-5 shadow-sm sm:p-7'>
         <div className='flex flex-col gap-4 border-b border-gray-100 pb-5 sm:flex-row sm:items-start sm:justify-between'>
           <div>
@@ -158,10 +215,10 @@ export default function OrderTrackingPage() {
             <span
               className={`inline-flex rounded-full px-3 py-1.5 text-xs font-semibold ${cancelled ? "bg-red-50 text-red-700" : "bg-orange-50 text-orange-700"}`}
             >
-              {orderStatusLabel[order.status]}
+              {purchaseStatusLabel(order)}
             </span>
             <p className='mt-2 text-sm font-medium text-gray-700'>
-              {order.paymentMethod === "CASH_ON_DELIVERY" ? "Cash on Delivery" : "Online Payment"}
+              {paymentMethodLabel(order.paymentMethod)}
             </p>
           </div>
         </div>
@@ -170,7 +227,7 @@ export default function OrderTrackingPage() {
           <div className='mt-6 rounded-lg bg-red-50 p-4 text-sm font-medium text-red-700'>
             This order is {order.status.toLowerCase()}.
           </div>
-        ) : (
+        ) : physical ? (
           <ol className='mt-8 grid gap-0 sm:grid-cols-6'>
             {trackingSteps.map((step, index) => {
               const complete = index <= currentRank;
@@ -198,78 +255,110 @@ export default function OrderTrackingPage() {
               );
             })}
           </ol>
-        )}
+        ) : null}
 
-        <div className='mt-8 rounded-xl border border-gray-100 bg-gray-50 p-4'>
-          <div className='flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between'>
-            <div>
-              <p className='text-xs font-semibold uppercase tracking-wide text-gray-400'>
-                Courier shipment
-              </p>
-              <p className='mt-1 font-semibold text-gray-900'>
-                {courierName ?? "Courier assignment pending"}
-              </p>
-              <p className='mt-1 break-all text-sm text-gray-600'>
-                {trackingCode
-                  ? `Tracking ID: ${trackingCode}`
-                  : "Tracking ID will appear after the order is submitted to the courier."}
-              </p>
+        {physical && (
+          <div className='mt-8 rounded-xl border border-gray-100 bg-gray-50 p-4'>
+            <div className='flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between'>
+              <div>
+                <p className='text-xs font-semibold uppercase tracking-wide text-gray-400'>
+                  Courier shipment
+                </p>
+                <p className='mt-1 font-semibold text-gray-900'>
+                  {courierName ?? "Courier assignment pending"}
+                </p>
+                <p className='mt-1 break-all text-sm text-gray-600'>
+                  {trackingCode
+                    ? `Tracking ID: ${trackingCode}`
+                    : "Tracking ID will appear after the order is submitted to the courier."}
+                </p>
+              </div>
+              <span className='inline-flex w-fit rounded-full bg-orange-100 px-3 py-1.5 text-xs font-semibold capitalize text-orange-700'>
+                {courierStatus ?? "awaiting courier update"}
+              </span>
             </div>
-            <span className='inline-flex w-fit rounded-full bg-orange-100 px-3 py-1.5 text-xs font-semibold capitalize text-orange-700'>
-              {courierStatus ?? "awaiting courier update"}
-            </span>
+            <div className='mt-4 flex flex-col gap-3 border-t border-gray-200 pt-4 sm:flex-row sm:items-center sm:justify-between'>
+              <p className='text-xs text-gray-500'>
+                Last checked: {formatDate(order.courierStatusUpdatedAt)}
+              </p>
+              <button
+                type='button'
+                onClick={() => void refreshTracking()}
+                disabled={refreshingTracking || !trackingCode}
+                className='inline-flex items-center justify-center gap-2 rounded-lg border border-orange-200 bg-white px-4 py-2 text-sm font-semibold text-orange-600 hover:bg-orange-50 disabled:cursor-not-allowed disabled:opacity-50'
+              >
+                <RefreshCw className={`h-4 w-4 ${refreshingTracking ? "animate-spin" : ""}`} />{" "}
+                {refreshingTracking ? "Checking Steadfast…" : "Refresh live tracking"}
+              </button>
+            </div>
+            {trackingError && (
+              <p role='alert' className='mt-3 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700'>
+                {trackingError}
+              </p>
+            )}
+            {order.courierLastError && !trackingCode && (
+              <p className='mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800'>
+                Courier submission is still pending. Our team can retry it without recreating your
+                order.
+              </p>
+            )}
           </div>
-          <div className='mt-4 flex flex-col gap-3 border-t border-gray-200 pt-4 sm:flex-row sm:items-center sm:justify-between'>
-            <p className='text-xs text-gray-500'>
-              Last checked: {formatDate(order.courierStatusUpdatedAt)}
-            </p>
-            <button
-              type='button'
-              onClick={() => void refreshTracking()}
-              disabled={refreshingTracking || !trackingCode}
-              className='inline-flex items-center justify-center gap-2 rounded-lg border border-orange-200 bg-white px-4 py-2 text-sm font-semibold text-orange-600 hover:bg-orange-50 disabled:cursor-not-allowed disabled:opacity-50'
-            >
-              <RefreshCw className={`h-4 w-4 ${refreshingTracking ? "animate-spin" : ""}`} />{" "}
-              {refreshingTracking ? "Checking Steadfast…" : "Refresh live tracking"}
-            </button>
-          </div>
-          {trackingError && (
-            <p
-              role='alert'
-              className='mt-3 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700'
-            >
-              {trackingError}
-            </p>
-          )}
-          {order.courierLastError && !trackingCode && (
-            <p className='mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800'>
-              Courier submission is still pending. Our team can retry it without recreating your
-              order.
-            </p>
-          )}
-        </div>
+        )}
       </section>
 
       <div className='grid gap-5 lg:grid-cols-[1.4fr_0.8fr]'>
         <section className='rounded-xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6'>
           <h2 className='font-bold text-gray-900'>Order items</h2>
           <div className='mt-4 divide-y divide-gray-100'>
-            {order.orderItems.map(item => (
-              <div
-                key={item.id}
-                className='flex items-center justify-between gap-4 py-4'
-              >
-                <div className='min-w-0'>
-                  <p className='truncate font-medium text-gray-900'>
-                    {item.book?.title ?? item.course?.title ?? "Item"}
-                  </p>
-                  <p className='mt-1 text-xs text-gray-500'>
-                    {item.format === "PHYSICAL" ? "Physical book" : item.book ? "E-book" : "Course"}{" "}
-                    · Qty {item.quantity}
-                  </p>
+            {order.orderItems.map((item) => (
+              <div key={item.id} className='flex items-center justify-between gap-4 py-4'>
+                <div className='flex min-w-0 items-center gap-3'>
+                  {item.product?.imageUrls[0] && (
+                    <img
+                      src={item.product.imageUrls[0]}
+                      alt={item.product.title}
+                      className='h-12 w-12 shrink-0 rounded object-cover'
+                    />
+                  )}
+                  <div>
+                    <p className='truncate font-medium text-gray-900'>
+                      {item.product?.title ?? item.book?.title ?? item.course?.title ?? "Item"}
+                    </p>
+                    <p className='mt-1 text-xs text-gray-500'>
+                      {item.product
+                        ? "Physical product"
+                        : item.format === "PHYSICAL"
+                          ? "Physical book"
+                          : item.book
+                            ? "E-book"
+                            : "Course"}{" "}
+                      · Qty {item.quantity}
+                    </p>
+                  </div>
                 </div>
                 <p className='shrink-0 font-semibold text-gray-900'>
                   ৳{Number(item.price).toFixed(2)}
+                  {fulfilled && item.course?.id && (
+                    <Link
+                      href={`/watch-video/${item.course.id}`}
+                      className='mt-2 block text-sm text-orange-700 underline'
+                    >
+                      Start learning
+                    </Link>
+                  )}
+                  {fulfilled && item.book && item.format === "DIGITAL" && (
+                    <a
+                      href={`/api/student-books/${item.id}?mode=download`}
+                      className='mt-2 block text-sm text-orange-700 underline'
+                    >
+                      Download eBook
+                    </a>
+                  )}
+                  {physical && item.format === "PHYSICAL" && (
+                    <span className='mt-2 block text-xs font-normal text-gray-500'>
+                      Delivery details above
+                    </span>
+                  )}
                 </p>
               </div>
             ))}

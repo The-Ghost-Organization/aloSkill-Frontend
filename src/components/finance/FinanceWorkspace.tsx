@@ -77,10 +77,7 @@ function Cards({ items }: { items: [string, unknown][] }) {
               " flex h-11 w-11 shrink-0 items-center justify-center rounded-[var(--finance-control-radius)]"
             }
           >
-            <Wallet
-              size={20}
-              aria-hidden='true'
-            />
+            <Wallet size={20} aria-hidden='true' />
           </span>
           <div className='min-w-0'>
             <p className='break-words text-[length:var(--finance-value-size)] font-bold leading-tight text-[var(--finance-text)]'>
@@ -144,6 +141,7 @@ export default function FinanceWorkspace({
     [accounts, setAccounts] = useState<Account[]>([]);
   const [currentPage, setPage] = useState(1),
     [statusFilter, setStatusFilter] = useState(""),
+    [productFilter, setProductFilter] = useState(""),
     [from, setFrom] = useState(""),
     [to, setTo] = useState(""),
     [periodKey, setPeriodKey] = useState("");
@@ -165,7 +163,8 @@ export default function FinanceWorkspace({
   });
   const [override, setOverride] = useState<Instructor | null>(null),
     [bookRate, setBookRate] = useState(""),
-    [courseRate, setCourseRate] = useState("");
+    [courseRate, setCourseRate] = useState(""),
+    [productRate, setProductRate] = useState("");
   const loadSequence = useRef(0);
   const root = admin ? API_ENDPOINTS.FINANCE.ADMIN : API_ENDPOINTS.FINANCE.INSTRUCTOR;
   const load = useCallback(async () => {
@@ -182,20 +181,28 @@ export default function FinanceWorkspace({
       if (admin) {
         if (tab === "overview") setOverview(await get<Overview>(`${root}/overview${periodKey}`));
         if (tab === "transactions")
-          setEntries(await get<Page<Entry>>(`${root}/transactions?page=${currentPage}`));
+          setEntries(
+            await get<Page<Entry>>(
+              `${root}/transactions?page=${currentPage}${productFilter ? `&productType=${productFilter}` : ""}`,
+            ),
+          );
         if (tab === "instructors")
           setInstructors(await get<Page<Instructor>>(`${root}/instructors?page=${currentPage}`));
         if (tab === "payouts" || tab === "history")
           setPayouts(
             await get<Page<Payout>>(
-              `${root}/payouts?page=${currentPage}${tab === "history" ? "&status=PAID" : statusFilter ? `&status=${statusFilter}` : ""}`
-            )
+              `${root}/payouts?page=${currentPage}${tab === "history" ? "&status=PAID" : statusFilter ? `&status=${statusFilter}` : ""}`,
+            ),
           );
         if (tab === "settings") setSettings(await get<Settings>(`${root}/settings`));
       } else {
         setBalance(await get<Balance>(`${root}/overview`));
         if (tab === "transactions" || tab === "overview")
-          setEntries(await get<Page<Entry>>(`${root}/transactions?page=${currentPage}`));
+          setEntries(
+            await get<Page<Entry>>(
+              `${root}/transactions?page=${currentPage}${productFilter ? `&productType=${productFilter}` : ""}`,
+            ),
+          );
         if (tab === "payouts") {
           setPayouts(await get<Page<Payout>>(`${root}/payouts?page=${currentPage}`));
           setAccounts(await get<Account[]>(`${root}/accounts`));
@@ -208,7 +215,7 @@ export default function FinanceWorkspace({
     } finally {
       if (sequence === loadSequence.current) setLoading(false);
     }
-  }, [root, tab, currentPage, statusFilter, admin, periodKey]);
+  }, [root, tab, currentPage, statusFilter, productFilter, admin, periodKey]);
   useEffect(() => {
     void load();
     return () => {
@@ -280,6 +287,7 @@ export default function FinanceWorkspace({
     ? [
         ["Gross product sales", overview.grossSales],
         ["Book sales", overview.bookSales],
+        ["Product sales", overview.productSales],
         ["Course sales", overview.courseSales],
         ["Commission revenue", overview.commissionRevenue],
         ["Course platform fees", overview.platformFeeRevenue],
@@ -322,14 +330,14 @@ export default function FinanceWorkspace({
           <button
             className={button}
             disabled={loading || currentPage === 1}
-            onClick={() => setPage(p => p - 1)}
+            onClick={() => setPage((p) => p - 1)}
           >
             Previous
           </button>
           <button
             className={button}
             disabled={loading || currentPage * 20 >= listed.total}
-            onClick={() => setPage(p => p + 1)}
+            onClick={() => setPage((p) => p + 1)}
           >
             Next
           </button>
@@ -340,6 +348,22 @@ export default function FinanceWorkspace({
   function transactionTable() {
     return (
       <>
+        <label className='mb-3 block max-w-xs text-sm'>
+          Item type
+          <select
+            className={field}
+            value={productFilter}
+            onChange={(e) => {
+              setProductFilter(e.target.value);
+              setPage(1);
+            }}
+          >
+            <option value=''>All items</option>
+            <option value='COURSE'>Courses</option>
+            <option value='BOOK'>Books</option>
+            <option value='PRODUCT'>Products</option>
+          </select>
+        </label>
         <div className='overflow-x-auto rounded-[var(--finance-card-radius)] border border-[var(--finance-border)] bg-[var(--finance-surface)]'>
           <table className='w-full min-w-[1000px] text-left text-sm'>
             <thead className='bg-[var(--finance-inset)] text-[var(--finance-label)]'>
@@ -353,7 +377,7 @@ export default function FinanceWorkspace({
                   "Platform revenue",
                   "Status / available date",
                   ...(admin ? ["Action"] : []),
-                ].map(h => (
+                ].map((h) => (
                   <th
                     key={h}
                     className='px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-[var(--finance-muted)]'
@@ -364,7 +388,7 @@ export default function FinanceWorkspace({
               </tr>
             </thead>
             <tbody>
-              {entries.rows.map(e => (
+              {entries.rows.map((e) => (
                 <tr
                   key={e.id}
                   className='border-t border-[var(--finance-border)] transition-colors hover:bg-[var(--finance-hover)]'
@@ -483,16 +507,8 @@ export default function FinanceWorkspace({
               : "Your sale earnings, held funds and manual payout history."}
           </p>
         </div>
-        <button
-          className={button}
-          disabled={loading || busy}
-          onClick={() => void load()}
-        >
-          <RefreshCw
-            size={14}
-            className='mr-2 inline-block'
-            aria-hidden='true'
-          />
+        <button className={button} disabled={loading || busy} onClick={() => void load()}>
+          <RefreshCw size={14} className='mr-2 inline-block' aria-hidden='true' />
           Refresh
         </button>
       </header>
@@ -520,18 +536,12 @@ export default function FinanceWorkspace({
         </p>
       )}
       {notice && (
-        <p
-          role='status'
-          className='text-[var(--finance-success)]'
-        >
+        <p role='status' className='text-[var(--finance-success)]'>
           {notice}
         </p>
       )}
       {loading && (
-        <p
-          role='status'
-          className='text-[var(--finance-muted)]'
-        >
+        <p role='status' className='text-[var(--finance-muted)]'>
           Loading financial records…
         </p>
       )}
@@ -539,12 +549,12 @@ export default function FinanceWorkspace({
         <>
           {admin && (
             <form
-              onSubmit={e => {
+              onSubmit={(e) => {
                 e.preventDefault();
                 setPeriodKey(
                   from && to
                     ? `?from=${encodeURIComponent(from + "T00:00:00+06:00")}&to=${encodeURIComponent(to + "T23:59:59.999+06:00")}`
-                    : ""
+                    : "",
                 );
               }}
               className='flex flex-wrap items-end gap-3'
@@ -554,7 +564,7 @@ export default function FinanceWorkspace({
                   type='date'
                   className={field}
                   value={from}
-                  onChange={e => setFrom(e.target.value)}
+                  onChange={(e) => setFrom(e.target.value)}
                   required
                 />
               </Label>
@@ -563,7 +573,7 @@ export default function FinanceWorkspace({
                   type='date'
                   className={field}
                   value={to}
-                  onChange={e => setTo(e.target.value)}
+                  onChange={(e) => setTo(e.target.value)}
                   required
                 />
               </Label>
@@ -599,7 +609,7 @@ export default function FinanceWorkspace({
                     </tr>
                   </thead>
                   <tbody>
-                    {overview.trend.map(t => (
+                    {overview.trend.map((t) => (
                       <tr
                         className='border-t border-[var(--finance-border)] transition-colors hover:bg-[var(--finance-hover)]'
                         key={t.day}
@@ -655,7 +665,7 @@ export default function FinanceWorkspace({
                     min='0.01'
                     step='0.01'
                     value={payoutAmount}
-                    onChange={e => setPayoutAmount(e.target.value)}
+                    onChange={(e) => setPayoutAmount(e.target.value)}
                     className={field}
                   />
                 </Label>
@@ -664,14 +674,11 @@ export default function FinanceWorkspace({
                     required
                     className={field}
                     value={methodId}
-                    onChange={e => setMethodId(e.target.value)}
+                    onChange={(e) => setMethodId(e.target.value)}
                   >
                     <option value=''>Select account</option>
-                    {accounts.map(a => (
-                      <option
-                        key={a.id}
-                        value={a.id}
-                      >
+                    {accounts.map((a) => (
+                      <option key={a.id} value={a.id}>
                         {a.mobileBankingName ?? a.bankName ?? a.type} · ••••
                         {a.accountLastFour}
                       </option>
@@ -679,10 +686,7 @@ export default function FinanceWorkspace({
                   </select>
                 </Label>
                 <div className='self-end'>
-                  <button
-                    disabled={busy || loading || !accounts.length}
-                    className={button}
-                  >
+                  <button disabled={busy || loading || !accounts.length} className={button}>
                     Request payout
                   </button>
                   <p className='mt-2 text-xs text-[var(--finance-muted)]'>
@@ -706,15 +710,17 @@ export default function FinanceWorkspace({
               <select
                 className={field}
                 value={statusFilter}
-                onChange={e => {
+                onChange={(e) => {
                   setStatusFilter(e.target.value);
                   setPage(1);
                 }}
               >
                 <option value=''>All statuses</option>
-                {["REQUESTED", "APPROVED", "PROCESSING", "PAID", "REJECTED", "CANCELLED"].map(s => (
-                  <option key={s}>{s}</option>
-                ))}
+                {["REQUESTED", "APPROVED", "PROCESSING", "PAID", "REJECTED", "CANCELLED"].map(
+                  (s) => (
+                    <option key={s}>{s}</option>
+                  ),
+                )}
               </select>
             </Label>
           )}
@@ -730,7 +736,7 @@ export default function FinanceWorkspace({
                     "Status",
                     "Reference / reason",
                     "Details",
-                  ].map(h => (
+                  ].map((h) => (
                     <th
                       className='px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-[var(--finance-muted)]'
                       key={h}
@@ -741,7 +747,7 @@ export default function FinanceWorkspace({
                 </tr>
               </thead>
               <tbody>
-                {payouts.rows.map(p => (
+                {payouts.rows.map((p) => (
                   <tr
                     key={p.id}
                     className='border-t border-[var(--finance-border)] transition-colors hover:bg-[var(--finance-hover)]'
@@ -785,7 +791,7 @@ export default function FinanceWorkspace({
         <>
           <form
             className='grid gap-4 rounded-[var(--finance-card-radius)] border border-[var(--finance-border)] bg-[var(--finance-surface)] p-5 sm:grid-cols-2'
-            onSubmit={async e => {
+            onSubmit={async (e) => {
               e.preventDefault();
               if (
                 await mutate(`${root}/accounts`, {
@@ -803,13 +809,10 @@ export default function FinanceWorkspace({
               <select
                 className={field}
                 value={account.method}
-                onChange={e => setAccount({ ...account, method: e.target.value })}
+                onChange={(e) => setAccount({ ...account, method: e.target.value })}
               >
-                {["BKASH", "NAGAD", "BANK_TRANSFER"].map(m => (
-                  <option
-                    key={m}
-                    value={m}
-                  >
+                {["BKASH", "NAGAD", "BANK_TRANSFER"].map((m) => (
+                  <option key={m} value={m}>
                     {m.replaceAll("_", " ")}
                   </option>
                 ))}
@@ -821,7 +824,7 @@ export default function FinanceWorkspace({
                 maxLength={120}
                 className={field}
                 value={account.accHolderName}
-                onChange={e => setAccount({ ...account, accHolderName: e.target.value })}
+                onChange={(e) => setAccount({ ...account, accHolderName: e.target.value })}
               />
             </Label>
             <Label title='Account number'>
@@ -832,11 +835,11 @@ export default function FinanceWorkspace({
                 pattern='[0-9]{6,34}'
                 className={field}
                 value={account.accountNumber}
-                onChange={e => setAccount({ ...account, accountNumber: e.target.value })}
+                onChange={(e) => setAccount({ ...account, accountNumber: e.target.value })}
               />
             </Label>
             {account.method === "BANK_TRANSFER" &&
-              (["bankName", "branchName", "routingNumber"] as const).map(k => (
+              (["bankName", "branchName", "routingNumber"] as const).map((k) => (
                 <Label
                   key={k}
                   title={
@@ -851,15 +854,12 @@ export default function FinanceWorkspace({
                     required={k === "bankName"}
                     className={field}
                     value={account[k]}
-                    onChange={e => setAccount({ ...account, [k]: e.target.value })}
+                    onChange={(e) => setAccount({ ...account, [k]: e.target.value })}
                   />
                 </Label>
               ))}
             <div className='sm:col-span-2'>
-              <button
-                disabled={busy}
-                className={button}
-              >
+              <button disabled={busy} className={button}>
                 Save account
               </button>
               <p className='mt-2 text-xs text-[var(--finance-muted)]'>
@@ -868,7 +868,7 @@ export default function FinanceWorkspace({
             </div>
           </form>
           <div className='grid gap-3 sm:grid-cols-2'>
-            {accounts.map(a => (
+            {accounts.map((a) => (
               <div
                 key={a.id}
                 className='rounded-[var(--finance-control-radius)] border border-[var(--finance-border)] p-4'
@@ -902,19 +902,23 @@ export default function FinanceWorkspace({
       {tab === "settings" && admin && settings && (
         <form
           className='grid gap-4 rounded-[var(--finance-card-radius)] border border-[var(--finance-border)] bg-[var(--finance-surface)] p-5 sm:grid-cols-2'
-          onSubmit={async e => {
+          onSubmit={async (e) => {
             e.preventDefault();
             await mutate(`${root}/settings`, settings, "patch");
           }}
         >
           <h2 className='text-base font-semibold sm:col-span-2'>Financial settings</h2>
-          {(["globalBookCommission", "globalCourseCommission"] as const).map(k => (
+          {(
+            ["globalBookCommission", "globalCourseCommission", "globalProductCommission"] as const
+          ).map((k) => (
             <Label
               key={k}
               title={
                 k === "globalBookCommission"
                   ? "Global book commission (%)"
-                  : "Global course commission (%)"
+                  : k === "globalCourseCommission"
+                    ? "Global course commission (%)"
+                    : "Global product commission (%)"
               }
             >
               <input
@@ -925,7 +929,7 @@ export default function FinanceWorkspace({
                 step='0.01'
                 className={field}
                 value={settings[k]}
-                onChange={e => setSettings({ ...settings, [k]: e.target.value })}
+                onChange={(e) => setSettings({ ...settings, [k]: e.target.value })}
               />
             </Label>
           ))}
@@ -933,14 +937,14 @@ export default function FinanceWorkspace({
             <select
               className={field}
               value={settings.coursePlatformFeeType}
-              onChange={e =>
+              onChange={(e) =>
                 setSettings({
                   ...settings,
                   coursePlatformFeeType: e.target.value as Settings["coursePlatformFeeType"],
                 })
               }
             >
-              {["NONE", "FIXED", "PERCENTAGE"].map(s => (
+              {["NONE", "FIXED", "PERCENTAGE"].map((s) => (
                 <option key={s}>{s}</option>
               ))}
             </select>
@@ -960,7 +964,7 @@ export default function FinanceWorkspace({
               step='0.01'
               className={field}
               value={settings.coursePlatformFeeValue}
-              onChange={e =>
+              onChange={(e) =>
                 setSettings({
                   ...settings,
                   coursePlatformFeeValue: e.target.value,
@@ -977,7 +981,7 @@ export default function FinanceWorkspace({
               step='1'
               className={field}
               value={settings.holdingPeriodDays}
-              onChange={e =>
+              onChange={(e) =>
                 setSettings({
                   ...settings,
                   holdingPeriodDays: Number(e.target.value),
@@ -993,7 +997,7 @@ export default function FinanceWorkspace({
               step='0.01'
               className={field}
               value={settings.minimumPayout}
-              onChange={e => setSettings({ ...settings, minimumPayout: e.target.value })}
+              onChange={(e) => setSettings({ ...settings, minimumPayout: e.target.value })}
             />
           </Label>
           <p className='text-sm text-[var(--finance-muted)] sm:col-span-2'>
@@ -1001,16 +1005,10 @@ export default function FinanceWorkspace({
             for future sales using the product commission control. Fees are capped at the remaining
             sale value. Saved transactions and release dates stay unchanged.
           </p>
-          <button
-            disabled={busy}
-            className={button}
-          >
+          <button disabled={busy} className={button}>
             Save settings
           </button>
-          <ProductCommission
-            root={root}
-            onSave={mutate}
-          />
+          <ProductCommission root={root} onSave={mutate} />
         </form>
       )}
       {tab === "instructors" && admin && (
@@ -1021,13 +1019,13 @@ export default function FinanceWorkspace({
                 <tr>
                   {[
                     "Instructor",
-                    "Book / course override",
+                    "Book / course / product override",
                     "Pending",
                     "Available",
                     "Reserved",
                     "Paid",
                     "Actions",
-                  ].map(h => (
+                  ].map((h) => (
                     <th
                       className='px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-[var(--finance-muted)]'
                       key={h}
@@ -1038,14 +1036,15 @@ export default function FinanceWorkspace({
                 </tr>
               </thead>
               <tbody>
-                {instructors.rows.map(i => (
+                {instructors.rows.map((i) => (
                   <tr
                     key={i.id}
                     className='border-t border-[var(--finance-border)] transition-colors hover:bg-[var(--finance-hover)]'
                   >
                     <td className='p-3'>{i.displayName}</td>
                     <td className='p-3'>
-                      {i.bookCommissionRate ?? "Global"} / {i.courseCommissionRate ?? "Global"}
+                      {i.bookCommissionRate ?? "Global"} / {i.courseCommissionRate ?? "Global"} /{" "}
+                      {i.productCommissionRate ?? "Global"}
                     </td>
                     <td className='p-3'>{currency(i.balances.pendingBalance)}</td>
                     <td className='p-3'>{currency(i.balances.availableBalance)}</td>
@@ -1058,6 +1057,7 @@ export default function FinanceWorkspace({
                           setOverride(i);
                           setBookRate(i.bookCommissionRate ?? "");
                           setCourseRate(i.courseCommissionRate ?? "");
+                          setProductRate(i.productCommissionRate ?? "");
                         }}
                       >
                         Edit override
@@ -1126,7 +1126,7 @@ export default function FinanceWorkspace({
                 )}
                 <h3 className='font-semibold'>Included earnings and refund offsets</h3>
                 <div className='space-y-2'>
-                  {detail.items?.map(i => (
+                  {detail.items?.map((i) => (
                     <div
                       key={i.id}
                       className='flex justify-between gap-3 rounded-[var(--finance-control-radius)] bg-[var(--finance-inset)] p-3 text-sm'
@@ -1149,7 +1149,7 @@ export default function FinanceWorkspace({
                         <textarea
                           className={field}
                           value={note}
-                          onChange={e => setNote(e.target.value)}
+                          onChange={(e) => setNote(e.target.value)}
                           maxLength={500}
                         />
                       </Label>
@@ -1157,7 +1157,7 @@ export default function FinanceWorkspace({
                         <input
                           className={field}
                           value={reference}
-                          onChange={e => setReference(e.target.value)}
+                          onChange={(e) => setReference(e.target.value)}
                           maxLength={120}
                         />
                       </Label>
@@ -1171,7 +1171,7 @@ export default function FinanceWorkspace({
                           : detail.workflowStatus === "APPROVED"
                             ? ["PROCESSING", "REJECTED", "CANCELLED"]
                             : ["PAID", "CANCELLED"]
-                        ).map(status => (
+                        ).map((status) => (
                           <button
                             key={status}
                             disabled={busy}
@@ -1185,7 +1185,7 @@ export default function FinanceWorkspace({
                                     note,
                                     transactionReference: reference,
                                   },
-                                  "patch"
+                                  "patch",
                                 )
                               )
                                 setDetail(null);
@@ -1206,7 +1206,7 @@ export default function FinanceWorkspace({
                         await mutate(
                           `${root}/payouts/${detail.id}`,
                           { status: "CANCELLED" },
-                          "patch"
+                          "patch",
                         )
                       )
                         setDetail(null);
@@ -1220,7 +1220,7 @@ export default function FinanceWorkspace({
             {refundEntry && (
               <form
                 className='space-y-4'
-                onSubmit={async e => {
+                onSubmit={async (e) => {
                   e.preventDefault();
                   if (
                     await mutate(`${root}/order-items/${refundEntry.orderItemId}/refund`, {
@@ -1245,7 +1245,7 @@ export default function FinanceWorkspace({
                     required
                     className={field}
                     value={reference}
-                    onChange={e => setReference(e.target.value)}
+                    onChange={(e) => setReference(e.target.value)}
                     maxLength={120}
                   />
                 </Label>
@@ -1256,13 +1256,10 @@ export default function FinanceWorkspace({
                     maxLength={500}
                     className={field}
                     value={note}
-                    onChange={e => setNote(e.target.value)}
+                    onChange={(e) => setNote(e.target.value)}
                   />
                 </Label>
-                <button
-                  disabled={busy}
-                  className={button}
-                >
+                <button disabled={busy} className={button}>
                   Record refund reversal
                 </button>
               </form>
@@ -1270,7 +1267,7 @@ export default function FinanceWorkspace({
             {override && (
               <form
                 className='space-y-4'
-                onSubmit={async e => {
+                onSubmit={async (e) => {
                   e.preventDefault();
                   if (
                     await mutate(
@@ -1278,8 +1275,9 @@ export default function FinanceWorkspace({
                       {
                         bookCommissionRate: bookRate === "" ? null : bookRate,
                         courseCommissionRate: courseRate === "" ? null : courseRate,
+                        productCommissionRate: productRate === "" ? null : productRate,
                       },
-                      "patch"
+                      "patch",
                     )
                   )
                     setOverride(null);
@@ -1291,6 +1289,17 @@ export default function FinanceWorkspace({
                 <p className='text-sm text-[var(--finance-muted)]'>
                   Leave blank to inherit the global default. Product rates take priority.
                 </p>
+                <Label title='Product commission (%)'>
+                  <input
+                    type='number'
+                    min='0'
+                    max='100'
+                    step='0.01'
+                    className={field}
+                    value={productRate}
+                    onChange={(e) => setProductRate(e.target.value)}
+                  />
+                </Label>
                 <Label title='Book commission (%)'>
                   <input
                     type='number'
@@ -1299,7 +1308,7 @@ export default function FinanceWorkspace({
                     step='0.01'
                     className={field}
                     value={bookRate}
-                    onChange={e => setBookRate(e.target.value)}
+                    onChange={(e) => setBookRate(e.target.value)}
                   />
                 </Label>
                 <Label title='Course commission (%)'>
@@ -1310,22 +1319,16 @@ export default function FinanceWorkspace({
                     step='0.01'
                     className={field}
                     value={courseRate}
-                    onChange={e => setCourseRate(e.target.value)}
+                    onChange={(e) => setCourseRate(e.target.value)}
                   />
                 </Label>
-                <button
-                  disabled={busy}
-                  className={button}
-                >
+                <button disabled={busy} className={button}>
                   Save override
                 </button>
               </form>
             )}
             {error && (
-              <p
-                role='alert'
-                className='mt-4 text-[var(--finance-danger)]'
-              >
+              <p role='alert' className='mt-4 text-[var(--finance-danger)]'>
                 {error}
               </p>
             )}
@@ -1357,21 +1360,14 @@ function ProductCommission({
       </p>
       <div className='grid gap-3 sm:grid-cols-3'>
         <Label title='Type'>
-          <select
-            className={field}
-            value={type}
-            onChange={e => setType(e.target.value)}
-          >
+          <select className={field} value={type} onChange={(e) => setType(e.target.value)}>
             <option value='book'>Book</option>
             <option value='course'>Course</option>
+            <option value='product'>Product</option>
           </select>
         </Label>
         <Label title='Product ID'>
-          <input
-            className={field}
-            value={id}
-            onChange={e => setId(e.target.value)}
-          />
+          <input className={field} value={id} onChange={(e) => setId(e.target.value)} />
         </Label>
         <Label title='Commission (%)'>
           <input
@@ -1381,7 +1377,7 @@ function ProductCommission({
             step='0.01'
             className={field}
             value={value}
-            onChange={e => setValue(e.target.value)}
+            onChange={(e) => setValue(e.target.value)}
           />
         </Label>
       </div>
@@ -1394,7 +1390,7 @@ function ProductCommission({
             setBusy(true);
             setError("");
             const r = await apiClient.get<{ rate: string; source: string }>(
-              `${root}/products/${type}/${encodeURIComponent(id)}/commission`
+              `${root}/products/${type}/${encodeURIComponent(id)}/commission`,
             );
             if (r.success && r.data) {
               setValue(String(r.data.rate));
@@ -1414,7 +1410,7 @@ function ProductCommission({
             await onSave(
               `${root}/products/${type}/${encodeURIComponent(id)}/commission`,
               { rate: value === "" ? null : value },
-              "patch"
+              "patch",
             );
             setBusy(false);
           }}
@@ -1424,10 +1420,7 @@ function ProductCommission({
       </div>
       {source && <p className='text-sm text-[var(--finance-muted)]'>Resolved from {source}</p>}
       {error && (
-        <p
-          role='alert'
-          className='text-[var(--finance-danger)]'
-        >
+        <p role='alert' className='text-[var(--finance-danger)]'>
           {error}
         </p>
       )}

@@ -9,7 +9,7 @@ export interface CourseFilterState {
   level: string;
   language: string;
   rating: string;
-  priceRange: number[];
+  priceRange: [number, number];
 }
 
 interface FilterSidebarProps {
@@ -87,7 +87,10 @@ export default function FilterSidebar({
     filteredQuery.level ? 1 : 0,
     filteredQuery.language ? 1 : 0,
     filteredQuery.rating ? 1 : 0,
-    filteredQuery.priceRange[0] > 0 || filteredQuery.priceRange[1] < maxCoursePrice ? 1 : 0,
+    (filteredQuery.priceRange[0] ?? 0) > 0 ||
+    (filteredQuery.priceRange[1] ?? maxCoursePrice) < maxCoursePrice
+      ? 1
+      : 0,
   ].reduce((sum, count) => sum + count, 0);
 
   const filterSelectClass =
@@ -102,7 +105,7 @@ export default function FilterSidebar({
           </div>
           <span className='text-sm font-bold text-gray-900'>Filters</span>
           {activeCount > 0 && (
-            <span className='flex h-5 w-5 items-center justify-center rounded-full bg-amber-400 text-[10px] font-black text-white'>
+            <span className='flex h-5 w-5 items-center justify-center rounded-full bg-orange text-[10px] font-black text-white'>
               {activeCount}
             </span>
           )}
@@ -151,8 +154,8 @@ export default function FilterSidebar({
             onClick={() => update({ category: "" })}
             className={`rounded-full border px-2.5 py-1 text-[11px] font-medium transition-all duration-150 ${
               filteredQuery.category === ""
-                ? "border-amber-400 bg-amber-400 text-white shadow-sm"
-                : "border-gray-200 bg-white text-gray-600 hover:border-amber-300 hover:bg-amber-50 hover:text-amber-600"
+                ? "border-orange bg-orange text-white shadow-sm"
+                : "border-gray-200 bg-white text-gray-600 hover:border-amber-300 hover:bg-amber-50 hover:text-orange"
             }`}
           >
             All ({courses.length})
@@ -164,8 +167,8 @@ export default function FilterSidebar({
               onClick={() => update({ category })}
               className={`rounded-full border px-2.5 py-1 text-[11px] font-medium transition-all duration-150 ${
                 filteredQuery.category === category
-                  ? "border-amber-400 bg-amber-400 text-white shadow-sm"
-                  : "border-gray-200 bg-white text-gray-600 hover:border-amber-300 hover:bg-amber-50 hover:text-amber-600"
+                  ? "border-orange bg-orange text-white shadow-sm"
+                  : "border-gray-200 bg-white text-gray-600 hover:border-amber-300 hover:bg-amber-50 hover:text-orange"
               }`}
             >
               {category} ({count})
@@ -186,7 +189,10 @@ export default function FilterSidebar({
               >
                 <option value=''>All Levels</option>
                 {levels.map(([level, count]) => (
-                  <option key={level} value={level}>
+                  <option
+                    key={level}
+                    value={level}
+                  >
                     {humanize(level)} ({count})
                   </option>
                 ))}
@@ -205,7 +211,10 @@ export default function FilterSidebar({
               >
                 <option value=''>All Languages</option>
                 {languages.map(([language, count]) => (
-                  <option key={language} value={language}>
+                  <option
+                    key={language}
+                    value={language}
+                  >
                     {humanize(language)} ({count})
                   </option>
                 ))}
@@ -222,14 +231,19 @@ export default function FilterSidebar({
           <div className='flex-1'>
             <label className='mb-1 block text-[10px] text-gray-400'>Min</label>
             <div className='relative'>
-              <span className='absolute left-2.5 top-1/2 -translate-y-1/2 text-[10px] text-gray-400'>৳</span>
+              <span className='absolute left-2.5 top-1/2 -translate-y-1/2 text-[10px] text-gray-400'>
+                ৳
+              </span>
               <input
                 type='number'
                 min={0}
                 max={filteredQuery.priceRange[1]}
                 value={filteredQuery.priceRange[0]}
                 onChange={event => {
-                  const value = Math.max(0, Math.min(Number(event.target.value) || 0, filteredQuery.priceRange[1]));
+                  const value = Math.max(
+                    0,
+                    Math.min(Number(event.target.value) || 0, filteredQuery.priceRange[1])
+                  );
                   update({ priceRange: [value, filteredQuery.priceRange[1]] });
                 }}
                 className='w-full rounded-xl border border-gray-200 bg-gray-50 py-2 pl-6 pr-2 text-xs text-gray-900 outline-none transition-all duration-200 focus:border-amber-300 focus:ring-2 focus:ring-amber-100'
@@ -240,7 +254,9 @@ export default function FilterSidebar({
           <div className='flex-1'>
             <label className='mb-1 block text-[10px] text-gray-400'>Max</label>
             <div className='relative'>
-              <span className='absolute left-2.5 top-1/2 -translate-y-1/2 text-[10px] text-gray-400'>৳</span>
+              <span className='absolute left-2.5 top-1/2 -translate-y-1/2 text-[10px] text-gray-400'>
+                ৳
+              </span>
               <input
                 type='number'
                 min={filteredQuery.priceRange[0]}
@@ -270,7 +286,7 @@ export default function FilterSidebar({
               update({ priceRange: [filteredQuery.priceRange[0], value] });
             }
           }}
-          className='h-1.5 w-full cursor-pointer appearance-none rounded-full accent-amber-400'
+          className='h-1.5 w-full cursor-pointer appearance-none rounded-full accent-orange'
         />
         <div className='mt-1 flex justify-between text-[10px] text-gray-400'>
           <span>৳0</span>
@@ -290,12 +306,13 @@ export default function FilterSidebar({
                 onClick={() => update({ rating: value })}
                 className={`flex items-center justify-center gap-0.5 rounded-xl border py-2 text-[11px] font-medium transition-all duration-150 ${
                   active
-                    ? "border-amber-400 bg-amber-400 text-white shadow-sm"
-                    : "border-gray-200 bg-white text-gray-600 hover:border-amber-300 hover:bg-amber-50 hover:text-amber-600"
+                    ? "border-orange bg-orange text-white shadow-sm"
+                    : "border-gray-200 bg-white text-gray-600 hover:border-amber-300 hover:bg-amber-50 hover:text-orange"
                 }`}
               >
                 {value ? <Star className='h-2.5 w-2.5 fill-current' /> : null}
-                {value || "All"}{value ? "+" : ""}
+                {value || "All"}
+                {value ? "+" : ""}
               </button>
             );
           })}

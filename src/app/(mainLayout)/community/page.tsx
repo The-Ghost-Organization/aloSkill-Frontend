@@ -1,11 +1,7 @@
-import ComingSoon from "@/components/shared/ComingSoon.tsx";
+import GCommunitySection from "@/app/(HomePageComponents)/(CommunitySection)/GCommunitySection.tsx";
 
 const CommunityPage = () => {
-  return (
-    <div>
-      <ComingSoon pageName='Community page' />
-    </div>
-  );
+  return <GCommunitySection />;
 };
 
 export default CommunityPage;

@@ -1,8 +1,16 @@
 "use client";
 
 import {
+  BOOKS_CATALOG_HREF,
+  CATALOG_PATH,
+  CATALOG_TAB_PARAM,
+  PRODUCTS_CATALOG_HREF,
+  parseCatalogTab,
+} from "@/components/products/catalog";
+import {
   BookOpen,
   CalendarDays,
+  ChevronDown,
   Facebook,
   GraduationCap,
   HandCoins,
@@ -10,8 +18,10 @@ import {
   Instagram,
   Library,
   LifeBuoy,
+  type LucideIcon,
   MessageCircle,
   Route,
+  ShoppingBag,
   Star,
   Trophy,
   Twitter,
@@ -19,14 +29,24 @@ import {
   X,
 } from "lucide-react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useId, useState } from "react";
 
 interface LeftSidebarProps {
   isOpen?: boolean;
   onClose?: () => void;
 }
 
-const navItems = [
+type NavLinkItem = { icon: LucideIcon; label: string; href: string; color: string };
+type NavGroupItem = {
+  icon: LucideIcon;
+  label: string;
+  color: string;
+  group: "books-resources";
+};
+type NavItem = NavLinkItem | NavGroupItem;
+
+const navItems: NavItem[] = [
   {
     icon: Home,
     label: "Home",
@@ -54,8 +74,8 @@ const navItems = [
   {
     icon: Library,
     label: "Books & Resources",
-    href: "/books",
     color: "text-purple-500",
+    group: "books-resources",
   },
   {
     icon: CalendarDays,
@@ -100,39 +120,154 @@ const navItems = [
     color: "text-rose-500",
   },
 ];
+const linkBase = "flex items-center gap-3 px-2 py-3 rounded-lg transition-all duration-200";
+const linkActive = "bg-orange-50 text-orange-600 font-semibold shadow-sm";
+const linkIdle = "text-gray-700 hover:bg-gray-50 hover:text-gray-900";
+
+/** Which catalog entry (if any) the current URL represents. */
+function activeCatalogEntry(pathname: string, tab: string | null): "books" | "products" | null {
+  if (pathname.startsWith("/products")) return "products"; // product detail pages
+  if (pathname === CATALOG_PATH) return parseCatalogTab(tab);
+  if (pathname.startsWith(`${CATALOG_PATH}/`)) return "books"; // book detail pages
+  return null;
+}
+
+const catalogChildren = [
+  { key: "books", label: "All Books", href: BOOKS_CATALOG_HREF, icon: BookOpen },
+  { key: "products", label: "Products", href: PRODUCTS_CATALOG_HREF, icon: ShoppingBag },
+] as const;
+
+function BooksResourcesGroup({
+  item,
+  pathname,
+  tab,
+  onNavigate,
+}: {
+  item: NavGroupItem;
+  pathname: string;
+  tab: string | null;
+  onNavigate?: () => void;
+}) {
+  const active = activeCatalogEntry(pathname, tab);
+  const [expanded, setExpanded] = useState(active !== null);
+  const panelId = useId();
+  const Icon = item.icon;
+
+  // Auto-expand when the user lands on any catalog route.
+  useEffect(() => {
+    if (active !== null) setExpanded(true);
+  }, [active]);
+
+  return (
+    <div>
+      <button
+        type='button'
+        onClick={() => setExpanded(v => !v)}
+        aria-expanded={expanded}
+        aria-controls={panelId}
+        className={`w-full ${linkBase} ${active ? "text-orange-600 font-semibold" : linkIdle}`}
+      >
+        <Icon className={`w-5 h-5 shrink-0 ${active ? "text-orange-500" : item.color}`} />
+        <span className='text-sm leading-snug flex-1 text-left'>{item.label}</span>
+        <ChevronDown
+          className={`w-4 h-4 shrink-0 text-gray-400 transition-transform duration-200 ${
+            expanded ? "rotate-180" : ""
+          }`}
+          aria-hidden='true'
+        />
+      </button>
+
+      <div
+        id={panelId}
+        hidden={!expanded}
+        className='mt-1 ml-4 pl-3 border-l border-gray-200 space-y-1'
+      >
+        {catalogChildren.map(child => {
+          const ChildIcon = child.icon;
+          const isActive = active === child.key;
+          return (
+            <Link
+              key={child.key}
+              href={child.href}
+              onClick={onNavigate}
+              aria-current={isActive ? "page" : undefined}
+              className={`flex items-center gap-2.5 px-2 py-2.5 rounded-lg text-sm transition-all duration-200 ${
+                isActive ? linkActive : linkIdle
+              }`}
+            >
+              <ChildIcon
+                className={`w-4 h-4 shrink-0 ${isActive ? "text-orange-500" : "text-gray-400"}`}
+              />
+              <span className='truncate'>{child.label}</span>
+            </Link>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/** Isolates useSearchParams so the rest of the sidebar never bails out of static rendering. */
+function BooksResourcesGroupWithParams(props: {
+  item: NavGroupItem;
+  pathname: string;
+  onNavigate?: () => void;
+}) {
+  const searchParams = useSearchParams();
+  return <BooksResourcesGroup {...props} tab={searchParams.get(CATALOG_TAB_PARAM)} />;
+}
+
 export default function LeftSidebar({ isOpen = false, onClose }: LeftSidebarProps) {
   const pathname = usePathname();
 
+  // Mobile/tablet drawer: close on Escape and lock background scroll while open.
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose?.();
+    };
+    const mq = window.matchMedia("(min-width: 1024px)");
+    const prevOverflow = document.body.style.overflow;
+    if (!mq.matches) document.body.style.overflow = "hidden";
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [isOpen, onClose]);
+
   return (
     <>
-      {/* Mobile Overlay */}
+      {/* Mobile/Tablet Overlay — above the fixed header */}
       {isOpen && (
         <div
-          className='fixed inset-0 bg-black/50 z-40 lg:hidden'
+          className='fixed inset-0 bg-black/50 z-55 lg:hidden'
           onClick={onClose}
           aria-hidden='true'
         />
       )}
 
-      {/* Sidebar Container */}
+      {/* Sidebar Container: full-height drawer below lg, sticky rail on desktop */}
       <aside
+        aria-label='Main navigation'
         className={`
           fixed lg:sticky
-          top-12 lg:top-28
+          top-0 lg:top-28
           left-0
-          h-[calc(100vh-3rem)] lg:h-[calc(100vh-6rem)]
-          w-50 lg:w-48
+          h-dvh lg:h-[calc(100vh-7rem)]
+          w-72 max-w-[85vw] lg:w-48
           bg-white
           border-r border-gray-200
           shadow-lg lg:shadow-none
           transition-transform duration-300 ease-in-out
-          z-50 lg:z-10
+          z-60 lg:z-10
           flex flex-col
           ${isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
         `}
       >
-        {/* Mobile Close Button */}
-        <div className='lg:hidden flex justify-end p-4 border-b border-gray-100'>
+        {/* Mobile Header */}
+        <div className='lg:hidden flex items-center justify-between px-4 py-3 border-b border-gray-100'>
+          <span className='text-sm font-bold text-navy-deep'>Menu</span>
           <button
             onClick={onClose}
             className='p-2 hover:bg-gray-100 rounded-lg transition-colors'
@@ -143,8 +278,21 @@ export default function LeftSidebar({ isOpen = false, onClose }: LeftSidebarProp
         </div>
 
         {/* Scrollable Navigation */}
-        <nav className='flex-1 overflow-y-auto px-2 py-6 space-y-1'>
+        <nav className='flex-1 overflow-y-auto overscroll-contain px-2 py-6 space-y-1'>
           {navItems.map(item => {
+            if ("group" in item) {
+              return (
+                <Suspense
+                  key={item.group}
+                  fallback={
+                    <BooksResourcesGroup item={item} pathname={pathname} tab={null} onNavigate={onClose} />
+                  }
+                >
+                  <BooksResourcesGroupWithParams item={item} pathname={pathname} onNavigate={onClose} />
+                </Suspense>
+              );
+            }
+
             const Icon = item.icon;
             const isActive = pathname === item.href;
 
@@ -153,15 +301,8 @@ export default function LeftSidebar({ isOpen = false, onClose }: LeftSidebarProp
                 key={item.href}
                 href={item.href}
                 onClick={onClose}
-                className={`
-                  flex items-center gap-3 px-2 py-3 rounded-lg
-                  transition-all duration-200
-                  ${
-                    isActive
-                      ? "bg-orange-50 text-orange-600 font-semibold shadow-sm"
-                      : "text-gray-700 hover:bg-gray-50 hover:text-gray-900"
-                  }
-                `}
+                aria-current={isActive ? "page" : undefined}
+                className={`${linkBase} ${isActive ? linkActive : linkIdle}`}
               >
                 <Icon className={`w-5 h-5 shrink-0 ${isActive ? "text-orange-500" : item.color}`} />
                 <span className='text-sm truncate'>{item.label}</span>

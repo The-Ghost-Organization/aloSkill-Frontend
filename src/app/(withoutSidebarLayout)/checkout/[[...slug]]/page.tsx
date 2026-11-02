@@ -12,8 +12,13 @@ import {
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { apiClient } from "../../../../lib/api/client";
+import {
+  rememberCheckoutOrder,
+  checkoutRequestKey,
+  type CheckoutQuote,
+} from "@/lib/course/checkout";
 import { checkoutDataStorage } from "../../../../lib/storage/courseDraftStorage";
 import { useSessionContext } from "../../../contexts/SessionContext";
 
@@ -38,6 +43,15 @@ const upazilas = upazilasData as Upazila[];
 
 type OrderSummary = {
   items: {
+    products: {
+      id: string;
+      title: string;
+      thumbnailUrl: string;
+      category?: string;
+      weight: number;
+      stock?: number;
+      approvedPrice: number;
+    }[];
     books: {
       id: string;
       title: string;
@@ -61,6 +75,7 @@ type OrderSummary = {
     }[];
   };
   quantities: {
+    products: { productId: string; quantity: number }[];
     courses: { courseId: string; quantity: number }[];
     books: { bookId: string; quantity: number; format: string }[];
   };
@@ -76,7 +91,7 @@ type StockIssue = {
 
 export default function CheckoutPage() {
   const [paymentMethod, setPaymentMethod] = useState<"CASH_ON_DELIVERY" | "ONLINE_PAYMENT">(
-    "ONLINE_PAYMENT"
+    "ONLINE_PAYMENT",
   );
   const router = useRouter();
   const { user } = useSessionContext();
@@ -88,9 +103,15 @@ export default function CheckoutPage() {
   const courseId = searchParams.get("courseId");
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const submitting = useRef(false);
+  const [quote, setQuote] = useState<CheckoutQuote | null>(null);
+  const [quoteLoading, setQuoteLoading] = useState(true);
+  const [quoteError, setQuoteError] = useState("");
+  const [checkoutError, setCheckoutError] = useState("");
+  const [quoteRevision, setQuoteRevision] = useState(0);
   const [orderSummary, setOrderSummary] = useState<OrderSummary>({
-    items: { books: [], courses: [] },
-    quantities: { courses: [], books: [] },
+    items: { books: [], courses: [], products: [] },
+    quantities: { courses: [], books: [], products: [] },
     subtotal: 0,
   });
 
@@ -138,7 +159,7 @@ export default function CheckoutPage() {
               ...course,
               originalPrice: Number(course.originalPrice),
               discountPrice:
-                course.discountPrice === undefined ? undefined : Number(course.discountPrice),
+                course.discountPrice == null ? undefined : Number(course.discountPrice),
             }));
 
             const normalizedBookQuantities = storedCheckoutData.quantities.books.map(item => ({
@@ -155,11 +176,17 @@ export default function CheckoutPage() {
               ...prev,
               items: {
                 ...prev.items,
+                products: (storedCheckoutData.items.products || []).map(product => ({
+                  ...product,
+                  weight: Number(product.weight),
+                  approvedPrice: Number(product.approvedPrice),
+                })),
                 books: normalizedBooks,
                 courses: normalizedCourses,
               },
               quantities: {
                 ...prev.quantities,
+                products: storedCheckoutData.quantities.products || [],
                 books: normalizedBookQuantities,
                 courses: normalizedCourseQuantities,
               },
@@ -176,7 +203,7 @@ export default function CheckoutPage() {
       if (bookId && format) {
         try {
           const response = await apiClient.get<OrderSummary["items"]["books"][0]>(
-            `/book/user/checkout/${bookId}?format=${format}`
+            `/book/user/checkout/${bookId}?format=${format}`,
           );
 
           if (response.success && response.data) {
@@ -209,6 +236,8 @@ export default function CheckoutPage() {
               ...prev,
               items: {
                 ...prev.items,
+                products: [],
+                courses: [],
                 books: [
                   {
                     ...book,
@@ -224,6 +253,8 @@ export default function CheckoutPage() {
               },
               quantities: {
                 ...prev.quantities,
+                products: [],
+                courses: [],
                 books: bookQuantities,
               },
               subtotal: Number(itemPrice),
@@ -257,17 +288,20 @@ export default function CheckoutPage() {
               ...prev,
               items: {
                 ...prev.items,
+                products: [],
+                books: [],
                 courses: [
                   {
                     ...course,
                     originalPrice: Number(course.originalPrice),
                     discountPrice:
-                      course.discountPrice === undefined ? undefined : Number(course.discountPrice),
+                      course.discountPrice == null ? undefined : Number(course.discountPrice),
                   },
                 ],
               },
               quantities: {
                 ...prev.quantities,
+                products: [],
                 courses: [{ courseId: course.id, quantity: 1 }],
                 books: [],
               },
@@ -286,7 +320,9 @@ export default function CheckoutPage() {
   }, [isCart, bookId, format, courseId]);
 
   const targetBooks = orderSummary?.quantities?.books || [];
-  const hasPhysicalBook = targetBooks.some((book: any) => book.format === "PHYSICAL");
+  const hasPhysicalBook =
+    targetBooks.some((book: any) => book.format === "PHYSICAL") ||
+    orderSummary.quantities.products.length > 0;
 
   const extraWeightCharge =
     hasPhysicalBook && shippingQuote > 0 ? Math.max(0, shippingQuote - 100) : 0;
@@ -296,7 +332,10 @@ export default function CheckoutPage() {
   // book that sold out between page-load and checkout click still gets caught.
   async function verifyPhysicalStock(): Promise<StockIssue[]> {
     const physicalEntries = targetBooks.filter(b => b.format === "PHYSICAL");
-    if (physicalEntries.length === 0) return [];
+    if (physicalEntries.length === 0) {
+      setStockIssues([]);
+      return [];
+    }
 
     setIsCheckingStock(true);
     setStockCheckError(null);
@@ -306,7 +345,7 @@ export default function CheckoutPage() {
           const bookMeta = orderSummary.items.books.find(b => b.id === entry.bookId);
           try {
             const res = await apiClient.get<{ stock?: number | null }>(
-              `/book/user/checkout/${entry.bookId}?format=PHYSICAL`
+              `/book/user/checkout/${entry.bookId}?format=PHYSICAL`,
             );
 
             const available =
@@ -316,7 +355,7 @@ export default function CheckoutPage() {
 
             if (available === null)
               setStockCheckError(
-                `${res.message ?? "Stock quantity was not returned"} (Book ID: ${orderSummary.items.books.find(b => b.id === entry.bookId)?.title ?? entry.bookId})`
+                `${res.message ?? "Stock quantity was not returned"} (Book ID: ${orderSummary.items.books.find(b => b.id === entry.bookId)?.title ?? entry.bookId})`,
               );
 
             if (available !== null && available < entry.quantity) {
@@ -332,7 +371,7 @@ export default function CheckoutPage() {
             console.error(`Failed to verify stock for book ${entry.bookId}:`, err);
             throw err;
           }
-        })
+        }),
       );
 
       const issues = results.filter((r): r is StockIssue => r !== null);
@@ -360,17 +399,17 @@ export default function CheckoutPage() {
   // ---- Location cascading ----
   const filteredDistricts = useMemo(
     () => districts.filter(d => d.division_id === shippingDetails.divisionId),
-    [shippingDetails.divisionId]
+    [shippingDetails.divisionId],
   );
 
   const filteredUpazilas = useMemo(
     () => upazilas.filter(u => u.district_id === shippingDetails.districtId),
-    [shippingDetails.districtId]
+    [shippingDetails.districtId],
   );
 
   const selectedDistrict = useMemo(
     () => districts.find(d => d.id === shippingDetails.districtId) || null,
-    [shippingDetails.districtId]
+    [shippingDetails.districtId],
   );
 
   // Auto-derived delivery area — no manual toggle needed.
@@ -383,11 +422,20 @@ export default function CheckoutPage() {
           ? "INSIDE_DHAKA"
           : "DHAKA_SUBURBAN";
 
-  const totalPhysicalWeight = orderSummary.items.books.reduce((total, book) => {
-    const quantityMeta = targetBooks.find(item => item.bookId === book.id);
-    if (quantityMeta?.format !== "PHYSICAL") return total;
-    return total + Number(book.weight || 0) * (quantityMeta.quantity || 1);
-  }, 0);
+  const totalPhysicalWeight =
+    orderSummary.items.books.reduce((total, book) => {
+      const quantityMeta = targetBooks.find(item => item.bookId === book.id);
+      if (quantityMeta?.format !== "PHYSICAL") return total;
+      return total + Number(book.weight || 0) * (quantityMeta.quantity || 1);
+    }, 0) +
+    orderSummary.items.products.reduce(
+      (total, product) =>
+        total +
+        (Number(product.weight) / 1000) *
+          (orderSummary.quantities.products.find(row => row.productId === product.id)?.quantity ||
+            0),
+      0,
+    );
 
   useEffect(() => {
     if (!hasPhysicalBook || !shippingDetails.districtId || !shippingDetails.upazilaId) {
@@ -398,7 +446,7 @@ export default function CheckoutPage() {
     setIsLoadingShippingQuote(true);
     void apiClient
       .get<{ shippingCost: number }>(
-        `/order/shipping-quote?districtId=${encodeURIComponent(shippingDetails.districtId)}&upazilaId=${encodeURIComponent(shippingDetails.upazilaId)}&weight=${totalPhysicalWeight}`
+        `/order/shipping-quote?districtId=${encodeURIComponent(shippingDetails.districtId)}&upazilaId=${encodeURIComponent(shippingDetails.upazilaId)}&weight=${totalPhysicalWeight}`,
       )
       .then(response => {
         if (!cancelled && response.success && response.data) {
@@ -413,8 +461,9 @@ export default function CheckoutPage() {
     };
   }, [hasPhysicalBook, shippingDetails.districtId, shippingDetails.upazilaId, totalPhysicalWeight]);
 
-  const shippingCost = shippingQuote;
-  const grandTotal = Number(orderSummary.subtotal || 0) + shippingCost;
+  const shippingCost = quote?.shippingCost ?? shippingQuote;
+  const grandTotal = quote?.total ?? Number(orderSummary.subtotal || 0) + shippingCost;
+  const noPaymentRequired = Boolean(quote && !quote.needsShipping && quote.total === 0);
 
   // Validate form requirements
   const isFormValid =
@@ -427,7 +476,58 @@ export default function CheckoutPage() {
       shippingDetails.districtId !== "" &&
       shippingDetails.upazilaId !== "");
 
+  const requestShipping =
+    hasPhysicalBook && isFormValid
+      ? {
+          fullName: shippingDetails.fullName,
+          phoneNumber: shippingDetails.phoneNumber,
+          addressLine: shippingDetails.addressLine,
+          postalCode: shippingDetails.postalCode,
+          division: divisions.find(item => item.id === shippingDetails.divisionId),
+          district: selectedDistrict,
+          upazila: upazilas.find(item => item.id === shippingDetails.upazilaId),
+        }
+      : null;
+  const quotePayload = JSON.stringify({
+    paymentMethod: "ONLINE_PAYMENT",
+    shippingDetails: requestShipping,
+    orderSummary,
+  });
+  useEffect(() => {
+    let stale = false;
+    setQuote(null);
+    setQuoteError("");
+    setQuoteLoading(true);
+    if (
+      !user ||
+      (!orderSummary.items.courses.length &&
+        !orderSummary.items.books.length &&
+        !orderSummary.items.products.length)
+    ) {
+      setQuoteLoading(false);
+      return;
+    }
+    const timer = setTimeout(() => {
+      void apiClient
+        .post<CheckoutQuote>("/order/checkout-quote", JSON.parse(quotePayload))
+        .then(response => {
+          if (stale) return;
+          setQuoteLoading(false);
+          if (response.success && response.data) setQuote(response.data);
+          else
+            setQuoteError(
+              response.message ?? "The checkout total could not be verified. Please retry.",
+            );
+        });
+    }, 350);
+    return () => {
+      stale = true;
+      clearTimeout(timer);
+    };
+  }, [quotePayload, user?.id, quoteRevision]);
+
   const canCheckout =
+    Boolean(user && quote && !quote.needsShipping && !quoteLoading && !quoteError) &&
     isFormValid &&
     stockIssues.length === 0 &&
     !isCheckingStock &&
@@ -454,69 +554,61 @@ export default function CheckoutPage() {
       router.push("/login");
       return;
     }
-
-    if (!isFormValid) return;
-
-    // Final stock guard right before placing the order — closes the race
-    // condition where stock changed after the page loaded.
-    if (hasPhysicalBook) {
-      try {
-        const issues = await verifyPhysicalStock();
-        if (issues.length > 0) return;
-      } catch {
+    if (!canCheckout || !quote || submitting.current) return;
+    submitting.current = true;
+    setIsSubmitting(true);
+    setCheckoutError("");
+    try {
+      if (hasPhysicalBook && (await verifyPhysicalStock()).length) return;
+      const fresh = await apiClient.post<CheckoutQuote>(
+        "/order/checkout-quote",
+        JSON.parse(quotePayload),
+      );
+      if (!fresh.success || !fresh.data) {
+        setQuoteError(fresh.message ?? "Refresh checkout before ordering.");
         return;
       }
-    }
-
-    try {
-      setIsSubmitting(true);
-
-      const division = divisions.find(d => d.id === shippingDetails.divisionId);
-      const district = selectedDistrict;
-      const upazila = upazilas.find(u => u.id === shippingDetails.upazilaId);
-
+      setQuote(fresh.data);
+      if (fresh.data.total !== quote.total) {
+        setCheckoutError(
+          "Your order total has changed. Review the updated total, then confirm again.",
+        );
+        return;
+      }
       const checkoutPayload = {
-        paymentMethod: paymentMethod,
-        shippingDetails: hasPhysicalBook
-          ? {
-              fullName: shippingDetails.fullName,
-              phoneNumber: shippingDetails.phoneNumber,
-              addressLine: shippingDetails.addressLine,
-              postalCode: shippingDetails.postalCode,
-              division: division ? { id: division.id, name: division.name } : null,
-              district: district ? { id: district.id, name: district.name } : null,
-              upazila: upazila ? { id: upazila.id, name: upazila.name } : null,
-            }
-          : null,
-        orderSummary: orderSummary,
+        ...JSON.parse(quotePayload),
+        paymentMethod: noPaymentRequired ? "ONLINE_PAYMENT" : paymentMethod,
+        expectedTotal: fresh.data.total,
       };
-
+      const checkoutRequestId = checkoutRequestKey(user.id, checkoutPayload);
       const response = await apiClient.post<{
         gatewayUrl?: string;
         orderId: string;
-        paymentType: "CASH_ON_DELIVERY" | "ONLINE_PAYMENT";
-      }>("/order/create-order-with-EPS", checkoutPayload);
-      console.log("responce :::", response);
-      if (response.success) {
-        if (response.data?.paymentType === "CASH_ON_DELIVERY") {
-          router.replace(`/dashboard/student/orders/${response.data.orderId}?placed=true`);
-        } else if (response.data?.gatewayUrl) {
-          window.location.href = response.data.gatewayUrl;
-        } else {
-          router.push("/checkout");
-        }
-      } else {
-        // Surface a backend-side stock rejection (final source of truth) if present.
-        console.error("Checkout failed:", response.errors);
-        setStockCheckError(
-          typeof response.errors === "string"
-            ? response.errors
-            : "Checkout failed. Please review your order and try again."
+        paymentType:
+          | "NO_PAYMENT_REQUIRED"
+          | "CASH_ON_DELIVERY"
+          | "ONLINE_PAYMENT"
+          | "ORDER_COMPLETED"
+          | "PROCESSING";
+        confirmationUrl?: string;
+        message?: string;
+      }>("/order/checkout", { ...checkoutPayload, checkoutRequestId });
+      if (!response.success || !response.data) {
+        setCheckoutError(
+          response.message ?? "Checkout could not complete. Your cart is kept. Please retry.",
         );
+        return;
       }
-    } catch (error) {
-      console.error("Error during checkout process:", error);
+      rememberCheckoutOrder(response.data.orderId);
+      if (response.data.gatewayUrl && response.data.paymentType === "ONLINE_PAYMENT") {
+        window.location.assign(response.data.gatewayUrl);
+      } else {
+        router.replace(`/checkout/complete/${encodeURIComponent(response.data.orderId)}`);
+      }
+    } catch {
+      setCheckoutError("Checkout could not complete. Check your connection and try again.");
     } finally {
+      submitting.current = false;
       setIsSubmitting(false);
     }
   };
@@ -526,8 +618,12 @@ export default function CheckoutPage() {
       id: "CASH_ON_DELIVERY" as const,
       icon: Banknote,
       label: "Cash on Delivery",
-      description: hasPhysicalBook ? "Pay when your order arrives" : "Available for physical books",
-      disabled: !hasPhysicalBook,
+      description: orderSummary.items.courses.length
+        ? "Use online payment when courses are included"
+        : hasPhysicalBook
+          ? "Pay when your order arrives"
+          : "Available for physical items",
+      disabled: !hasPhysicalBook || orderSummary.items.courses.length > 0,
     },
     {
       id: "ONLINE_PAYMENT" as const,
@@ -537,6 +633,10 @@ export default function CheckoutPage() {
       disabled: false,
     },
   ];
+
+  useEffect(() => {
+    if (orderSummary.items.courses.length || !hasPhysicalBook) setPaymentMethod("ONLINE_PAYMENT");
+  }, [hasPhysicalBook, orderSummary.items.courses.length]);
 
   if (!orderSummary) {
     return <p className='text-center py-12'>Loading checkout information...</p>;
@@ -550,10 +650,7 @@ export default function CheckoutPage() {
             <BaggageClaim className='w-5 h-5 text-orange' />
             <FadeIn>
               <nav className='flex items-center gap-2 text-sm text-gray-600 overflow-x-auto'>
-                <Link
-                  href='/'
-                  className='hover:text-orange transition-colors whitespace-nowrap'
-                >
+                <Link href='/' className='hover:text-orange transition-colors whitespace-nowrap'>
                   Home
                 </Link>
                 <ChevronRight className='w-3 h-3 sm:w-4 sm:h-4 shrink-0' />
@@ -576,12 +673,35 @@ export default function CheckoutPage() {
             >
               <h2 className='text-lg font-bold text-[#074079] mb-4'>Review Your Order</h2>
               <div className='divide-y divide-gray-100 max-h-100 overflow-y-auto pr-2'>
+                {orderSummary.items.products.map(product => {
+                  const quantity =
+                    orderSummary.quantities.products.find(row => row.productId === product.id)
+                      ?.quantity || 1;
+                  const line = quote?.items.find(row => row.productId === product.id);
+                  return (
+                    <div key={product.id} className='flex items-center gap-4 py-4'>
+                      {product.thumbnailUrl && (
+                        <img
+                          src={product.thumbnailUrl}
+                          alt={product.title}
+                          className='h-16 w-16 shrink-0 rounded object-cover'
+                        />
+                      )}
+                      <div className='min-w-0 flex-1'>
+                        <p className='text-xs text-orange-700'>Physical product</p>
+                        <h3 className='text-sm font-semibold text-slate-900'>{product.title}</h3>
+                        <p className='text-xs text-slate-500'>Sold and shipped by Aloskill</p>
+                      </div>
+                      <span className='text-sm text-slate-600'>Qty {quantity}</span>
+                      <span className='text-sm font-semibold text-orange-700'>
+                        ৳{Number(line?.price ?? product.approvedPrice * quantity).toFixed(2)}
+                      </span>
+                    </div>
+                  );
+                })}
                 {/* Loop Through Courses */}
                 {orderSummary?.items.courses?.map((item: any) => (
-                  <div
-                    key={item.id}
-                    className='flex gap-4 py-4 items-center justify-between group'
-                  >
+                  <div key={item.id} className='flex gap-4 py-4 items-center justify-between group'>
                     <div className='flex gap-4 items-center flex-1 min-w-0'>
                       <div className='relative w-16 h-16 shrink-0 bg-gray-100 rounded-lg overflow-hidden'>
                         <Image
@@ -618,7 +738,12 @@ export default function CheckoutPage() {
 
                     <div className='text-right shrink-0 w-24'>
                       <p className='text-sm font-semibold text-[#DA7C36]'>
-                        ৳{item.discountPrice ?? item.originalPrice}
+                        ৳
+                        {Number(
+                          quote?.items.find(line => line.courseId === item.id)?.price ??
+                            item.discountPrice ??
+                            item.originalPrice,
+                        ).toFixed(2)}
                       </p>
                       {item.discountPrice && (
                         <p className='text-xs text-gray-400 line-through'>৳{item.originalPrice}</p>
@@ -725,10 +850,18 @@ export default function CheckoutPage() {
                           <>
                             <p className='text-sm font-semibold text-[#DA7C36]'>
                               ৳
-                              {item.physicalSalePrice ??
-                                item.physicalRegularPrice ??
-                                item.discountPrice ??
-                                item.originalPrice}
+                              {Number(
+                                quote?.items.find(
+                                  line => line.bookId === item.id && line.format === "PHYSICAL",
+                                )?.price ??
+                                  Number(
+                                    item.physicalSalePrice ??
+                                      item.physicalRegularPrice ??
+                                      item.discountPrice ??
+                                      item.originalPrice ??
+                                      0,
+                                  ) * primaryQuantity,
+                              ).toFixed(2)}
                             </p>
 
                             {/* RENDER ORIGINAL PRICE WITH STRIKETHROUGH FOR PHYSICAL BOOKS */}
@@ -748,10 +881,18 @@ export default function CheckoutPage() {
                           <>
                             <p className='text-sm font-semibold text-[#DA7C36]'>
                               ৳
-                              {item.digitalSalePrice ??
-                                item.digitalRegularPrice ??
-                                item.discountPrice ??
-                                item.originalPrice}
+                              {Number(
+                                quote?.items.find(
+                                  line => line.bookId === item.id && line.format === "DIGITAL",
+                                )?.price ??
+                                  Number(
+                                    item.digitalSalePrice ??
+                                      item.digitalRegularPrice ??
+                                      item.discountPrice ??
+                                      item.originalPrice ??
+                                      0,
+                                  ) * primaryQuantity,
+                              ).toFixed(2)}
                             </p>
                             {item.digitalSalePrice && item.digitalRegularPrice && (
                               <p className='text-xs text-gray-400 line-through'>
@@ -766,11 +907,13 @@ export default function CheckoutPage() {
                 })}
 
                 {/* Empty State Fallback */}
-                {!orderSummary?.items.courses?.length && !orderSummary?.items.books?.length && (
-                  <p className='text-sm text-gray-500 text-center py-6'>
-                    No items found in your checkout selection.
-                  </p>
-                )}
+                {!orderSummary?.items.courses?.length &&
+                  !orderSummary?.items.books?.length &&
+                  !orderSummary.items.products.length && (
+                    <p className='text-sm text-gray-500 text-center py-6'>
+                      No items found in your checkout selection.
+                    </p>
+                  )}
               </div>
             </div>
 
@@ -841,10 +984,7 @@ export default function CheckoutPage() {
                     >
                       <option value=''>Select division</option>
                       {divisions.map(division => (
-                        <option
-                          key={division.id}
-                          value={division.id}
-                        >
+                        <option key={division.id} value={division.id}>
                           {division.name}
                         </option>
                       ))}
@@ -865,10 +1005,7 @@ export default function CheckoutPage() {
                     >
                       <option value=''>Select district</option>
                       {filteredDistricts.map(district => (
-                        <option
-                          key={district.id}
-                          value={district.id}
-                        >
+                        <option key={district.id} value={district.id}>
                           {district.name}
                         </option>
                       ))}
@@ -889,10 +1026,7 @@ export default function CheckoutPage() {
                     >
                       <option value=''>Select upazila</option>
                       {filteredUpazilas.map(upazila => (
-                        <option
-                          key={upazila.id}
-                          value={upazila.id}
-                        >
+                        <option key={upazila.id} value={upazila.id}>
                           {upazila.name}
                         </option>
                       ))}
@@ -966,33 +1100,47 @@ export default function CheckoutPage() {
             >
               <h2 className='text-lg font-bold text-[#074079] mb-6'>Payment Option</h2>
               <div className='grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4'>
-                {paymentMethods.map(method => (
-                  <button
-                    key={method.id}
-                    type='button'
-                    disabled={method.disabled}
-                    onClick={() => setPaymentMethod(method.id)}
-                    className={`p-4 rounded-lg border transition-all duration-300 flex items-center gap-3 text-left cursor-pointer hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0 ${
-                      paymentMethod === method.id
-                        ? "border-[#DA7C36] bg-orange-50 shadow-md"
-                        : "border-gray-200 hover:border-gray-300"
-                    }`}
+                {quoteLoading ? (
+                  <p role='status' className='text-sm text-gray-600'>
+                    Checking your order total…
+                  </p>
+                ) : noPaymentRequired ? (
+                  <p
+                    role='status'
+                    className='rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800'
                   >
-                    <div className='flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white shadow-sm'>
-                      <method.icon
-                        className={`h-5 w-5 ${
-                          paymentMethod === method.id ? "text-[#DA7C36]" : "text-gray-500"
-                        }`}
-                      />
-                    </div>
-                    <span>
-                      <span className='block text-sm font-semibold text-gray-800'>
-                        {method.label}
+                    No payment required. Confirm your order to access your courses and digital
+                    products.
+                  </p>
+                ) : (
+                  paymentMethods.map(method => (
+                    <button
+                      key={method.id}
+                      type='button'
+                      disabled={method.disabled}
+                      onClick={() => setPaymentMethod(method.id)}
+                      className={`p-4 rounded-lg border transition-all duration-300 flex items-center gap-3 text-left cursor-pointer hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0 ${
+                        paymentMethod === method.id
+                          ? "border-[#DA7C36] bg-orange-50 shadow-md"
+                          : "border-gray-200 hover:border-gray-300"
+                      }`}
+                    >
+                      <div className='flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white shadow-sm'>
+                        <method.icon
+                          className={`h-5 w-5 ${
+                            paymentMethod === method.id ? "text-[#DA7C36]" : "text-gray-500"
+                          }`}
+                        />
+                      </div>
+                      <span>
+                        <span className='block text-sm font-semibold text-gray-800'>
+                          {method.label}
+                        </span>
+                        <span className='block text-xs text-gray-500'>{method.description}</span>
                       </span>
-                      <span className='block text-xs text-gray-500'>{method.description}</span>
-                    </span>
-                  </button>
-                ))}
+                    </button>
+                  ))
+                )}
               </div>
             </div>
           </div>
@@ -1009,7 +1157,7 @@ export default function CheckoutPage() {
                 <div className='flex justify-between text-gray-700'>
                   <span>Sub-total</span>
                   <span className='font-semibold'>
-                    ৳{Number(orderSummary.subtotal || 0).toFixed(2)}
+                    ৳{Number(quote?.subtotal ?? orderSummary.subtotal ?? 0).toFixed(2)}
                   </span>
                 </div>
                 <div className='flex justify-between text-gray-700'>
@@ -1040,6 +1188,32 @@ export default function CheckoutPage() {
                 </div>
               </div>
 
+              {(quoteError || checkoutError) && (
+                <div
+                  role='alert'
+                  className='mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800'
+                >
+                  <p>{quoteError || checkoutError}</p>
+                  <button
+                    type='button'
+                    className='mt-2 font-semibold underline'
+                    onClick={() => {
+                      setCheckoutError("");
+                      setQuoteRevision(value => value + 1);
+                    }}
+                  >
+                    Refresh checkout total
+                  </button>
+                </div>
+              )}
+              {!user && (
+                <Link
+                  href='/login'
+                  className='mt-4 block text-sm font-semibold text-orange-700 underline'
+                >
+                  Sign in to confirm your order
+                </Link>
+              )}
               <button
                 disabled={!canCheckout || isSubmitting}
                 onClick={handleCheckout}
@@ -1047,16 +1221,20 @@ export default function CheckoutPage() {
               >
                 {isSubmitting ? (
                   <span className='animate-pulse'>PROCESSING...</span>
+                ) : quoteLoading ? (
+                  <span className='animate-pulse'>CHECKING TOTAL...</span>
                 ) : isCheckingStock ? (
                   <span className='animate-pulse'>CHECKING STOCK...</span>
                 ) : stockIssues.length > 0 ? (
                   "ITEM OUT OF STOCK"
                 ) : !isFormValid ? (
                   "FILL SHIPPING DETAILS"
+                ) : noPaymentRequired ? (
+                  "CONFIRM ORDER"
                 ) : paymentMethod === "CASH_ON_DELIVERY" ? (
                   "PLACE COD ORDER"
                 ) : (
-                  "CONTINUE TO PAYMENT"
+                  "PROCEED TO PAYMENT"
                 )}
                 {!isSubmitting && !isCheckingStock && <ArrowRight className='w-5 h-5' />}
               </button>
@@ -1065,7 +1243,13 @@ export default function CheckoutPage() {
                 <p className='text-[11px] text-red-500 text-center mt-2 font-medium'>
                   {stockIssues.length > 0
                     ? "Please resolve the out-of-stock item(s) above to continue."
-                    : "Delivery address details are required to buy physical books."}
+                    : quoteError
+                      ? "Refresh the checkout total to continue."
+                      : quoteLoading
+                        ? "Verifying the current prices…"
+                        : hasPhysicalBook && !isFormValid
+                          ? "Delivery address details are required to buy physical items."
+                          : "Add available products and sign in to continue."}
                 </p>
               )}
             </div>

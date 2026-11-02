@@ -591,7 +591,7 @@ export default function CourseDetailPage() {
                     </GradientButton>
 
                     <Link
-                      href={`/checkout/${course.id}`}
+                      href={`/checkout?courseId=${course.id}`}
                       className='block'
                     >
                       <BorderGradientButton

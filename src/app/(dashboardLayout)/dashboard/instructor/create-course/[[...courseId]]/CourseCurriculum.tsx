@@ -1,3 +1,4 @@
+import AssignmentEditor from "@/components/assessments/AssignmentEditor";
 import { apiClient } from "@/lib/api/client.ts";
 import {
   AlertTriangle,
@@ -401,7 +402,7 @@ export default function CourseCurriculum({
     // and successful background uploads intentionally clear the file picker.
     resolver: values => {
       const errors = validateCurriculum(courseData.modules);
-      if (loading || fileLoading) errors.upload = {
+      if (loading || fileLoading) errors['upload'] = {
         type: 'validate', message: 'Wait for the current file upload to finish before continuing.',
       };
       if (Object.keys(errors).length) return { values: {}, errors };
@@ -494,8 +495,8 @@ export default function CourseCurriculum({
                       quiz: {
                         title: "",
                         description: "",
-                        duration: 0,
-                        passingScore: 0,
+                        duration: undefined,
+                        passingScore: 70,
                         attemptsAllowed: 1,
                         questions: [],
                       },
@@ -617,7 +618,7 @@ export default function CourseCurriculum({
     moduleId: number,
     lessonId: number,
     field: "title" | "description" | "duration" | "passingScore" | "attemptsAllowed",
-    value: string | number
+    value: string | number | undefined
   ) => {
     setCourseData(prev => ({
       ...prev,
@@ -1141,6 +1142,7 @@ export default function CourseCurriculum({
       lessonTypeSelection: true,
       expanded: true,
       quiz: undefined,
+      assignment: undefined,
       contentUrl: { name: "", url: "" },
       videoUploadJobId: null,
       hostingType: undefined,
@@ -1543,7 +1545,7 @@ export default function CourseCurriculum({
             type='button'
             onClick={() =>
               patchLesson(moduleId, lesson.position, {
-                quiz: { title: "", description: "", duration: 0, passingScore: 0, attemptsAllowed: 1, questions: [] },
+                quiz: { title: "", description: "", duration: undefined, passingScore: 70, attemptsAllowed: 1, questions: [] },
               })
             }
             className='mt-1 font-semibold underline'
@@ -1594,7 +1596,7 @@ export default function CourseCurriculum({
             <Field
               label='Time limit'
               htmlFor={`quiz-duration-${key}`}
-              hint='Between 1 and 60 minutes.'
+              hint='Leave empty for no time limit. Maximum 60 minutes.'
             >
               <div className='relative'>
                 <input
@@ -1602,7 +1604,7 @@ export default function CourseCurriculum({
                   type='number'
                   min={1}
                   max={60}
-                  onChange={e => handleQuizInputChange(moduleId, lesson.position, "duration", Number(e.target.value))}
+                  onChange={e => handleQuizInputChange(moduleId, lesson.position, "duration", e.target.value ? Number(e.target.value) : undefined)}
                   value={quiz.duration || ""}
                   placeholder='e.g. 15'
                   className={inputClass(false, "pr-14 tabular-nums")}
@@ -1630,6 +1632,9 @@ export default function CourseCurriculum({
               </div>
             </Field>
           </div>
+          <Field label='Attempts allowed' htmlFor={`quiz-attempts-${key}`} hint='Highest score is retained. Between 1 and 10 attempts.'>
+            <input id={`quiz-attempts-${key}`} type='number' min={1} max={10} value={quiz.attemptsAllowed} className={inputClass(false)} onChange={e => handleQuizInputChange(moduleId, lesson.position, 'attemptsAllowed', Number(e.target.value))} />
+          </Field>
         </div>
 
         {/* Questions */}
@@ -2061,6 +2066,13 @@ export default function CourseCurriculum({
                                   {lesson.type === "VIDEO" && renderVideoEditor(module.position, lesson)}
                                   {lesson.type === "ARTICLE" && renderArticleEditor(module.position, lesson)}
                                   {lesson.type === "QUIZ" && renderQuizEditor(module.position, lesson)}
+                                  {lesson.type !== "QUIZ" && <section className='space-y-4 border-t border-gray-200 pt-5'>
+                                    <div><h4 className='font-semibold text-gray-900'>Lesson assessments</h4><p className='text-sm text-gray-600'>Optional activities. Students can continue after completing the lesson.</p></div>
+                                    <label className='flex items-center gap-3 text-sm font-medium'><input type='checkbox' checked={Boolean(lesson.quiz)} onChange={e => { if (!e.target.checked && !window.confirm('Remove this quiz from the draft?')) return; patchLesson(module.position, lesson.position, {quiz: e.target.checked ? {title: '', description: '', passingScore: 70, attemptsAllowed: 3, questions: []} : undefined}); }} />Add a quiz</label>
+                                    {lesson.quiz && renderQuizEditor(module.position, lesson)}
+                                    <label className='flex items-center gap-3 text-sm font-medium'><input type='checkbox' checked={Boolean(lesson.assignment)} onChange={e => { if (!e.target.checked && !window.confirm('Remove this assignment from the draft?')) return; patchLesson(module.position, lesson.position, {assignment: e.target.checked ? {title: '', instructions: '', submissionTypes: ['FILE'], maxScore: 100, passingScore: 50, maxAttempts: 3, allowLate: false} : undefined}); }} />Add an assignment</label>
+                                    {lesson.assignment && <AssignmentEditor value={lesson.assignment} onChange={assignment => patchLesson(module.position, lesson.position, {assignment})} />}
+                                  </section>}
                                 </>
                               )}
 
@@ -2105,6 +2117,7 @@ export default function CourseCurriculum({
           </button>
         </div>
 
+        {courseData.id && <a className='inline-flex rounded-lg border border-emerald-700 px-4 py-2 text-sm font-semibold text-emerald-800' href={`/dashboard/instructor/assessments?courseId=${courseData.id}`}>Review student assignments</a>}
         <CourseFooter
           handlePrevious={handlePrevious}
           isSubmitting={isSubmitting}

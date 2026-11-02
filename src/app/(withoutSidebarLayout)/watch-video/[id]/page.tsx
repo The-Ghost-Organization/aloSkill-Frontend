@@ -19,6 +19,7 @@ import { getFileIdFromUrl } from "../../../../lib/course/utils";
 import { useSessionContext } from "../../../contexts/SessionContext";
 import type { CourseDetailsPrivate, PrivateLesson } from "../../courses/allCourses.types";
 import AttachFileTab from "./AttachFileTab";
+import LessonAssessments from "@/components/assessments/LessonAssessments";
 import BunnyVideoPlayer from "./BunnyVideoPlayer";
 import YouTubeVideoPlayer from "./YouTubeVideoPlayer";
 import CommentsTab from "./CommentsTab";
@@ -27,12 +28,11 @@ import LectureNotesTab from "./LectureNotesTab";
 import { useRightClickProtection } from "./Userightclickprotection.ts";
 import VideoProtectionWrapper from "./Videoprotectionwrapper.tsx";
 
-const mapUser = new Map<string, string>();
 export default function CoursePage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState("description");
   const [expandedSections, setExpandedSections] = useState<number[]>([1]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [course, setCourse] = useState<CourseDetailsPrivate | undefined>(undefined);
   const [activeContent, setActiveContent] = useState<PrivateLesson | null>(null);
   const [videoData, setVideoData] = useState<{
@@ -44,6 +44,7 @@ export default function CoursePage() {
   } | null>(null);
   const { id } = useParams();
   const { user } = useSessionContext();
+  const userId: string | undefined = user?.id;
   const [navigationError, setNavigationError] = useState("");
   const curriculum = useMemo(() => [...(course?.modules ?? [])]
     .sort((a, b) => a.position - b.position)
@@ -53,10 +54,6 @@ export default function CoursePage() {
   const previousLecture = currentIndex > 0 ? curriculum[currentIndex - 1] : undefined;
   const nextLecture = currentIndex >= 0 ? curriculum[currentIndex + 1] : undefined;
   const canContinue = Boolean(curriculum[currentIndex]?.lesson.lessonProgress[0]?.completed);
-
-  if (user) {
-    mapUser.set("storedUser", user?.id);
-  }
 
   const handleSuspiciousActivity = useCallback(
     async (action: string) => {
@@ -96,7 +93,6 @@ export default function CoursePage() {
 
       if (targetIndex === 0 || isPrevCompleted) {
         setNavigationError("");
-        setVideoData(null);
         setActiveContent(targetLesson);
         setExpandedSections(previous => previous.includes(moduleId) ? previous : [...previous, moduleId]);
       } else {
@@ -107,22 +103,28 @@ export default function CoursePage() {
   );
 
   useEffect(() => {
-    if (!id || !mapUser.get("storedUser")) return;
+    setIsLoading(true);
+    setActiveContent(null);
+    setVideoData(null);
+    setCourse(undefined);
+    if (!id || !userId) return;
+    let stale = false;
     const fetchCourses = async () => {
       try {
-        setIsLoading(true);
         const response = await apiClient.get<CourseDetailsPrivate>(
-          `/course/private/viewCourse/${id}/${user?.id || mapUser.get("storedUser")}`
+          `/course/private/viewCourse/${id}/${userId}`
         );
-        setCourse(response.data);
+        if (!stale) setCourse(response.data);
       } catch (error) {
         console.error("Failed to fetch Course", error);
       } finally {
-        setIsLoading(false);
+        if (!stale) setIsLoading(false);
       }
     };
     fetchCourses();
-  }, [id, user]);
+    return () => { stale = true; };
+    // Session refreshes on tab focus; only a different course or user should reload the player.
+  }, [id, userId]);
 
   const handleUpdateProgress = useCallback(
     async (updateData: {
@@ -244,6 +246,12 @@ export default function CoursePage() {
     return 0;
   };
 
+  const refreshAssessmentProgress = useCallback(async () => {
+    const response = await apiClient.get<CourseDetailsPrivate>(`/course/private/viewCourse/${id}/${user?.id}`);
+    if (response.success && response.data) setCourse(response.data);
+  }, [id, user?.id]);
+  const hasAssessments = Boolean(activeContent?.quiz || activeContent?.assignment);
+  useEffect(() => { setActiveTab('description'); }, [activeContent?.id]);
   const tabs = [
     { id: "description", label: "Description", component: DescriptionTab },
     { id: "lectures", label: "Lectures Notes", component: LectureNotesTab },
@@ -274,7 +282,7 @@ export default function CoursePage() {
 
   return (
     <div
-      className='min-h-screen  bg-linear-to-br from-purple-50 via-pink-50 to-blue-50 py-6'
+      className='min-h-screen bg-slate-50 py-6'
       onContextMenu={e => e.preventDefault()}
       style={{ userSelect: "none" }}
     >
@@ -346,7 +354,7 @@ export default function CoursePage() {
           <div className='lg:col-span-2'>
             {/* Video/Image Player */}
             <div className='bg-white overflow-hidden'>
-              <div className={videoData?.provider === 'YOUTUBE' ? 'bg-black' : 'aspect-video bg-black'}>
+              {activeContent?.type === 'QUIZ' ? <div className='p-4 sm:p-6'><LessonAssessments key={activeContent.id} lessonId={activeContent.id} onPassed={refreshAssessmentProgress} /></div> : activeContent?.type === 'ARTICLE' ? <article className='p-5 sm:p-8' style={{userSelect:'text'}}><p className='mb-2 text-xs font-semibold uppercase tracking-wider text-emerald-700'>Reading lesson</p><h2 className='text-2xl font-bold'>{activeContent.title}</h2><p className='mt-5 whitespace-pre-wrap text-base leading-8 text-gray-700'>{activeContent.description || activeContent.notes || 'Read the lesson materials below.'}</p><button type='button' className='mt-6 rounded-lg bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50' disabled={canContinue} onClick={() => void handleUpdateProgress({lessonId:activeContent.id,lastPosition:0,progressValue:100,isFinished:true})}>{canContinue?'Lesson completed':'Mark reading complete'}</button></article> : <div className={videoData?.provider === 'YOUTUBE' ? 'bg-black' : 'aspect-video bg-black'}>
                 {videoData?.provider === "YOUTUBE" ? (
                   <YouTubeVideoPlayer key={activeContent?.id} videoId={videoData.videoId}
                     lessonId={activeContent?.id as string} lastPosition={activeContent?.lessonProgress[0]?.lastPosition ?? 0}
@@ -375,7 +383,7 @@ export default function CoursePage() {
                   )}
                 </VideoProtectionWrapper>
                 )}
-              </div>
+              </div>}
             </div>
             {/* <div className='space-y-2'>
               <div className='flex justify-between text-sm'>
@@ -408,7 +416,8 @@ export default function CoursePage() {
             {/* Tabs */}
             <div className='bg-transparent overflow-hidden'>
               <div className='border-b border-gray-300'>
-                <div className='flex space-x-8'>
+                <div className='flex gap-2 overflow-x-auto sm:gap-5'>
+                  {hasAssessments && activeContent?.type !== 'QUIZ' && <button type='button' onClick={() => setActiveTab('assessments')} className={`shrink-0 border-b-2 p-4 text-sm font-semibold ${activeTab==='assessments'?'border-emerald-700 text-emerald-800':'border-transparent text-gray-600'}`}>Assessments</button>}
                   {tabs.map(tab => (
                     <button
                       key={tab.id}
@@ -436,7 +445,8 @@ export default function CoursePage() {
               </div>
 
               <div className='py-6'>
-                {ActiveTabComponent && <ActiveTabComponent content={activeContent} />}
+                {activeTab !== 'assessments' && ActiveTabComponent && <ActiveTabComponent content={activeContent} />}
+                {hasAssessments && activeContent && activeContent.type !== 'QUIZ' && <div hidden={activeTab !== 'assessments'}><LessonAssessments key={activeContent.id} lessonId={activeContent.id} onPassed={refreshAssessmentProgress} /></div>}
               </div>
             </div>
           </div>

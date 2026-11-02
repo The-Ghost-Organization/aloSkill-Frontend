@@ -72,6 +72,7 @@ export type Account = {
   accountLastFour: string;
 };
 export type Settings = {
+  globalProductCommission: string;
   globalBookCommission: string;
   globalCourseCommission: string;
   coursePlatformFeeType: "NONE" | "FIXED" | "PERCENTAGE";
@@ -84,12 +85,14 @@ export type Instructor = {
   id: string;
   userId: string;
   displayName: string;
+  productCommissionRate: string | null;
   bookCommissionRate: string | null;
   courseCommissionRate: string | null;
   balances: Balance;
 };
 export type Overview = {
   grossSales: string;
+  productSales: string;
   bookSales: string;
   courseSales: string;
   commissionRevenue: string;

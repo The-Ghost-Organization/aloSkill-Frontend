@@ -1,3 +1,4 @@
+import InstructorPricing from "@/components/finance/InstructorPricing";
 import { BookOpen, CircleDollarSign, Package, Plus, ShoppingBag } from "lucide-react";
 import Link from "next/link";
 import { getInstructorBooks } from "./action";
@@ -30,6 +31,8 @@ export default async function InstructorBooksPage() {
         </Link>
       </div>
 
+      <InstructorPricing type='book' />
+
       {!data ? (
         <div className='rounded border border-red-200 bg-red-50 p-4 text-sm text-red-700'>
           Books could not be loaded. Please refresh or sign in again.
@@ -43,7 +46,10 @@ export default async function InstructorBooksPage() {
               { label: "Physical Stock", value: data.totalStock, icon: Package },
               { label: "Revenue", value: money(data.totalRevenue), icon: CircleDollarSign },
             ].map(item => (
-              <div key={item.label} className='flex items-center gap-4 rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm transition hover:border-slate-300 hover:shadow-md'>
+              <div
+                key={item.label}
+                className='flex items-center gap-4 rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm transition hover:border-slate-300 hover:shadow-md'
+              >
                 <div className='flex h-11 w-11 items-center justify-center rounded-xl bg-orange-50 text-orange-600'>
                   <item.icon size={20} />
                 </div>
@@ -94,7 +100,7 @@ export default async function InstructorBooksPage() {
                         <td className='px-4 py-3'>
                           <span
                             className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
-                              statusStyle[book.status] ?? statusStyle.DRAFT
+                              statusStyle[book.status] ?? statusStyle["DRAFT"]
                             }`}
                           >
                             {book.status}

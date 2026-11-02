@@ -306,6 +306,8 @@ export type PrivateLesson = {
   notes: string | null;
   duration: number | null;
   type: string;
+  quiz?: { id: string; title: string } | null;
+  assignment?: import("@/components/assessments/types").AssignmentConfig | null;
   contentUrl: string | null;
   files: {
     name: string;

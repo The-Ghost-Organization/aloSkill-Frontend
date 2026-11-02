@@ -5,6 +5,7 @@ const storageKeys = {
   sidebarState: `lms:sidebar`,
   courseDraft: `lms:course`,
   bookDraft: `lms:book`,
+  productDraft: `lms:product`,
   editorLayout: `lms:editor:layout`,
   checkoutData: `lms:checkout:data`,
 };
@@ -48,5 +49,17 @@ export const checkoutDataStorage = {
 
   clear() {
     removeItem(storageKeys.checkoutData);
+  },
+};
+
+export const productDraftStorage = {
+  get<T>() {
+    return getItem<T>(storageKeys.productDraft);
+  },
+  save(value: unknown) {
+    setItem(storageKeys.productDraft, value);
+  },
+  clear() {
+    removeItem(storageKeys.productDraft);
   },
 };
